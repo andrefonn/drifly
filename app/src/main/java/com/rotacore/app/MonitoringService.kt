@@ -33,6 +33,11 @@ class MonitoringService : Service() {
             return START_NOT_STICKY
         }
 
+        if (intent == null && !prefs.isMonitoringActive) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         // Inicia o serviço e fixa a notificação contínua
         prefs.isMonitoringActive = true
         notifyStateChanged(true)
@@ -180,12 +185,15 @@ class MonitoringService : Service() {
             if (current != null) {
                 current.stopMonitoringInternal()
             } else {
-                val intent = Intent(context, MonitoringService::class.java).apply {
-                    action = ACTION_STOP_MONITORING
+                val prefs = PreferencesManager(context)
+                prefs.isMonitoringActive = false
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                manager?.cancel(NOTIFICATION_ID)
+                val broadcastIntent = Intent(ACTION_MONITORING_CHANGED).apply {
+                    setPackage(context.packageName)
+                    putExtra(EXTRA_IS_ACTIVE, false)
                 }
-                try {
-                    context.startService(intent)
-                } catch (ignored: Exception) {}
+                context.sendBroadcast(broadcastIntent)
             }
         }
     }
@@ -195,6 +203,8 @@ class MonitoringActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == MonitoringService.ACTION_STOP_MONITORING) {
             MonitoringService.stop(context)
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            manager?.cancel(MonitoringService.NOTIFICATION_ID)
         }
     }
 }
