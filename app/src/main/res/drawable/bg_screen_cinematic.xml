@@ -1,0 +1,149 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="360dp"
+    android:height="800dp"
+    android:viewportWidth="360"
+    android:viewportHeight="800">
+
+    <!-- Fundo base: Grafite escuro cinematográfico (#0B0D11) com nuances sutis de carvão (#12151B) -->
+    <path
+        android:fillColor="#0B0D11"
+        android:pathData="M0,0h360v800h-360z" />
+
+    <path
+        android:pathData="M0,0h360v800h-360z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="180"
+                android:startY="0"
+                android:endX="180"
+                android:endY="800"
+                android:startColor="#0D12151B"
+                android:endColor="#330B0D11" />
+        </aapt:attr>
+    </path>
+
+    <!-- Topo Direito: Brilho atmosférico radial laranja vibrante -->
+    <path
+        android:pathData="M120,0h240v360h-240z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="360"
+                android:centerY="40"
+                android:gradientRadius="300"
+                android:startColor="#55FF6900"
+                android:endColor="#00000000" />
+        </aapt:attr>
+    </path>
+
+    <!-- Onda Cinematográfica Superior (Faixa de Luz Laranja Larga) -->
+    <path
+        android:pathData="M360,0 C300,50 200,120 140,260 C210,180 290,100 360,50 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="360"
+                android:startY="0"
+                android:endX="140"
+                android:endY="260"
+                android:startColor="#B3FF8A24"
+                android:centerColor="#80FF6900"
+                android:endColor="#00FF6900" />
+        </aapt:attr>
+    </path>
+
+    <!-- Faixa de Luz Laranja Intensa Superior (Feixe Central) -->
+    <path
+        android:pathData="M360,20 C320,65 240,130 170,240 C230,170 300,105 360,60 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="360"
+                android:startY="20"
+                android:endX="170"
+                android:endY="240"
+                android:startColor="#E6FFA533"
+                android:centerColor="#B3FF6900"
+                android:endColor="#00FF6900" />
+        </aapt:attr>
+    </path>
+
+    <!-- Brilho de Borda Esquerda atrás do Card 1 e 2 -->
+    <path
+        android:pathData="M0,100 C50,150 50,260 0,320 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="160"
+                android:endX="50"
+                android:endY="200"
+                android:startColor="#4DFF6900"
+                android:endColor="#00FF6900" />
+        </aapt:attr>
+    </path>
+
+    <!-- Brilho de Borda Esquerda para o Card 2 -->
+    <path
+        android:pathData="M0,460 C45,510 45,620 0,680 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="520"
+                android:endX="45"
+                android:endY="560"
+                android:startColor="#40FF6900"
+                android:endColor="#00FF6900" />
+        </aapt:attr>
+    </path>
+
+    <!-- Inferior Direito: Brilho Atmosférico Radial Laranja -->
+    <path
+        android:pathData="M150,480h210v320h-210z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="360"
+                android:centerY="720"
+                android:gradientRadius="280"
+                android:startColor="#55FF6900"
+                android:endColor="#00000000" />
+        </aapt:attr>
+    </path>
+
+    <!-- Onda Cinematográfica Inferior Laranja -->
+    <path
+        android:pathData="M360,540 C310,620 220,720 170,800 C210,730 280,640 360,580 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="360"
+                android:startY="540"
+                android:endX="170"
+                android:endY="800"
+                android:startColor="#B3FF8A24"
+                android:centerColor="#80FF6900"
+                android:endColor="#00FF6900" />
+        </aapt:attr>
+    </path>
+
+    <!-- Feixe Central Inferior -->
+    <path
+        android:pathData="M360,570 C320,635 245,720 200,800 C235,740 295,665 360,610 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="360"
+                android:startY="570"
+                android:endX="200"
+                android:endY="800"
+                android:startColor="#D9FFA533"
+                android:centerColor="#99FF6900"
+                android:endColor="#00FF6900" />
+        </aapt:attr>
+    </path>
+
+</vector>

@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">DriFly</string>
+    <string name="accessibility_service_desc">O DriFly analisa ofertas de corrida da Uber, 99 e iFood, calculando o lucro líquido real e automatizando o aceite de acordo com as suas regras.</string>
+</resources>

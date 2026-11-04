@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="22dp"
+    android:background="@drawable/bg_dialog_glass">
+
+    <!-- Cabeçalho do Relatório com Ícone de Calendário -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_calendar_orange"
+            android:contentDescription="Relatório" />
+
+        <TextView
+            android:id="@+id/tvReportTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="Extrato do Período"
+            android:textColor="#FFFFFF"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="18sp" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Resumo consolidado de faturamento, despesas e lucro real."
+        android:textColor="#A3A8B5"
+        android:fontFamily="@font/plus_jakarta_sans"
+        android:textSize="12sp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="16dp"
+        android:background="#1AFFFFFF" />
+
+    <!-- Card de Métricas Consolidado -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_inner_metric_card"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Linha 1: Corridas Analisadas -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Corridas Analisadas:"
+                android:textColor="#A3A8B5"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tvReportRideCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textColor="#FFFFFF"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <!-- Linha 2: Faturamento Bruto -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Faturamento Bruto:"
+                android:textColor="#A3A8B5"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tvReportGross"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="R$ 0,00"
+                android:textColor="#FFFFFF"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <!-- Linha 3: Total de Despesas -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Total de Despesas:"
+                android:textColor="#A3A8B5"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tvReportExpenses"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="R$ 0,00"
+                android:textColor="#FF454D"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="15sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Card de Destaque: Lucro Líquido Real -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_btn_circle_glass"
+        android:padding="16dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="LUCRO LÍQUIDO REAL"
+                android:textColor="#FF8A24"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:letterSpacing="0.05"
+                android:textStyle="bold"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tvReportNet"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="R$ 0,00"
+                android:textColor="#31D477"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="22sp" />
+        </LinearLayout>
+
+        <ImageView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_metric_profit_up"
+            android:contentDescription="Lucro" />
+    </LinearLayout>
+
+    <!-- Botão Fechar Estilizado -->
+    <Button
+        android:id="@+id/btnReportClose"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="18dp"
+        app:backgroundTint="@null"
+        android:background="@drawable/bg_period_unselected"
+        android:textColor="#FFFFFF"
+        android:fontFamily="@font/plus_jakarta_sans"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:text="Fechar" />
+
+</LinearLayout>

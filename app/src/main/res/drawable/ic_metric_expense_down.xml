@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Red circle background -->
+    <path
+        android:fillColor="#FF454D"
+        android:pathData="M12,2A10,10 0 1,0 22,12A10,10 0 0,0 12,2Z"/>
+    <!-- Down arrow in crisp white -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,17L7,12H10V7H14V12H17L12,17Z"/>
+</vector>

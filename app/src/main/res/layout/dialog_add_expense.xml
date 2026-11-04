@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="22dp"
+    android:background="@drawable/bg_dialog_glass">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Lançar Nova Despesa"
+        android:textColor="#FFFFFF"
+        android:fontFamily="@font/plus_jakarta_sans"
+        android:textStyle="bold"
+        android:textSize="18sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="16dp"
+        android:text="Informe a categoria e o valor para abater do lucro líquido real."
+        android:textColor="#A3A8B5"
+        android:fontFamily="@font/plus_jakarta_sans"
+        android:textSize="12sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Categoria"
+        android:textColor="#F5F5F7"
+        android:fontFamily="@font/plus_jakarta_sans"
+        android:textStyle="bold"
+        android:textSize="12sp" />
+
+    <EditText
+        android:id="@+id/etExpenseCategory"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_input_field"
+        android:paddingHorizontal="14dp"
+        android:hint="Ex: Gasolina, Almoço, Troca de Óleo"
+        android:textColorHint="#606B7B"
+        android:textColor="#F5F5F7"
+        android:fontFamily="@font/plus_jakarta_sans"
+        android:textSize="14sp"
+        android:inputType="textCapWords" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Valor (R$)"
+        android:textColor="#F5F5F7"
+        android:fontFamily="@font/plus_jakarta_sans"
+        android:textStyle="bold"
+        android:textSize="12sp" />
+
+    <EditText
+        android:id="@+id/etExpenseAmount"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_input_field"
+        android:paddingHorizontal="14dp"
+        android:hint="0,00"
+        android:textColorHint="#606B7B"
+        android:textColor="#F5F5F7"
+        android:fontFamily="@font/plus_jakarta_sans"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:inputType="numberDecimal" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Observação (Opcional)"
+        android:textColor="#F5F5F7"
+        android:fontFamily="@font/plus_jakarta_sans"
+        android:textStyle="bold"
+        android:textSize="12sp" />
+
+    <EditText
+        android:id="@+id/etExpenseDesc"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_input_field"
+        android:paddingHorizontal="14dp"
+        android:hint="Ex: Posto Shell Centro"
+        android:textColorHint="#606B7B"
+        android:textColor="#F5F5F7"
+        android:fontFamily="@font/plus_jakarta_sans"
+        android:textSize="14sp"
+        android:inputType="text" />
+
+    <!-- Botões de Ação Embutidos no Card de Vidro -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnCancelExpense"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_period_unselected"
+            android:textColor="#A3A8B5"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:text="Cancelar" />
+
+        <Button
+            android:id="@+id/btnSaveExpense"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1.3"
+            android:layout_marginStart="12dp"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_btn_primary_gradient"
+            android:textColor="#FFFFFF"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:text="Salvar Despesa" />
+    </LinearLayout>
+
+</LinearLayout>

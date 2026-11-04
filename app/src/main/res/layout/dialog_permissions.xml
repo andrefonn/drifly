@@ -1,0 +1,518 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:background="@drawable/bg_dialog_glass">
+
+    <!-- Topo do Diálogo -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <FrameLayout
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/bg_btn_circle_glass"
+            android:padding="8dp">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/ic_settings_gear"
+                app:tint="#FF6900"
+                android:contentDescription="Configurações" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Configurações do DriFly"
+                android:textColor="#FFFFFF"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="18sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Permissões, backup e atualizações"
+                android:textColor="#A3A8B5"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="14dp"
+        android:background="#1AFFFFFF" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxHeight="520dp"
+        android:overScrollMode="never">
+
+        <LinearLayout
+            android:id="@+id/layoutAccordionContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- ============================================== -->
+            <!-- SEÇÃO 1: PERMISSÕES DO SISTEMA (ACCORDION)    -->
+            <!-- ============================================== -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_card_frosted_glass"
+                android:orientation="vertical">
+
+                <!-- Header Clicável -->
+                <LinearLayout
+                    android:id="@+id/headerPermsAccordion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="14dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_banner_info"
+                        app:tint="#FF6900"
+                        android:contentDescription="Permissões" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Permissões do Sistema"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/tvPermsHeaderStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Toque para expandir os 3 itens"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/ivPermsChevron"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_down"
+                        app:tint="#A3A8B5"
+                        android:contentDescription="Expandir" />
+                </LinearLayout>
+
+                <!-- Conteúdo Retrátil (Minimizado por Padrão) -->
+                <LinearLayout
+                    android:id="@+id/contentPermsAccordion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:paddingHorizontal="14dp"
+                    android:paddingBottom="14dp"
+                    android:orientation="vertical">
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginBottom="12dp"
+                        android:background="#14FFFFFF" />
+
+                    <!-- 1. Sobrepor -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/tvDiagOverlayStatus"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="1. Sobrepor a outros apps"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="13sp" />
+
+                        <Button
+                            android:id="@+id/btnDiagPermOverlay"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11sp"
+                            android:text="Ativar" />
+                    </LinearLayout>
+
+                    <!-- 2. Acessibilidade -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/tvDiagA11yStatus"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="2. Serviço de Acessibilidade"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="13sp" />
+
+                        <Button
+                            android:id="@+id/btnDiagPermA11y"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11sp"
+                            android:text="Ativar" />
+                    </LinearLayout>
+
+                    <!-- 3. Bateria -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/tvDiagBatteryStatus"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="3. Bateria sem restrição"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="13sp" />
+
+                        <Button
+                            android:id="@+id/btnDiagPermBattery"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11sp"
+                            android:text="Ajustar" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ============================================== -->
+            <!-- SEÇÃO 2: BACKUP & RESTAURAÇÃO (ACCORDION)     -->
+            <!-- ============================================== -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card_frosted_glass"
+                android:orientation="vertical">
+
+                <!-- Header Clicável -->
+                <LinearLayout
+                    android:id="@+id/headerBackupAccordion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="14dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_backup"
+                        app:tint="#31D477"
+                        android:contentDescription="Backup" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Backup &amp; Restauração"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/tvBackupHeaderStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Automático às 00:00 • Toque para ver"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/ivBackupChevron"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_down"
+                        app:tint="#A3A8B5"
+                        android:contentDescription="Expandir" />
+                </LinearLayout>
+
+                <!-- Conteúdo Retrátil (Minimizado por Padrão) -->
+                <LinearLayout
+                    android:id="@+id/contentBackupAccordion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:paddingHorizontal="14dp"
+                    android:paddingBottom="14dp"
+                    android:orientation="vertical">
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginBottom="12dp"
+                        android:background="#14FFFFFF" />
+
+                    <!-- Informação do Backup Automático -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="#14FFFFFF"
+                        android:padding="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="⏰ Backup Automático Diário: 00:00h"
+                            android:textColor="#31D477"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvLastBackupInfo"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Nenhum backup realizado hoje ainda"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="📁 Pasta: Downloads/DriFly_Backups"
+                            android:textColor="#707684"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <!-- Botões de Ação de Backup -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnExportBackup"
+                            android:layout_width="0dp"
+                            android:layout_height="42dp"
+                            android:layout_weight="1"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp"
+                            android:text="Exportar Agora" />
+
+                        <Button
+                            android:id="@+id/btnImportBackup"
+                            android:layout_width="0dp"
+                            android:layout_height="42dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_period_unselected"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp"
+                            android:text="Restaurar" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ============================================== -->
+            <!-- SEÇÃO 3: ATUALIZAÇÕES DO APP (ACCORDION)      -->
+            <!-- ============================================== -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card_frosted_glass"
+                android:orientation="vertical">
+
+                <!-- Header Clicável -->
+                <LinearLayout
+                    android:id="@+id/headerUpdateAccordion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="14dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_refresh_white"
+                        app:tint="#60A5FA"
+                        android:contentDescription="Atualizações" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Atualizações do App"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/tvUpdateHeaderStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Versão 1.0.0 instalada"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/ivUpdateChevron"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_down"
+                        app:tint="#A3A8B5"
+                        android:contentDescription="Expandir" />
+                </LinearLayout>
+
+                <!-- Conteúdo Retrátil (Minimizado por Padrão) -->
+                <LinearLayout
+                    android:id="@+id/contentUpdateAccordion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:paddingHorizontal="14dp"
+                    android:paddingBottom="14dp"
+                    android:orientation="vertical">
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginBottom="12dp"
+                        android:background="#14FFFFFF" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="O DriFly baixa e instala novas versões automaticamente direto do GitHub sem você precisar baixar APK manualmente."
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btnCheckAppUpdates"
+                        android:layout_width="match_parent"
+                        android:layout_height="42dp"
+                        android:layout_marginTop="12dp"
+                        app:backgroundTint="@null"
+                        android:background="@drawable/bg_btn_primary_gradient"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="12sp"
+                        android:text="Verificar se há Nova Versão" />
+                </LinearLayout>
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <Button
+        android:id="@+id/btnDiagClose"
+        android:layout_width="match_parent"
+        android:layout_height="46dp"
+        android:layout_marginTop="16dp"
+        app:backgroundTint="@null"
+        android:background="@drawable/bg_period_unselected"
+        android:textColor="#FFFFFF"
+        android:fontFamily="@font/plus_jakarta_sans"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:text="Concluído" />
+
+</LinearLayout>
