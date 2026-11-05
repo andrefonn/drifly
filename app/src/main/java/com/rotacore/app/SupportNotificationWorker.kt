@@ -21,6 +21,19 @@ class SupportNotificationWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
+        val prefs = PreferencesManager(applicationContext)
+        // Se o monitoramento estiver desligado, não deve haver nenhuma notificação ativa ou residual
+        if (!prefs.isMonitoringActive) {
+            return Result.success()
+        }
+
+        // Garante que não existam 2 notificações simultâneas ativas na barra.
+        // Se o serviço de monitoramento estiver rodando (com notificação contínua na barra),
+        // não exibimos notificação avulsa de suporte.
+        if (MonitoringService.isRunning()) {
+            return Result.success()
+        }
+
         showSupportNotification(applicationContext)
         return Result.success()
     }
@@ -70,11 +83,27 @@ class SupportNotificationWorker(
 
     companion object {
         const val NOTIFICATION_ID = 3003
+        const val WORK_NAME_8H = "drifly_support_reminder_8h"
+        const val WORK_NAME_15H = "drifly_support_reminder_15h"
+        const val WORK_NAME_20H = "drifly_support_reminder_20h"
 
         fun scheduleAllSupportReminders(context: Context) {
-            scheduleReminderForHour(context, 8, "drifly_support_reminder_8h")
-            scheduleReminderForHour(context, 15, "drifly_support_reminder_15h")
-            scheduleReminderForHour(context, 20, "drifly_support_reminder_20h")
+            scheduleReminderForHour(context, 8, WORK_NAME_8H)
+            scheduleReminderForHour(context, 15, WORK_NAME_15H)
+            scheduleReminderForHour(context, 20, WORK_NAME_20H)
+        }
+
+        fun cancelAllSupportReminders(context: Context) {
+            try {
+                val wm = WorkManager.getInstance(context)
+                wm.cancelUniqueWork(WORK_NAME_8H)
+                wm.cancelUniqueWork(WORK_NAME_15H)
+                wm.cancelUniqueWork(WORK_NAME_20H)
+            } catch (e: Exception) {
+                // Falha silenciosa de WorkManager se o contexto estiver destruído
+            }
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            manager?.cancel(NOTIFICATION_ID)
         }
 
         private fun scheduleReminderForHour(context: Context, targetHour: Int, uniqueWorkName: String) {

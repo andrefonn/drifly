@@ -18,6 +18,10 @@ class RotaAccessibilityService : AccessibilityService() {
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var lastOfferHash: Int = 0
     private var lastOfferTimestamp: Long = 0
+    private var lastReceiptHash: Int = 0
+    private var lastReceiptTimestamp: Long = 0
+    private var lastHandledRideId: Long = -1L
+    private var lastReceiptProcessedTimestamp: Long = 0L
     private lateinit var prefs: PreferencesManager
     private lateinit var db: DatabaseHelper
 
@@ -57,21 +61,74 @@ class RotaAccessibilityService : AccessibilityService() {
                         lastOfferHash = currentHash
                         lastOfferTimestamp = now
 
-                        // Registra oferta no banco financeiro
-                        db.insertRide(offer.platform, offer.price, offer.distanceKm, offer.netProfit)
+                        // Registra oferta com status ESTIMADO no banco financeiro
+                        val insertedRideId = db.insertRide(
+                            platform = offer.platform,
+                            gross = offer.price,
+                            distance = offer.distanceKm,
+                            net = offer.netProfit,
+                            status = RideRecord.STATUS_ESTIMADO,
+                            originalPrice = offer.price
+                        )
 
                         // Dispara Bolha na tela
                         BubbleOverlayService.showOffer(this@RotaAccessibilityService, offer)
 
+                        // Notifica a UI para atualizar dashboard e extrato diário (usando pacote do DriFly)
+                        sendBroadcast(android.content.Intent(ACTION_RIDE_UPDATED).apply {
+                            setPackage(this@RotaAccessibilityService.packageName)
+                        })
+
                         // Processa Lógica de Aceite / Recusa Automática
-                        handleAutomation(offer, clickableNodes)
+                        handleAutomation(offer, clickableNodes, insertedRideId)
+                    }
+                } else {
+                    // Verifica se a tela é de conclusão de corrida ou de cancelamento sem notificação
+                    val receipt = ParsingEngine.parseReceipt(packageName, extractedTexts)
+                    if (receipt != null) {
+                        val currentReceiptHash = receipt.hashCode()
+                        // Evita reprocessamento em loop da mesma tela de recibo que degradaria corridas anteriores
+                        if (currentReceiptHash != lastReceiptHash && (now - lastReceiptProcessedTimestamp) > 10_000L) {
+                            lastReceiptHash = currentReceiptHash
+                            lastReceiptTimestamp = now
+                            handleReceipt(receipt)
+                        }
                     }
                 }
             }
         }
     }
 
-    private fun handleAutomation(offer: RideOffer, clickableNodes: List<AccessibilityNodeInfo>) {
+    private fun handleReceipt(receipt: ReceiptResult) {
+        val ride = db.getLatestEstimatedRide(receipt.platform) ?: return
+        if (ride.id == lastHandledRideId) return
+        lastHandledRideId = ride.id
+        lastReceiptProcessedTimestamp = System.currentTimeMillis()
+
+        if (receipt.isCompleted) {
+            if (receipt.finalPrice != null && receipt.finalPrice > 0.0) {
+                val cost = ride.distanceKm * prefs.costPerKm
+                val newNet = Math.round((receipt.finalPrice - cost) * 100.0) / 100.0
+                db.updateRidePrice(ride.id, receipt.finalPrice, newNet, RideRecord.STATUS_CONCLUIDO)
+            } else {
+                db.updateRideStatus(ride.id, RideRecord.STATUS_CONCLUIDO)
+            }
+            sendBroadcast(android.content.Intent(ACTION_RIDE_UPDATED).apply {
+                setPackage(this@RotaAccessibilityService.packageName)
+            })
+        } else if (receipt.isCancelled) {
+            db.updateRideStatus(ride.id, receipt.status, receipt.cancellationFee ?: 0.0)
+            sendBroadcast(android.content.Intent(ACTION_RIDE_UPDATED).apply {
+                setPackage(this@RotaAccessibilityService.packageName)
+            })
+        }
+    }
+
+    private fun handleAutomation(
+        offer: RideOffer,
+        clickableNodes: List<AccessibilityNodeInfo>,
+        insertedRideId: Long
+    ) {
         val matchesConditions = (offer.ratePerKm >= prefs.minRatePerKm) &&
                 (offer.distanceKm <= prefs.maxDistanceKm)
 
@@ -91,6 +148,11 @@ class RotaAccessibilityService : AccessibilityService() {
         } else if (prefs.autoDeclineEnabled && !matchesConditions) {
             // Recusa automática se não bateu os critérios
             performClickDecline(clickableNodes)
+            // Remove do banco financeiro para não gerar faturamento fantasma de corrida recusada
+            db.deleteRide(insertedRideId)
+            sendBroadcast(android.content.Intent(ACTION_RIDE_UPDATED).apply {
+                setPackage(this@RotaAccessibilityService.packageName)
+            })
         }
     }
 
@@ -166,5 +228,9 @@ class RotaAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         serviceScope.cancel()
+    }
+
+    companion object {
+        const val ACTION_RIDE_UPDATED = "com.rotacore.app.ACTION_RIDE_UPDATED"
     }
 }

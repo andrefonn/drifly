@@ -60,14 +60,27 @@ class MonitoringService : Service() {
     fun stopMonitoringInternal() {
         prefs.isMonitoringActive = false
         notifyStateChanged(false)
+
+        // Encerra imediatamente qualquer overlay flutuante ativo
+        BubbleOverlayService.stop(this)
+
+        // Cancela qualquer agendamento de notificação avulsa de suporte
+        SupportNotificationWorker.cancelAllSupportReminders(this)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {
             @Suppress("DEPRECATION")
             stopForeground(true)
         }
+
+        // Cancela explicitamente TODAS as notificações do app para não deixar nenhum resíduo na barra
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        manager?.cancelAll()
         manager?.cancel(NOTIFICATION_ID)
+        manager?.cancel(BubbleOverlayService.NOTIFICATION_ID)
+        manager?.cancel(SupportNotificationWorker.NOTIFICATION_ID)
+
         stopSelf()
     }
 
@@ -156,7 +169,12 @@ class MonitoringService : Service() {
         instance = null
         if (!prefs.isMonitoringActive) {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            manager?.cancelAll()
             manager?.cancel(NOTIFICATION_ID)
+            manager?.cancel(BubbleOverlayService.NOTIFICATION_ID)
+            manager?.cancel(SupportNotificationWorker.NOTIFICATION_ID)
+            BubbleOverlayService.stop(this)
+            SupportNotificationWorker.cancelAllSupportReminders(this)
         }
     }
 
@@ -187,8 +205,17 @@ class MonitoringService : Service() {
             } else {
                 val prefs = PreferencesManager(context)
                 prefs.isMonitoringActive = false
+
+                // Garante que o overlay flutuante também seja cancelado e fechado
+                BubbleOverlayService.stop(context)
+                SupportNotificationWorker.cancelAllSupportReminders(context)
+
                 val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                manager?.cancelAll()
                 manager?.cancel(NOTIFICATION_ID)
+                manager?.cancel(BubbleOverlayService.NOTIFICATION_ID)
+                manager?.cancel(SupportNotificationWorker.NOTIFICATION_ID)
+
                 val broadcastIntent = Intent(ACTION_MONITORING_CHANGED).apply {
                     setPackage(context.packageName)
                     putExtra(EXTRA_IS_ACTIVE, false)
@@ -203,8 +230,13 @@ class MonitoringActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == MonitoringService.ACTION_STOP_MONITORING) {
             MonitoringService.stop(context)
+            BubbleOverlayService.stop(context)
+            SupportNotificationWorker.cancelAllSupportReminders(context)
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            manager?.cancelAll()
             manager?.cancel(MonitoringService.NOTIFICATION_ID)
+            manager?.cancel(BubbleOverlayService.NOTIFICATION_ID)
+            manager?.cancel(SupportNotificationWorker.NOTIFICATION_ID)
         }
     }
 }

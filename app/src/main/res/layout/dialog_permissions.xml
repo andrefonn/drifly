@@ -119,7 +119,7 @@
                             android:id="@+id/tvPermsHeaderStatus"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Toque para expandir os 3 itens"
+                            android:text="Toque para expandir os 4 itens"
                             android:textColor="#A3A8B5"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp" />
@@ -240,6 +240,37 @@
                             android:textStyle="bold"
                             android:textSize="11sp"
                             android:text="Ajustar" />
+                    </LinearLayout>
+
+                    <!-- 4. Leitor de Notificações (Cancelamentos) -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/tvDiagNotifStatus"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="4. Leitor de Notificações"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="13sp" />
+
+                        <Button
+                            android:id="@+id/btnDiagPermNotif"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11sp"
+                            android:text="Ativar" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
@@ -496,6 +527,189 @@
                         android:textStyle="bold"
                         android:textSize="12sp"
                         android:text="Verificar se há Nova Versão" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ============================================== -->
+            <!-- SEÇÃO 4: COMPATIBILIDADE DO APARELHO (ACCORDION)-->
+            <!-- ============================================== -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card_frosted_glass"
+                android:orientation="vertical">
+
+                <!-- Header Clicável -->
+                <LinearLayout
+                    android:id="@+id/headerOemAccordion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="14dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_nav_rides"
+                        app:tint="#FFB800"
+                        android:contentDescription="Compatibilidade" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Compatibilidade do Aparelho"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/tvOemHeaderStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Detectando modelo..."
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/ivOemChevron"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_down"
+                        app:tint="#A3A8B5"
+                        android:contentDescription="Expandir" />
+                </LinearLayout>
+
+                <!-- Conteúdo Retrátil -->
+                <LinearLayout
+                    android:id="@+id/contentOemAccordion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:paddingHorizontal="14dp"
+                    android:paddingBottom="14dp"
+                    android:orientation="vertical">
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginBottom="12dp"
+                        android:background="#14FFFFFF" />
+
+                    <!-- Informações do Aparelho Detectado -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="#14FFFFFF"
+                        android:padding="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvOemModelDetected"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📱 Modelo: Motorola Moto G30"
+                            android:textColor="#31D477"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvOemAndroidVersion"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="⚙️ Android 12 (API 31)"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:id="@+id/tvOemOptimizationTip"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="Sistema 100% Otimizado."
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <!-- Botões de Ação para Xiaomi / HyperOS -->
+                    <LinearLayout
+                        android:id="@+id/layoutXiaomiActions"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <Button
+                            android:id="@+id/btnOemAutostart"
+                            android:layout_width="match_parent"
+                            android:layout_height="40dp"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11sp"
+                            android:text="Liberar Início Automático (MIUI / HyperOS)" />
+
+                        <Button
+                            android:id="@+id/btnOemPopup"
+                            android:layout_width="match_parent"
+                            android:layout_height="40dp"
+                            android:layout_marginTop="6dp"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_btn_secondary_glass"
+                            android:textColor="#FFB800"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11sp"
+                            android:text="Liberar Pop-up em 2º Plano (MIUI)" />
+                    </LinearLayout>
+
+                    <!-- Botão Bateria Sem Restrições / Device Care -->
+                    <Button
+                        android:id="@+id/btnOemBatteryOpt"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:layout_marginTop="8dp"
+                        app:backgroundTint="@null"
+                        android:background="@drawable/bg_btn_secondary_glass"
+                        android:textColor="#31D477"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="11sp"
+                        android:text="Ajustar Bateria Sem Restrições" />
+
+                    <!-- Botão Android 13+ Configurações Restritas -->
+                    <Button
+                        android:id="@+id/btnOemRestrictedSettings"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:layout_marginTop="6dp"
+                        app:backgroundTint="@null"
+                        android:background="@drawable/bg_period_unselected"
+                        android:textColor="#60A5FA"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="11sp"
+                        android:text="Liberar Configurações Restritas (Android 13+)" />
+
                 </LinearLayout>
             </LinearLayout>
 

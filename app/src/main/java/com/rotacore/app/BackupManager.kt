@@ -58,6 +58,9 @@ object BackupManager {
                 put("distance_km", r.distanceKm)
                 put("net_profit", r.netProfit)
                 put("timestamp", r.timestamp)
+                put("status", r.status)
+                put("cancellation_fee", r.cancellationFee)
+                put("original_price", r.originalPrice)
             }
             ridesArray.put(rObj)
         }
@@ -160,7 +163,10 @@ object BackupManager {
                             grossPrice = item.optDouble("gross_price", 0.0),
                             distanceKm = item.optDouble("distance_km", 0.0),
                             netProfit = item.optDouble("net_profit", 0.0),
-                            timestamp = item.optLong("timestamp", System.currentTimeMillis())
+                            timestamp = item.optLong("timestamp", System.currentTimeMillis()),
+                            status = item.optString("status", RideRecord.STATUS_ESTIMADO),
+                            cancellationFee = item.optDouble("cancellation_fee", 0.0),
+                            originalPrice = item.optDouble("original_price", item.optDouble("gross_price", 0.0))
                         )
                     )
                 }

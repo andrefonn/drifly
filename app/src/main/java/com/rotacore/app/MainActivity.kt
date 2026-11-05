@@ -4,6 +4,7 @@ import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -126,12 +127,45 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var activeReportDialogRefresh: (() -> Unit)? = null
+
+    // Receptor de Broadcast para atualizações de corridas (novas ofertas, conclusões, cancelamentos)
+    private val rideUpdatesReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            updateDashboard(animate = true)
+            activeReportDialogRefresh?.invoke()
+
+            if (intent?.action == RideNotificationListenerService.ACTION_RIDE_CANCELLED_DETECTED) {
+                val fee = intent.getDoubleExtra("EXTRA_FEE", 0.0)
+                val platform = intent.getStringExtra("EXTRA_PLATFORM") ?: "App"
+                val ptBr = Locale("pt", "BR")
+                if (fee > 0.0) {
+                    showNotificationBanner("Cancelamento $platform detectado! Taxa de ${String.format(ptBr, "R$ %.2f", fee)} lançada.", BannerType.INFO)
+                } else {
+                    showNotificationBanner("Cancelamento $platform detectado sem taxa.", BannerType.INFO)
+                }
+            }
+        }
+    }
+
     enum class BannerType {
         SUCCESS, ERROR, WARNING, INFO
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+
         setContentView(R.layout.activity_main)
 
         prefs = PreferencesManager(this)
@@ -151,6 +185,17 @@ class MainActivity : AppCompatActivity() {
             registerReceiver(monitoringStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             registerReceiver(monitoringStateReceiver, filter)
+        }
+
+        // Registra receiver para atualizações em tempo real do extrato e cancelamentos
+        val rideFilter = IntentFilter().apply {
+            addAction(RotaAccessibilityService.ACTION_RIDE_UPDATED)
+            addAction(RideNotificationListenerService.ACTION_RIDE_CANCELLED_DETECTED)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(rideUpdatesReceiver, rideFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(rideUpdatesReceiver, rideFilter)
         }
 
         handleIncomingTabIntent(intent)
@@ -183,6 +228,16 @@ class MainActivity : AppCompatActivity() {
             bottomNavigation.selectedItemId = R.id.nav_support
             switchToTab(R.id.nav_support)
         }
+        if (intent?.getBooleanExtra("INSERT_TEST_RIDE", false) == true) {
+            val platform = intent.getStringExtra("PLATFORM") ?: "99"
+            val gross = intent.getDoubleExtra("GROSS", 25.0)
+            val distance = intent.getDoubleExtra("DISTANCE", 6.0)
+            val net = intent.getDoubleExtra("NET", 20.0)
+            val status = intent.getStringExtra("STATUS") ?: RideRecord.STATUS_ESTIMADO
+            db.insertRide(platform, gross, distance, net, status)
+            updateDashboard(animate = true)
+            activeReportDialogRefresh?.invoke()
+        }
     }
 
     private var activePermissionsDialogRefresh: (() -> Unit)? = null
@@ -200,6 +255,9 @@ class MainActivity : AppCompatActivity() {
         try {
             unregisterReceiver(monitoringStateReceiver)
         } catch (ignored: Exception) {}
+        try {
+            unregisterReceiver(rideUpdatesReceiver)
+        } catch (ignored: Exception) {}
     }
 
     private fun hasAllPermissions(): Boolean {
@@ -209,7 +267,8 @@ class MainActivity : AppCompatActivity() {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             pm.isIgnoringBatteryOptimizations(packageName)
         } else true
-        return hasOverlay && hasA11y && hasBattery
+        val hasNotif = OemCompatibilityHelper.isNotificationListenerEnabled(this)
+        return hasOverlay && hasA11y && hasBattery && hasNotif
     }
 
     private fun initViews() {
@@ -464,8 +523,15 @@ class MainActivity : AppCompatActivity() {
         // Lógica de Toggle do Monitoramento Contínuo
         cardMonitoringToggle.setOnClickListener {
             if (prefs.isMonitoringActive) {
-                // Desliga o monitoramento
+                // Desliga o monitoramento e cancela todas as notificações, lembretes de background e bolhas ativas
                 MonitoringService.stop(this)
+                BubbleOverlayService.stop(this)
+                SupportNotificationWorker.cancelAllSupportReminders(this)
+                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                manager?.cancelAll()
+                manager?.cancel(MonitoringService.NOTIFICATION_ID)
+                manager?.cancel(BubbleOverlayService.NOTIFICATION_ID)
+                manager?.cancel(SupportNotificationWorker.NOTIFICATION_ID)
                 prefs.isMonitoringActive = false
                 updateMonitoringToggleUI(false)
                 showNotificationBanner("Monitoramento desativado.", BannerType.INFO)
@@ -490,6 +556,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 MonitoringService.start(this)
+                SupportNotificationWorker.scheduleAllSupportReminders(this)
                 prefs.isMonitoringActive = true
                 updateMonitoringToggleUI(true)
                 showNotificationBanner("Monitoramento DriFly iniciado! Notificação contínua ativa.", BannerType.SUCCESS)
@@ -649,9 +716,10 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Modal de Configurações Redesenhado com Accordion:
-     * - Seção 1: Permissões do Sistema (Minimizada por padrão, expande/recolhe ao tocar)
-     * - Seção 2: Backup & Restauração (Minimizada por padrão, expande/recolhe ao tocar)
-     * - Seção 3: Atualizações do Aplicativo (Minimizada por padrão, verifica no GitHub)
+     * - Seção 1: Permissões do Sistema (Sobrepor, Acessibilidade, Bateria, Notificações)
+     * - Seção 2: Backup & Restauração (Automático às 00:00)
+     * - Seção 3: Atualizações do Aplicativo (GitHub)
+     * - Seção 4: Compatibilidade do Aparelho (Xiaomi/HyperOS, Samsung, Motorola, Android 13+)
      */
     private fun showPermissionsDialog() {
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_permissions, null)
@@ -667,9 +735,11 @@ class MainActivity : AppCompatActivity() {
         val tvOverlay = view.findViewById<TextView>(R.id.tvDiagOverlayStatus)
         val tvA11y = view.findViewById<TextView>(R.id.tvDiagA11yStatus)
         val tvBattery = view.findViewById<TextView>(R.id.tvDiagBatteryStatus)
+        val tvNotif = view.findViewById<TextView>(R.id.tvDiagNotifStatus)
         val btnOverlay = view.findViewById<Button>(R.id.btnDiagPermOverlay)
         val btnA11y = view.findViewById<Button>(R.id.btnDiagPermA11y)
         val btnBattery = view.findViewById<Button>(R.id.btnDiagPermBattery)
+        val btnNotif = view.findViewById<Button>(R.id.btnDiagPermNotif)
 
         // Seção 2: Backup
         val headerBackup = view.findViewById<View>(R.id.headerBackupAccordion)
@@ -685,6 +755,20 @@ class MainActivity : AppCompatActivity() {
         val ivUpdateChevron = view.findViewById<ImageView>(R.id.ivUpdateChevron)
         val btnCheckAppUpdates = view.findViewById<Button>(R.id.btnCheckAppUpdates)
 
+        // Seção 4: Compatibilidade do Aparelho
+        val headerOem = view.findViewById<View>(R.id.headerOemAccordion)
+        val contentOem = view.findViewById<View>(R.id.contentOemAccordion)
+        val ivOemChevron = view.findViewById<ImageView>(R.id.ivOemChevron)
+        val tvOemHeaderStatus = view.findViewById<TextView>(R.id.tvOemHeaderStatus)
+        val tvOemModelDetected = view.findViewById<TextView>(R.id.tvOemModelDetected)
+        val tvOemAndroidVersion = view.findViewById<TextView>(R.id.tvOemAndroidVersion)
+        val tvOemOptimizationTip = view.findViewById<TextView>(R.id.tvOemOptimizationTip)
+        val layoutXiaomiActions = view.findViewById<View>(R.id.layoutXiaomiActions)
+        val btnOemAutostart = view.findViewById<Button>(R.id.btnOemAutostart)
+        val btnOemPopup = view.findViewById<Button>(R.id.btnOemPopup)
+        val btnOemBatteryOpt = view.findViewById<Button>(R.id.btnOemBatteryOpt)
+        val btnOemRestrictedSettings = view.findViewById<Button>(R.id.btnOemRestrictedSettings)
+
         val btnClose = view.findViewById<Button>(R.id.btnDiagClose)
 
         fun refreshPermsState() {
@@ -694,17 +778,19 @@ class MainActivity : AppCompatActivity() {
                 val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
                 pm.isIgnoringBatteryOptimizations(packageName)
             } else true
+            val hasNotif = OemCompatibilityHelper.isNotificationListenerEnabled(this)
 
             var activeCount = 0
             if (hasOverlay) activeCount++
             if (hasA11y) activeCount++
             if (hasBattery) activeCount++
+            if (hasNotif) activeCount++
 
-            if (activeCount == 3) {
-                tvPermsHeaderStatus.text = "Todas as 3 permissões ativas (100%)"
+            if (activeCount == 4) {
+                tvPermsHeaderStatus.text = "Todas as 4 permissões ativas (100%)"
                 tvPermsHeaderStatus.setTextColor(0xFF31D477.toInt())
             } else {
-                tvPermsHeaderStatus.text = "$activeCount de 3 ativas • Toque para ajustar"
+                tvPermsHeaderStatus.text = "$activeCount de 4 ativas • Toque para ver"
                 tvPermsHeaderStatus.setTextColor(0xFFFF454D.toInt())
             }
 
@@ -722,6 +808,11 @@ class MainActivity : AppCompatActivity() {
             tvBattery.setTextColor(if (hasBattery) 0xFF31D477.toInt() else 0xFFFF454D.toInt())
             btnBattery.isEnabled = !hasBattery
             btnBattery.text = if (hasBattery) "OK" else "Ajustar"
+
+            tvNotif.text = if (hasNotif) "4. Leitor de Notificações (Ativo)" else "4. Leitor de Notificações (Pendente)"
+            tvNotif.setTextColor(if (hasNotif) 0xFF31D477.toInt() else 0xFFFF454D.toInt())
+            btnNotif.isEnabled = !hasNotif
+            btnNotif.text = if (hasNotif) "OK" else "Ativar"
         }
 
         fun refreshBackupState() {
@@ -760,6 +851,14 @@ class MainActivity : AppCompatActivity() {
             ivUpdateChevron.animate().rotation(if (willExpand) 180f else 0f).setDuration(220).start()
         }
 
+        // Accordion 4: Toggle Compatibilidade OEM
+        headerOem.setOnClickListener {
+            val willExpand = (contentOem.visibility == View.GONE)
+            TransitionManager.beginDelayedTransition(layoutAccordionContainer, AutoTransition().setDuration(220))
+            contentOem.visibility = if (willExpand) View.VISIBLE else View.GONE
+            ivOemChevron.animate().rotation(if (willExpand) 180f else 0f).setDuration(220).start()
+        }
+
         btnOverlay.setOnClickListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
@@ -771,9 +870,68 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnBattery.setOnClickListener {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+            OemCompatibilityHelper.openBatteryOptimizationSettings(this)
+        }
+
+        btnNotif.setOnClickListener {
+            OemCompatibilityHelper.openNotificationListenerSettings(this)
+        }
+
+        // Setup Informações OEM
+        tvOemModelDetected.text = "📱 Aparelho: ${OemCompatibilityHelper.deviceModelName}"
+        tvOemAndroidVersion.text = "⚙️ ${OemCompatibilityHelper.androidVersionSummary}"
+        tvOemOptimizationTip.text = OemCompatibilityHelper.getBrandOptimizationTip()
+
+        when (OemCompatibilityHelper.currentBrand) {
+            DeviceBrand.XIAOMI -> {
+                layoutXiaomiActions.visibility = View.VISIBLE
+                tvOemHeaderStatus.text = "Xiaomi / HyperOS • Ações Prontas"
+                tvOemHeaderStatus.setTextColor(0xFFFFB800.toInt())
+                btnOemAutostart.setOnClickListener { OemCompatibilityHelper.openAutostartSettings(this) }
+                btnOemPopup.setOnClickListener { OemCompatibilityHelper.openMiuiBackgroundPopupSettings(this) }
             }
+            DeviceBrand.SAMSUNG -> {
+                layoutXiaomiActions.visibility = View.GONE
+                tvOemHeaderStatus.text = "Samsung One UI detectado"
+                tvOemHeaderStatus.setTextColor(0xFF60A5FA.toInt())
+                btnOemBatteryOpt.text = "Ajustar Bateria / Device Care (One UI)"
+            }
+            DeviceBrand.MOTOROLA -> {
+                layoutXiaomiActions.visibility = View.GONE
+                tvOemHeaderStatus.text = "Motorola detectado"
+                tvOemHeaderStatus.setTextColor(0xFF31D477.toInt())
+            }
+            DeviceBrand.GENERIC -> {
+                layoutXiaomiActions.visibility = View.GONE
+                tvOemHeaderStatus.text = "Sistema Otimizado"
+                tvOemHeaderStatus.setTextColor(0xFF31D477.toInt())
+            }
+        }
+
+        btnOemBatteryOpt.setOnClickListener {
+            if (OemCompatibilityHelper.currentBrand == DeviceBrand.SAMSUNG) {
+                OemCompatibilityHelper.openSamsungDeviceCare(this)
+            } else {
+                OemCompatibilityHelper.openBatteryOptimizationSettings(this)
+            }
+        }
+
+        btnOemRestrictedSettings.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Configurações Restritas (Android 13+)")
+                .setMessage(
+                    "Em aparelhos com Android 13 ou superior, o Android pode bloquear a Acessibilidade sob o aviso 'Configuração restrita'.\n\n" +
+                    "Para liberar:\n" +
+                    "1. Toque no botão 'Abrir Detalhes do App' abaixo.\n" +
+                    "2. Toque nos 3 pontinhos no canto superior direito.\n" +
+                    "3. Toque em 'Permitir configurações restritas'.\n" +
+                    "4. Confirme com sua biometria ou PIN e ative os serviços!"
+                )
+                .setPositiveButton("Abrir Detalhes do App") { _, _ ->
+                    OemCompatibilityHelper.openAppDetailsSettings(this)
+                }
+                .setNegativeButton("Entendido", null)
+                .show()
         }
 
         // Exportação de Backup
@@ -783,7 +941,6 @@ class MainActivity : AppCompatActivity() {
                 refreshBackupState()
                 showNotificationBanner("Backup exportado para Downloads/DriFly_Backups!", BannerType.SUCCESS)
 
-                // Oferece envio/compartilhamento direto do arquivo (ex: WhatsApp, Drive, Gmail)
                 val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", backupFile)
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/json"
@@ -960,7 +1117,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showReportDialog(period: String, title: String) {
         val ptBr = Locale("pt", "BR")
-        val summary = db.getSummary(period)
+        val timeFormat = SimpleDateFormat("HH:mm", ptBr)
 
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_report, null)
         val tvTitle = view.findViewById<TextView>(R.id.tvReportTitle)
@@ -968,17 +1125,51 @@ class MainActivity : AppCompatActivity() {
         val tvGross = view.findViewById<TextView>(R.id.tvReportGross)
         val tvExpenses = view.findViewById<TextView>(R.id.tvReportExpenses)
         val tvNet = view.findViewById<TextView>(R.id.tvReportNet)
+        val layoutRidesList = view.findViewById<LinearLayout>(R.id.layoutReportRidesList)
+        val tvNoRides = view.findViewById<TextView>(R.id.tvReportNoRides)
         val btnClose = view.findViewById<Button>(R.id.btnReportClose)
 
         tvTitle.text = title
-        tvRideCount.text = summary.rideCount.toString()
-        tvGross.text = String.format(ptBr, "R$ %.2f", summary.totalGross)
-        tvExpenses.text = String.format(ptBr, "R$ %.2f", summary.totalExpenses)
-        tvNet.text = String.format(ptBr, "R$ %.2f", summary.totalNet)
 
         val dialog = AlertDialog.Builder(this)
             .setView(view)
             .create()
+
+        fun refreshReportContent() {
+            val summary = db.getSummary(period)
+            val rides = db.getRidesForPeriod(period)
+
+            tvRideCount.text = summary.rideCount.toString()
+            tvGross.text = String.format(ptBr, "R$ %.2f", summary.totalGross)
+            tvExpenses.text = String.format(ptBr, "R$ %.2f", summary.totalExpenses)
+            tvNet.text = String.format(ptBr, "R$ %.2f", summary.totalNet)
+
+            layoutRidesList.removeAllViews()
+            if (rides.isEmpty()) {
+                tvNoRides.visibility = View.VISIBLE
+            } else {
+                tvNoRides.visibility = View.GONE
+                for (ride in rides) {
+                    val itemRow = createRideListItemView(ride, timeFormat, ptBr) {
+                        showRideAdjustDialog(ride) {
+                            refreshReportContent()
+                            updateDashboard(animate = true)
+                        }
+                    }
+                    layoutRidesList.addView(itemRow)
+                }
+            }
+        }
+
+        refreshReportContent()
+
+        activeReportDialogRefresh = {
+            refreshReportContent()
+        }
+
+        dialog.setOnDismissListener {
+            activeReportDialogRefresh = null
+        }
 
         btnClose.setOnClickListener {
             dialog.dismiss()
@@ -990,6 +1181,234 @@ class MainActivity : AppCompatActivity() {
             setDimAmount(0.75f)
         }
         dialog.show()
+    }
+
+    private fun createRideListItemView(
+        ride: RideRecord,
+        timeFormat: SimpleDateFormat,
+        ptBr: Locale,
+        onClick: () -> Unit
+    ): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 0, dpToPx(8))
+            }
+            setBackgroundResource(R.drawable.bg_card_frosted_glass)
+            setPadding(dpToPx(12), dpToPx(10), dpToPx(12), dpToPx(10))
+            isClickable = true
+            isFocusable = true
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+
+        applyScaleTouchFeedback(row)
+        row.setOnClickListener { onClick() }
+
+        // Coluna Esquerda: Plataforma, Hora, Distância
+        val leftCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        val tvPlatformTime = TextView(this).apply {
+            val platformColor = when (ride.platform.uppercase()) {
+                "UBER" -> "#FFFFFF"
+                "99" -> "#FFB800"
+                "IFOOD" -> "#FF454D"
+                else -> "#60A5FA"
+            }
+            val ssb = android.text.SpannableStringBuilder()
+            val pStart = 0
+            ssb.append(ride.platform.uppercase())
+            ssb.setSpan(android.text.style.ForegroundColorSpan(android.graphics.Color.parseColor(platformColor)), pStart, ssb.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            ssb.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), pStart, ssb.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+            val timeStr = timeFormat.format(Date(ride.timestamp))
+            ssb.append(" • $timeStr")
+
+            text = ssb
+            textSize = 13f
+            setTextColor(0xFFA3A8B5.toInt())
+        }
+
+        val tvDistance = TextView(this).apply {
+            text = String.format(ptBr, "%.1f km", ride.distanceKm)
+            textSize = 11f
+            setTextColor(0xFF707684.toInt())
+        }
+
+        leftCol.addView(tvPlatformTime)
+        leftCol.addView(tvDistance)
+
+        // Coluna Direita: Valor e Status Badge
+        val rightCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = android.view.Gravity.END
+        }
+
+        val tvPrice = TextView(this).apply {
+            when (ride.status) {
+                RideRecord.STATUS_CANCELADO_TAXA -> {
+                    text = String.format(ptBr, "Taxa R$ %.2f", ride.cancellationFee)
+                    setTextColor(0xFF60A5FA.toInt())
+                }
+                RideRecord.STATUS_CANCELADO -> {
+                    text = "R$ 0,00"
+                    setTextColor(0xFFFF454D.toInt())
+                }
+                else -> {
+                    text = String.format(ptBr, "R$ %.2f", ride.grossPrice)
+                    setTextColor(0xFFFFFFFF.toInt())
+                }
+            }
+            textSize = 14f
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        }
+
+        val tvBadge = TextView(this).apply {
+            when (ride.status) {
+                RideRecord.STATUS_ESTIMADO -> {
+                    text = "ESTIMADO"
+                    setTextColor(0xFFFFB800.toInt())
+                }
+                RideRecord.STATUS_CONCLUIDO -> {
+                    text = "CONCLUÍDO"
+                    setTextColor(0xFF31D477.toInt())
+                }
+                RideRecord.STATUS_CANCELADO_TAXA -> {
+                    text = "TAXA"
+                    setTextColor(0xFF60A5FA.toInt())
+                }
+                RideRecord.STATUS_CANCELADO -> {
+                    text = "CANCELADO"
+                    setTextColor(0xFFFF454D.toInt())
+                }
+                else -> {
+                    text = ride.status
+                    setTextColor(0xFFA3A8B5.toInt())
+                }
+            }
+            textSize = 9f
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            setPadding(dpToPx(4), dpToPx(1), dpToPx(4), dpToPx(1))
+        }
+
+        rightCol.addView(tvPrice)
+        rightCol.addView(tvBadge)
+
+        row.addView(leftCol)
+        row.addView(rightCol)
+
+        return row
+    }
+
+    private fun showRideAdjustDialog(ride: RideRecord, onUpdated: () -> Unit) {
+        val ptBr = Locale("pt", "BR")
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_ride_adjust, null)
+
+        val tvTitle = view.findViewById<TextView>(R.id.tvAdjustRideTitle)
+        val tvSubtitle = view.findViewById<TextView>(R.id.tvAdjustRideSubtitle)
+        val tvBadge = view.findViewById<TextView>(R.id.tvAdjustCurrentBadge)
+        val etPrice = view.findViewById<EditText>(R.id.etAdjustRealPrice)
+        val btnSavePrice = view.findViewById<Button>(R.id.btnSaveAdjustedPrice)
+
+        val btnCompleted = view.findViewById<Button>(R.id.btnActionMarkCompleted)
+        val btnCancelWithFee = view.findViewById<Button>(R.id.btnActionCancelWithFee)
+        val btnCancelZeroFee = view.findViewById<Button>(R.id.btnActionCancelZeroFee)
+        val btnDelete = view.findViewById<Button>(R.id.btnActionDeleteRide)
+        val btnClose = view.findViewById<Button>(R.id.btnAdjustClose)
+
+        tvTitle.text = "Ajuste de Corrida #${ride.id}"
+        tvSubtitle.text = "${ride.platform} • R$ ${String.format(ptBr, "%.2f", ride.grossPrice)} • ${ride.distanceKm} km"
+        tvBadge.text = ride.status
+
+        val currentDisplayPrice = if (ride.status == RideRecord.STATUS_CANCELADO_TAXA) {
+            ride.cancellationFee
+        } else {
+            ride.grossPrice
+        }
+        etPrice.setText(String.format(ptBr, "%.2f", currentDisplayPrice))
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .create()
+
+        // 1. Salvar Novo Valor
+        btnSavePrice.setOnClickListener {
+            val newPrice = parseBrFloat(etPrice.text.toString(), currentDisplayPrice.toFloat()).toDouble()
+            if (newPrice > 0.0) {
+                val cost = ride.distanceKm * prefs.costPerKm
+                val newNet = Math.max(0.0, Math.round((newPrice - cost) * 100.0) / 100.0)
+                db.updateRidePrice(ride.id, newPrice, newNet, RideRecord.STATUS_CONCLUIDO)
+                showNotificationBanner("Valor ajustado para R$ ${String.format(ptBr, "%.2f", newPrice)} (Concluída)!", BannerType.SUCCESS)
+                dialog.dismiss()
+                onUpdated()
+            } else {
+                showNotificationBanner("Informe um valor maior que zero", BannerType.WARNING)
+            }
+        }
+
+        // 2. Marcar como Concluída
+        btnCompleted.setOnClickListener {
+            val cost = ride.distanceKm * prefs.costPerKm
+            val basePrice = if (ride.grossPrice > 0.0) ride.grossPrice else ride.originalPrice
+            val newNet = Math.max(0.0, Math.round((basePrice - cost) * 100.0) / 100.0)
+            db.updateRidePrice(ride.id, basePrice, newNet, RideRecord.STATUS_CONCLUIDO)
+            showNotificationBanner("Corrida confirmada como Concluída!", BannerType.SUCCESS)
+            dialog.dismiss()
+            onUpdated()
+        }
+
+        // 3. Cancelada com Taxa
+        val standardFee = when {
+            ride.platform.contains("99", ignoreCase = true) -> 3.00
+            ride.platform.contains("uber", ignoreCase = true) -> 5.50
+            else -> 3.00
+        }
+        btnCancelWithFee.text = "⚡  Cancelada com Taxa (R$ ${String.format(ptBr, "%.2f", standardFee)})"
+        btnCancelWithFee.setOnClickListener {
+            val typedVal = parseBrFloat(etPrice.text.toString(), standardFee.toFloat()).toDouble()
+            // Se o usuário digitou uma taxa personalizada diferente do valor integral da corrida, usa o valor digitado
+            val effectiveFee = if (typedVal > 0.0 && Math.abs(typedVal - ride.grossPrice) > 0.001) typedVal else standardFee
+            db.updateRideStatus(ride.id, RideRecord.STATUS_CANCELADO_TAXA, effectiveFee)
+            showNotificationBanner("Corrida marcada com taxa de R$ ${String.format(ptBr, "%.2f", effectiveFee)}!", BannerType.SUCCESS)
+            dialog.dismiss()
+            onUpdated()
+        }
+
+        // 4. Cancelada sem Taxa
+        btnCancelZeroFee.setOnClickListener {
+            db.updateRideStatus(ride.id, RideRecord.STATUS_CANCELADO, 0.0)
+            showNotificationBanner("Corrida cancelada sem taxa (R$ 0,00 lançados).", BannerType.INFO)
+            dialog.dismiss()
+            onUpdated()
+        }
+
+        // 5. Excluir Corrida
+        btnDelete.setOnClickListener {
+            db.deleteRide(ride.id)
+            showNotificationBanner("Corrida removida do extrato.", BannerType.INFO)
+            dialog.dismiss()
+            onUpdated()
+        }
+
+        btnClose.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setDimAmount(0.75f)
+        }
+        dialog.show()
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 
     private fun isAccessibilityServiceEnabled(context: Context, service: Class<*>): Boolean {
