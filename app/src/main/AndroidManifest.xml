@@ -5,7 +5,11 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
@@ -51,7 +55,7 @@
 
         <service
             android:name=".MonitoringService"
-            android:foregroundServiceType="specialUse"
+            android:foregroundServiceType="location|specialUse"
             android:stopWithTask="false"
             android:exported="false">
             <property
@@ -73,13 +77,21 @@
             android:name=".MonitoringActionReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.rotacore.app.ACTION_STOP_MONITORING" />
+                <action android:name="com.drifly.app.ACTION_STOP_MONITORING" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".RideSimulationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.drifly.app.ACTION_SIMULATE_RIDE" />
             </intent-filter>
         </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.rotacore.app.fileprovider"
+            android:authorities="com.drifly.app.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

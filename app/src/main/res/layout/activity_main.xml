@@ -72,6 +72,19 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
+        <!-- Botão Modo Casa -->
+        <ImageButton
+            android:id="@+id/btnToggleHomeMode"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/bg_btn_circle_glass"
+            android:padding="9dp"
+            android:scaleType="fitCenter"
+            app:tint="#F5F5F7"
+            android:src="@drawable/ic_home_mode"
+            android:contentDescription="Modo Casa" />
+
         <!-- Botão Engrenagem -->
         <ImageButton
             android:id="@+id/btnOpenSettings"
@@ -398,93 +411,50 @@
                         android:contentDescription="Avançar" />
                 </RelativeLayout>
 
-                <!-- Extrato por Período: Cabeçalho com Ícone de Calendário Laranja -->
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="22dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                <!-- Botão de Acesso ao Histórico de Corridas (Compacto) -->
+                <RelativeLayout
+                    android:id="@+id/btnOpenFullHistory"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_card_frosted_glass"
+                    android:paddingHorizontal="16dp"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_calendar_orange"
+                            android:contentDescription="Histórico" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:text="Histórico de Corridas"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="15sp" />
+                    </LinearLayout>
 
                     <ImageView
                         android:layout_width="18dp"
                         android:layout_height="18dp"
-                        android:src="@drawable/ic_calendar_orange"
-                        android:contentDescription="Extrato por Período" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="Extrato por Período"
-                        android:textColor="#F5F5F7"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:textSize="15sp" />
-                </LinearLayout>
-
-                <!-- Controles de Período: Diário, Semanal, Mensal, Anual -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:orientation="horizontal">
-
-                    <Button
-                        android:id="@+id/btnReportDaily"
-                        android:layout_width="0dp"
-                        android:layout_height="44dp"
-                        android:layout_weight="1"
-                        app:backgroundTint="@null"
-                        android:background="@drawable/bg_period_selected"
-                        android:textColor="#FFFFFF"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:textSize="13sp"
-                        android:text="Diário" />
-
-                    <Button
-                        android:id="@+id/btnReportWeekly"
-                        android:layout_width="0dp"
-                        android:layout_height="44dp"
-                        android:layout_weight="1"
-                        android:layout_marginStart="8dp"
-                        app:backgroundTint="@null"
-                        android:background="@drawable/bg_period_unselected"
-                        android:textColor="#A3A8B5"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:textSize="13sp"
-                        android:text="Semanal" />
-
-                    <Button
-                        android:id="@+id/btnReportMonthly"
-                        android:layout_width="0dp"
-                        android:layout_height="44dp"
-                        android:layout_weight="1"
-                        android:layout_marginStart="8dp"
-                        app:backgroundTint="@null"
-                        android:background="@drawable/bg_period_unselected"
-                        android:textColor="#A3A8B5"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:textSize="13sp"
-                        android:text="Mensal" />
-
-                    <Button
-                        android:id="@+id/btnReportYearly"
-                        android:layout_width="0dp"
-                        android:layout_height="44dp"
-                        android:layout_weight="1"
-                        android:layout_marginStart="8dp"
-                        app:backgroundTint="@null"
-                        android:background="@drawable/bg_period_unselected"
-                        android:textColor="#A3A8B5"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:textSize="13sp"
-                        android:text="Anual" />
-                </LinearLayout>
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:src="@drawable/ic_chevron_right"
+                        android:contentDescription="Abrir Histórico" />
+                </RelativeLayout>
 
                 <!-- Card "Ajustar Meta de Ganhos" com Glassmorphism Escuro -->
                 <LinearLayout
@@ -600,7 +570,8 @@
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="16sp"
-                            android:inputType="numberDecimal" />
+                            android:inputType="numberDecimal"
+                            android:digits="0123456789,." />
                     </LinearLayout>
 
                     <!-- Botão Atualizar Meta com Ícone de Sincronização -->
@@ -875,7 +846,8 @@
                         android:textColorHint="#606B7B"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
-                        android:inputType="numberDecimal" />
+                        android:inputType="numberDecimal"
+                        android:digits="0123456789,." />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -898,7 +870,8 @@
                         android:textColorHint="#606B7B"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
-                        android:inputType="numberDecimal" />
+                        android:inputType="numberDecimal"
+                        android:digits="0123456789,." />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -921,7 +894,8 @@
                         android:textColorHint="#606B7B"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
-                        android:inputType="numberDecimal" />
+                        android:inputType="numberDecimal"
+                        android:digits="0123456789,." />
                 </LinearLayout>
 
                 <!-- Custos do Veículo -->
@@ -963,7 +937,8 @@
                         android:textColorHint="#606B7B"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
-                        android:inputType="numberDecimal" />
+                        android:inputType="numberDecimal"
+                        android:digits="0123456789,." />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -986,7 +961,8 @@
                         android:textColorHint="#606B7B"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
-                        android:inputType="numberDecimal" />
+                        android:inputType="numberDecimal"
+                        android:digits="0123456789,." />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -1009,7 +985,96 @@
                         android:textColorHint="#606B7B"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
-                        android:inputType="numberDecimal" />
+                        android:inputType="numberDecimal"
+                        android:digits="0123456789,." />
+                </LinearLayout>
+
+                <!-- Modo Casa (Fim de Turno) -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:text="Modo Casa (Fim de Turno)"
+                    android:textColor="#FF6900"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
+
+                <LinearLayout
+                    android:id="@+id/cardConfigModoCasa"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_card_frosted_glass"
+                    android:padding="18dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Defina seu endereço residencial para calcular automaticamente se a corrida te aproxima de casa no final do turno:"
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Endereço da sua Residência:"
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="13sp" />
+
+                    <EditText
+                        android:id="@+id/etHomeAddress"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="6dp"
+                        android:background="@drawable/bg_input_field"
+                        android:paddingHorizontal="14dp"
+                        android:hint="Ex: Rua das Palmeiras, 320, São Paulo"
+                        android:textColor="#F5F5F7"
+                        android:textColorHint="#606B7B"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="13sp"
+                        android:inputType="textPostalAddress" />
+
+                    <Button
+                        android:id="@+id/btnSaveHomeAddress"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="10dp"
+                        app:backgroundTint="@null"
+                        android:background="@drawable/bg_period_unselected"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="13sp"
+                        android:text="Salvar Endereço Residencial" />
+
+                    <Button
+                        android:id="@+id/btnUseCurrentLocationAsHome"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="8dp"
+                        app:backgroundTint="@null"
+                        android:background="@drawable/bg_period_selected"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="13sp"
+                        android:text="📍 Usar Localização GPS Atual como Casa" />
+
+                    <TextView
+                        android:id="@+id/tvHomeConfigStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Casa não configurada"
+                        android:textColor="#FBBF24"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="11sp" />
                 </LinearLayout>
 
                 <Button
@@ -1028,19 +1093,6 @@
                     android:letterSpacing="0.03"
                     android:textSize="15sp"
                     android:text="Salvar Configurações de Corrida" />
-
-                <Button
-                    android:id="@+id/btnSimulateRide"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="12dp"
-                    app:backgroundTint="@null"
-                    android:background="@drawable/bg_period_unselected"
-                    android:textColor="#F5F5F7"
-                    android:fontFamily="@font/plus_jakarta_sans"
-                    android:textStyle="bold"
-                    android:textSize="14sp"
-                    android:text="Testar Alerta DriFly na Tela" />
 
             </LinearLayout>
         </ScrollView>
@@ -1371,9 +1423,10 @@
                     android:orientation="vertical">
 
                     <TextView
+                        android:id="@+id/tvAppVersionFooter"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="DriFly v1.0.0 • Compilação Oficial"
+                        android:text="DriFly v1.1.0 • Compilação Oficial"
                         android:textColor="#A3A8B5"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp" />
@@ -1414,5 +1467,32 @@
         app:itemIconTint="@color/nav_item_color"
         app:itemTextColor="@color/nav_item_color"
         app:menu="@menu/bottom_navigation_menu" />
+
+    <!-- Camada de Abertura Cinematográfica (Toca APENAS no Cold Start, 0ms black flash) -->
+    <FrameLayout
+        android:id="@+id/layoutSplashOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="120dp"
+        android:visibility="gone">
+
+        <TextureView
+            android:id="@+id/textureSplashVideo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+
+        <!-- Poster do Frame 0 para eliminar qualquer flash preto antes do decoder H.264 renderizar -->
+        <ImageView
+            android:id="@+id/ivSplashPoster"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/splash_first_frame"
+            android:contentDescription="@null" />
+    </FrameLayout>
 
 </RelativeLayout>

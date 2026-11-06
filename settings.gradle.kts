@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RotaCore"
+rootProject.name = "DriFly"
 include(":app")

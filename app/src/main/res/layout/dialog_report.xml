@@ -4,12 +4,12 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="22dp"
+    android:padding="20dp"
     android:background="@drawable/bg_dialog_glass">
 
     <!-- Cabeçalho do Relatório com Ícone de Calendário -->
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
@@ -22,14 +22,25 @@
 
         <TextView
             android:id="@+id/tvReportTitle"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:layout_marginStart="10dp"
-            android:text="Extrato do Período"
+            android:text="Histórico Unificado"
             android:textColor="#FFFFFF"
             android:fontFamily="@font/plus_jakarta_sans"
             android:textStyle="bold"
             android:textSize="18sp" />
+
+        <ImageView
+            android:id="@+id/btnDialogReportCloseIcon"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@drawable/bg_btn_circle_glass"
+            android:padding="6dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            app:tint="#A3A8B5"
+            android:contentDescription="Fechar" />
     </LinearLayout>
 
     <TextView
@@ -41,10 +52,93 @@
         android:fontFamily="@font/plus_jakarta_sans"
         android:textSize="12sp" />
 
+    <!-- Barra de Chips de Período (Navegação Rápida no Modal) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnReportChipToday"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_period_selected"
+            android:textColor="#FFFFFF"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="11sp"
+            android:text="Hoje" />
+
+        <Button
+            android:id="@+id/btnReportChipWeek"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1.2"
+            android:layout_marginStart="5dp"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_period_unselected"
+            android:textColor="#A3A8B5"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="11sp"
+            android:text="Semana" />
+
+        <Button
+            android:id="@+id/btnReportChipMonth"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:layout_marginStart="5dp"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_period_unselected"
+            android:textColor="#A3A8B5"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="11sp"
+            android:text="Mês" />
+
+        <Button
+            android:id="@+id/btnReportChipYear"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:layout_marginStart="5dp"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_period_unselected"
+            android:textColor="#A3A8B5"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="11sp"
+            android:text="Ano" />
+    </LinearLayout>
+
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:layout_marginVertical="16dp"
+        android:layout_marginVertical="12dp"
         android:background="#1AFFFFFF" />
 
     <!-- Card de Métricas Consolidado -->
@@ -53,9 +147,9 @@
         android:layout_height="wrap_content"
         android:background="@drawable/bg_inner_metric_card"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="14dp">
 
-        <!-- Linha 1: Corridas Analisadas -->
+        <!-- Linha 1: Corridas Analisadas e KM Total -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -69,7 +163,7 @@
                 android:text="Corridas Analisadas:"
                 android:textColor="#A3A8B5"
                 android:fontFamily="@font/plus_jakarta_sans"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
 
             <TextView
                 android:id="@+id/tvReportRideCount"
@@ -79,14 +173,14 @@
                 android:textColor="#FFFFFF"
                 android:fontFamily="@font/plus_jakarta_sans"
                 android:textStyle="bold"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
         </LinearLayout>
 
         <!-- Linha 2: Faturamento Bruto -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
@@ -97,7 +191,7 @@
                 android:text="Faturamento Bruto:"
                 android:textColor="#A3A8B5"
                 android:fontFamily="@font/plus_jakarta_sans"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
 
             <TextView
                 android:id="@+id/tvReportGross"
@@ -107,14 +201,14 @@
                 android:textColor="#FFFFFF"
                 android:fontFamily="@font/plus_jakarta_sans"
                 android:textStyle="bold"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
         </LinearLayout>
 
         <!-- Linha 3: Total de Despesas -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
@@ -125,7 +219,7 @@
                 android:text="Total de Despesas:"
                 android:textColor="#A3A8B5"
                 android:fontFamily="@font/plus_jakarta_sans"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
 
             <TextView
                 android:id="@+id/tvReportExpenses"
@@ -135,7 +229,36 @@
                 android:textColor="#FF454D"
                 android:fontFamily="@font/plus_jakarta_sans"
                 android:textStyle="bold"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- Linha 4: Distância Total & Média R$/km -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tvReportKmLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Distância Total:"
+                android:textColor="#A3A8B5"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvReportKm"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0.0 km"
+                android:textColor="#FFFFFF"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="14sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -143,9 +266,9 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="10dp"
         android:background="@drawable/bg_btn_circle_glass"
-        android:padding="16dp"
+        android:padding="14dp"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
@@ -163,23 +286,23 @@
                 android:fontFamily="@font/plus_jakarta_sans"
                 android:letterSpacing="0.05"
                 android:textStyle="bold"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
 
             <TextView
                 android:id="@+id/tvReportNet"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="2dp"
                 android:text="R$ 0,00"
                 android:textColor="#31D477"
                 android:fontFamily="@font/plus_jakarta_sans"
                 android:textStyle="bold"
-                android:textSize="22sp" />
+                android:textSize="20sp" />
         </LinearLayout>
 
         <ImageView
-            android:layout_width="28dp"
-            android:layout_height="28dp"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
             android:src="@drawable/ic_metric_profit_up"
             android:contentDescription="Lucro" />
     </LinearLayout>
@@ -188,7 +311,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="14dp"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
@@ -206,7 +329,7 @@
             android:id="@+id/tvReportRidesBadge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Toque para editar"
+            android:text="Toque para gerenciar"
             android:textColor="#A3A8B5"
             android:fontFamily="@font/plus_jakarta_sans"
             android:textSize="11sp" />
@@ -249,14 +372,14 @@
     <Button
         android:id="@+id/btnReportClose"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="18dp"
+        android:layout_height="44dp"
+        android:layout_marginTop="14dp"
         app:backgroundTint="@null"
         android:background="@drawable/bg_period_unselected"
         android:textColor="#FFFFFF"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
-        android:textSize="14sp"
+        android:textSize="13sp"
         android:text="Fechar" />
 
 </LinearLayout>

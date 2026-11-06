@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DriFly Studio • Redesign do Overlay em Tempo Real</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-workspace: #0A0B0E;
+      --card-bg: rgba(18, 20, 29, 0.75);
+      --glass-border: rgba(255, 255, 255, 0.09);
+      --glass-shine: rgba(255, 255, 255, 0.04);
+      --accent-green: #31D477;
+      --accent-green-bg: rgba(49, 212, 119, 0.15);
+      --accent-red: #FF454D;
+      --accent-red-bg: rgba(255, 69, 77, 0.15);
+      --accent-yellow: #FBBF24;
+      --accent-yellow-bg: rgba(251, 191, 36, 0.15);
+      --accent-orange: #FF8A24;
+      --text-primary: #FFFFFF;
+      --text-secondary: #9FA4B4;
+      --text-muted: #646877;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background: var(--bg-workspace);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: row;
+      overflow-x: hidden;
+    }
+
+    /* Layout Principal: Simulador à Esquerda, Controles à Direita */
+    .app-container {
+      display: flex;
+      width: 100vw;
+      min-height: 100vh;
+    }
+
+    /* Painel do Celular */
+    .phone-stage {
+      flex: 1.1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px 20px;
+      background: radial-gradient(circle at 50% 30%, #151928 0%, #08090D 75%);
+      position: relative;
+    }
+
+    .stage-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stage-title .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 10px var(--accent-green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Carcaça do Celular Mockup */
+    .phone-mockup {
+      width: 400px;
+      height: 840px;
+      background: #000;
+      border-radius: 48px;
+      border: 10px solid #232734;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Barra de Notificações Superior */
+    .phone-status-bar {
+      height: 44px;
+      padding: 0 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      z-index: 50;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(10px);
+    }
+
+    .phone-notch {
+      width: 110px;
+      height: 24px;
+      background: #000;
+      border-radius: 0 0 16px 16px;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 60;
+    }
+
+    /* Tela de Fundo Simulando Uber/99 em Execução */
+    .phone-screen {
+      flex: 1;
+      position: relative;
+      background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800" viewBox="0 0 400 800"><rect fill="%23111317" width="400" height="800"/><path d="M-50,200 Q150,150 200,400 T450,600" stroke="%23222631" stroke-width="26" fill="none"/><path d="M50,-50 Q100,300 350,500" stroke="%231a1d26" stroke-width="18" fill="none"/><circle cx="200" cy="400" r="10" fill="%2331D477"/><circle cx="200" cy="400" r="30" stroke="%2331D477" stroke-width="2" fill="none" opacity="0.4"/></svg>') center/cover;
+      display: flex;
+      flex-direction: column;
+      padding: 14px;
+    }
+
+    /* Cartão Base do Uber/99 (Simulação da tela tocando embaixo) */
+    .simulated-app-bottom-sheet {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      right: 14px;
+      background: #1C1E26;
+      border-radius: 20px;
+      padding: 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      opacity: 0.65;
+    }
+
+    .simulated-accept-slider {
+      height: 48px;
+      background: #272A36;
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #9FA4B4;
+      border: 1px dashed rgba(255,255,255,0.1);
+    }
+
+    /* ========================================================= */
+    /* NOVO REDESIGN DO OVERLAY DRIFLY (HIERARQUIA MATADORA)     */
+    /* ========================================================= */
+
+    .drifly-overlay {
+      position: absolute;
+      top: 54px;
+      left: 12px;
+      right: 12px;
+      border-radius: 24px;
+      padding: 16px 16px 14px 16px;
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      background: linear-gradient(145deg, rgba(22, 25, 36, 0.94) 0%, rgba(13, 14, 21, 0.97) 100%);
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      z-index: 100;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Brilho da Borda Dinâmico (Verde se compensa, Vermelho se não) */
+    .drifly-overlay.verdict-good {
+      border-color: rgba(49, 212, 119, 0.35);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75), 0 0 24px rgba(49, 212, 119, 0.2);
+    }
+
+    .drifly-overlay.verdict-bad {
+      border-color: rgba(255, 69, 77, 0.35);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75), 0 0 24px rgba(255, 69, 77, 0.2);
+    }
+
+    /* 1. TOPO: O Veredito Imediato (0.5 segundo) + Botão Fechar */
+    .overlay-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    /* Tag de Veredito: O cérebro lê sem esforço em 1 glance */
+    .verdict-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      transition: all 0.25s ease;
+    }
+
+    .verdict-badge.good {
+      background: rgba(49, 212, 119, 0.16);
+      color: #31D477;
+      border: 1px solid rgba(49, 212, 119, 0.35);
+    }
+
+    .verdict-badge.bad {
+      background: rgba(255, 69, 77, 0.16);
+      color: #FF454D;
+      border: 1px solid rgba(255, 69, 77, 0.35);
+    }
+
+    .verdict-badge.neutral {
+      background: rgba(251, 191, 36, 0.16);
+      color: #FBBF24;
+      border: 1px solid rgba(251, 191, 36, 0.35);
+    }
+
+    /* Badge Compacta do Modo Casa */
+    .modo-casa-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      transition: all 0.25s ease;
+    }
+
+    .modo-casa-pill.approaching {
+      background: rgba(49, 212, 119, 0.16);
+      color: #31D477;
+      border: 1px solid rgba(49, 212, 119, 0.45);
+      box-shadow: 0 0 10px rgba(49, 212, 119, 0.2);
+    }
+
+    .modo-casa-pill.moving-away {
+      background: rgba(255, 69, 77, 0.16);
+      color: #FF6B72;
+      border: 1px solid rgba(255, 69, 77, 0.45);
+      box-shadow: 0 0 10px rgba(255, 69, 77, 0.15);
+    }
+
+    .close-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #C3C7D4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .close-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    /* Metadados Superiores Sutis: Logo da Plataforma + Bruto + Distância + Tempo */
+    .overlay-meta-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 0 2px;
+    }
+
+    .platform-pill {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 8px;
+      letter-spacing: 0.4px;
+    }
+
+    .platform-pill.uber {
+      background: #000;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .platform-pill.p99 {
+      background: #F4C100;
+      color: #000;
+      font-weight: 900;
+    }
+
+    .meta-metrics {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      color: #D3D7E3;
+    }
+
+    .meta-metrics .dot {
+      color: #555A6E;
+    }
+
+    /* 2. OS 3 NÚMEROS GRANDES DE DESTAQUE (HERO METRICS - ESTILO ROTA PRO / RYDEX MAS REFINADO) */
+    .hero-metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      background: rgba(10, 11, 16, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      padding: 10px 8px 12px 8px;
+    }
+
+    .hero-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .hero-col:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 15%;
+      height: 70%;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .hero-col .mini-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .hero-col .hero-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 21px;
+      font-weight: 800;
+      line-height: 1.1;
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+    }
+
+    .hero-col .hero-value .currency-symbol {
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0.8;
+    }
+
+    /* Barrinhas indicativas coloridas abaixo de cada número grande */
+    .hero-status-bar {
+      height: 3px;
+      width: 44px;
+      border-radius: 2px;
+      margin-top: 5px;
+    }
+
+    .status-green { background: #31D477; box-shadow: 0 0 8px rgba(49, 212, 119, 0.5); }
+    .status-yellow { background: #FBBF24; box-shadow: 0 0 8px rgba(251, 191, 36, 0.4); }
+    .status-red { background: #FF454D; box-shadow: 0 0 8px rgba(255, 69, 77, 0.5); }
+
+    /* 3. CARD DE LUCRO LÍQUIDO REAL & GASTO DE COMBUSTÍVEL */
+    .net-profit-card {
+      background: linear-gradient(90deg, rgba(255, 138, 36, 0.12) 0%, rgba(255, 105, 0, 0.04) 100%);
+      border: 1px solid rgba(255, 138, 36, 0.25);
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .net-profit-left {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .net-profit-tag {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--accent-orange);
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+
+    .net-profit-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-top: 1px;
+    }
+
+    .fuel-cost-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .fuel-cost-tag {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .fuel-cost-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent-red);
+      margin-top: 2px;
+    }
+
+    /* 4. ALERTA DE NOTA BAIXA (CONDICIONAL) */
+    .rating-warning-banner {
+      background: rgba(255, 69, 77, 0.18);
+      border: 1px solid rgba(255, 69, 77, 0.4);
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #FF8F94;
+    }
+
+    /* 5. DESTINO & FACHADA STREET VIEW COLAPSÁVEL */
+    .destination-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .street-view-toggle-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 7px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: 11px;
+      color: #D3D7E3;
+      transition: all 0.2s;
+    }
+
+    .street-view-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .destination-text {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 280px;
+    }
+
+    .street-view-container {
+      height: 130px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.12);
+      display: none;
+      position: relative;
+    }
+
+    .street-view-container.open {
+      display: block;
+      animation: expandStreetView 0.25s ease-out;
+    }
+
+    @keyframes expandStreetView {
+      from { opacity: 0; transform: scaleY(0.9); }
+      to { opacity: 1; transform: scaleY(1); }
+    }
+
+    .street-view-container iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* ========================================================= */
+    /* PAINEL DE CONTROLE LATERAL INTERATIVO (TESTES EM TEMPO REAL) */
+    /* ========================================================= */
+
+    .control-deck {
+      flex: 1.2;
+      background: #111319;
+      border-left: 1px solid var(--glass-border);
+      padding: 30px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+
+    .deck-header {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .deck-header h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .deck-header p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Seletor de Cenários / Presets Rápidos */
+    .presets-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .presets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .preset-btn {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #1A1D27;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      text-align: left;
+      transition: all 0.2s;
+    }
+
+    .preset-btn:hover {
+      border-color: rgba(255,255,255,0.25);
+      background: #222634;
+    }
+
+    .preset-btn.active {
+      border-color: var(--accent-orange);
+      background: rgba(255, 138, 36, 0.12);
+    }
+
+    .preset-btn span.badge {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Sliders e Campos Dinâmicos */
+    .slider-group {
+      background: #161922;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .slider-header span.val {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-orange);
+      font-weight: 700;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: #252A38;
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent-orange);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(255, 138, 36, 0.5);
+    }
+
+    /* Card Comparativo com Rota Pro / Rydex */
+    .audit-card {
+      background: rgba(49, 212, 119, 0.05);
+      border: 1px solid rgba(49, 212, 119, 0.2);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .audit-card h3 {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--accent-green);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .audit-card p {
+      font-size: 12px;
+      color: #B5B9C8;
+      line-height: 1.5;
+    }
+
+    .audit-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .audit-list li {
+      font-size: 12px;
+      color: #E1E4EE;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .audit-list li::before {
+      content: "✓";
+      color: var(--accent-green);
+      font-weight: 900;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- ================= LADO ESQUERDO: SMARTPHONE MOCKUP COM OVERLAY ================= -->
+  <div class="phone-stage">
+    <div class="stage-title">
+      <span class="live-dot"></span>
+      Visualização em Tempo Real (Resolução Física 720×1600)
+    </div>
+
+    <div class="phone-mockup">
+      <!-- Topo Notch e Status Bar -->
+      <div class="phone-notch"></div>
+      <div class="phone-status-bar">
+        <span>18:48</span>
+        <span>5G • 98%</span>
+      </div>
+
+      <!-- Tela com o App Uber/99 de Fundo -->
+      <div class="phone-screen">
+
+        <!-- ================= O NOVO OVERLAY HIERÁRQUICO DRIFLY ================= -->
+        <div id="driflyOverlay" class="drifly-overlay verdict-good">
+          
+          <!-- Linha 1: Veredito Claro Imediato + Badge Modo Casa + Botão Fechar -->
+          <div class="overlay-top-row">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div id="verdictBadge" class="verdict-badge good">
+                <span id="verdictText">Excelente Direção ✅</span>
+              </div>
+              <div id="modoCasaPill" class="modo-casa-pill approaching">
+                <span>🏠</span>
+                <span id="modoCasaKmText">-6.5 km</span>
+              </div>
+            </div>
+
+            <div class="close-btn" title="Fechar Overlay">✕</div>
+          </div>
+
+          <!-- Linha 2: Metadados Sutis (Plataforma + Preço Bruto + KM e Min) -->
+          <div class="overlay-meta-bar">
+            <div id="platformBadge" class="platform-pill uber">UBER</div>
+            <div class="meta-metrics">
+              <span id="metaGross">Bruto R$ 32,50</span>
+              <span class="dot">•</span>
+              <span id="metaDistance">8.4 km</span>
+              <span class="dot">•</span>
+              <span id="metaDuration">19 min</span>
+            </div>
+          </div>
+
+          <!-- Linha 3: OS 3 NÚMEROS GRANDES (HERO METRICS - O que seus olhos buscam em 1 segundo) -->
+          <div class="hero-metrics-grid">
+            <!-- Coluna 1: R$ / KM -->
+            <div class="hero-col">
+              <span class="mini-label">R$ / KM</span>
+              <div class="hero-value" id="valRateKm">
+                <span class="currency-symbol">R$</span>3,87
+              </div>
+              <div id="barRateKm" class="hero-status-bar status-green"></div>
+            </div>
+
+            <!-- Coluna 2: R$ / HORA -->
+            <div class="hero-col">
+              <span class="mini-label">R$ / HORA</span>
+              <div class="hero-value" id="valRateHour">
+                <span class="currency-symbol">R$</span>102
+              </div>
+              <div id="barRateHour" class="hero-status-bar status-green"></div>
+            </div>
+
+            <!-- Coluna 3: NOTA PASSAGEIRO -->
+            <div class="hero-col">
+              <span class="mini-label">★ NOTA</span>
+              <div class="hero-value" id="valRating">
+                4.92
+              </div>
+              <div id="barRating" class="hero-status-bar status-green"></div>
+            </div>
+          </div>
+
+          <!-- Linha 4: Valor Real do Bolso (Lucro Real & Custo Combustível) -->
+          <div class="net-profit-card">
+            <div class="net-profit-left">
+              <span class="net-profit-tag">LUCRO REAL</span>
+              <span class="net-profit-value" id="valNetProfit">R$ 25,95</span>
+            </div>
+            <div class="fuel-cost-right">
+              <span class="fuel-cost-tag">Gasto Combustível</span>
+              <span class="fuel-cost-value" id="valFuelCost">- R$ 6,55</span>
+            </div>
+          </div>
+
+          <!-- Linha 5: Destino & Botão Colapsável de Fachada Street View -->
+          <div class="destination-section">
+            <div class="street-view-toggle-btn" id="btnToggleStreetView" onclick="toggleStreetView()">
+              <div class="destination-text">
+                <span>📍</span>
+                <span id="valDestinationText">Av. Paulista, 1578 - Bela Vista</span>
+              </div>
+              <span id="iconStreetViewArrow">▼ Ver Fachada</span>
+            </div>
+
+            <div class="street-view-container" id="streetViewContainer">
+              <iframe id="iframeStreetView" src="https://www.google.com/maps/embed/v1/streetview?key=AIzaSyDfONk1O4oP2ki_MDcpthSJycBRVOOnhiY&location=-23.561414,-46.6558819&heading=45&pitch=0&fov=90"></iframe>
+            </div>
+          </div>
+
+        </div>
+        <!-- ================= FIM DO OVERLAY ================= -->
+
+        <!-- Simulação de Botão de Aceitar do App de Corrida lá no fundo -->
+        <div class="simulated-app-bottom-sheet">
+          <div style="font-size: 11px; color: #767B8E; text-align: center;">Simulação de corrida da Uber/99 tocando na tela de fundo</div>
+          <div class="simulated-accept-slider">
+            <span>Toque ou deslize para aceitar</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= LADO DIREITO: DECK DE CONTROLE INTERATIVO ================= -->
+  <div class="control-deck">
+    <div class="deck-header">
+      <h1>⚡ DriFly Studio • Redesign do Overlay</h1>
+      <p>Simulador interativo em tempo real para testar o equilíbrio entre as 10 métricas essenciais e o novo indicador visual de veredito instantâneo.</p>
+    </div>
+
+    <!-- Cenários de Teste Rápidos -->
+    <div class="presets-container">
+      <span class="section-label">1. Escolha um Cenário Típico de Corrida</span>
+      <div class="presets-grid">
+        <button class="preset-btn active" onclick="applyPreset('file')">
+          <span>🔥 Corrida Filé (Excelente)</span>
+          <span class="badge">R$ 35,50 • 8.2 km • 18 min • Nota 4.95</span>
+        </button>
+
+        <button class="preset-btn" onclick="applyPreset('duvidosa')">
+          <span>⚖️ Corrida No Limite (Amarela)</span>
+          <span class="badge">R$ 15,00 • 6.8 km • 19 min • Nota 4.80</span>
+        </button>
+
+        <button class="preset-btn" onclick="applyPreset('prejuizo')">
+          <span>⛔ Corrida Prejuízo (Bomba)</span>
+          <span class="badge">R$ 11,50 • 9.0 km • 24 min • Nota 4.88</span>
+        </button>
+
+        <button class="preset-btn" onclick="applyPreset('notabaixa')">
+          <span>⚠️ Passageiro Nota Baixa</span>
+          <span class="badge">R$ 28,00 • 5.0 km • 12 min • Nota 4.58</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Simulação do Modo Casa (Fim de Turno) -->
+    <div class="slider-group" style="border-color: rgba(49, 212, 119, 0.35); background: rgba(16, 25, 20, 0.7);">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 22px;">🏠</span>
+          <div>
+            <div style="font-size: 13px; font-weight: 800; color: #fff;">Simulador do Modo Casa (Fim de Turno)</div>
+            <div style="font-size: 11px; color: #9FA4B4;">Referência: Você está a 14 km do seu bairro</div>
+          </div>
+        </div>
+        <div>
+          <button id="btnToggleModoCasa" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #31D477; background: rgba(49,212,119,0.2); color: #31D477; font-weight: 800; font-size: 11px; cursor: pointer;" onclick="toggleModoCasa()">ATIVADO</button>
+        </div>
+      </div>
+
+      <div class="slider-row" style="margin-top: 10px;">
+        <div class="slider-header">
+          <span>Variação de Distância até sua Casa</span>
+          <span class="val" id="dispDeltaHome">-6.5 km (Aproxima)</span>
+        </div>
+        <input type="range" id="inputDeltaHome" min="-15" max="20" step="0.5" value="-6.5" oninput="recalc()">
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px;">
+        <button class="preset-btn" style="padding: 6px 8px; text-align: center;" onclick="setDelta(-10.5)">
+          <span style="font-size: 11px; color:#31D477;">Perfeita (-10.5k)</span>
+        </button>
+        <button class="preset-btn" style="padding: 6px 8px; text-align: center;" onclick="setDelta(-6.0)">
+          <span style="font-size: 11px; color:#31D477;">Excelente (-6.0k)</span>
+        </button>
+        <button class="preset-btn" style="padding: 6px 8px; text-align: center;" onclick="setDelta(-2.5)">
+          <span style="font-size: 11px; color:#31D477;">Boa (-2.5k)</span>
+        </button>
+        <button class="preset-btn" style="padding: 6px 8px; text-align: center;" onclick="setDelta(3.0)">
+          <span style="font-size: 11px; color:#FF8A24;">Ruim (+3.0k)</span>
+        </button>
+        <button class="preset-btn" style="padding: 6px 8px; text-align: center;" onclick="setDelta(7.5)">
+          <span style="font-size: 11px; color:#FF6B72;">Péssima (+7.5k)</span>
+        </button>
+        <button class="preset-btn" style="padding: 6px 8px; text-align: center;" onclick="setDelta(14.0)">
+          <span style="font-size: 11px; color:#FF454D;">Evitar (+14.0k)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sliders de Ajuste Dinâmico -->
+    <div class="slider-group">
+      <span class="section-label">2. Ajuste Fino dos Parâmetros</span>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Plataforma</span>
+          <span class="val" id="dispPlatform">UBER</span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button style="flex:1; padding: 8px; border-radius: 8px; border:1px solid #333; background: #000; color:#fff; font-weight:700; cursor:pointer;" onclick="setPlatform('UBER')">Uber</button>
+          <button style="flex:1; padding: 8px; border-radius: 8px; border:1px solid #333; background: #F4C100; color:#000; font-weight:900; cursor:pointer;" onclick="setPlatform('99')">99</button>
+        </div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Valor Bruto da Corrida</span>
+          <span class="val" id="dispPrice">R$ 35,50</span>
+        </div>
+        <input type="range" id="inputPrice" min="6" max="120" step="0.5" value="35.5" oninput="recalc()">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Distância Total (km)</span>
+          <span class="val" id="dispDistance">8.2 km</span>
+        </div>
+        <input type="range" id="inputDistance" min="1" max="40" step="0.2" value="8.2" oninput="recalc()">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Duração Estimada (min)</span>
+          <span class="val" id="dispDuration">18 min</span>
+        </div>
+        <input type="range" id="inputDuration" min="3" max="75" step="1" value="18" oninput="recalc()">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Nota do Passageiro (★)</span>
+          <span class="val" id="dispRating">4.95</span>
+        </div>
+        <input type="range" id="inputRating" min="4.00" max="5.00" step="0.01" value="4.95" oninput="recalc()">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Tipo de Veículo</span>
+          <span class="val" id="dispVehicleType">🏍️ Sua Moto (31 km/L)</span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button id="btnModeMoto" style="flex:1; padding: 10px; border-radius: 8px; border:1px solid #31D477; background: rgba(49,212,119,0.18); color:#31D477; font-weight:800; cursor:pointer;" onclick="setVehicle('MOTO')">🏍️ Sua Moto (31 km/L)</button>
+          <button id="btnModeCar" style="flex:1; padding: 10px; border-radius: 8px; border:1px solid #333; background: #1A1D27; color:#9FA4B4; font-weight:700; cursor:pointer;" onclick="setVehicle('CARRO')">🚗 Carro (10 km/L)</button>
+        </div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Preço da Gasolina no Posto</span>
+          <span class="val" id="dispFuelPrice">R$ 5,73 / L</span>
+        </div>
+        <input type="range" id="inputFuelPrice" min="4.50" max="7.50" step="0.01" value="5.73" oninput="recalc()">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Custo Real por KM Rodado</span>
+          <span class="val" id="dispFuelCalc">R$ 0,19 / km</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Explicação da Arquitetura Visual -->
+    <div class="audit-card">
+      <h3>🎯 Como este Redesign resolve o problema dos 10 itens:</h3>
+      <p>Em vez de 10 linhas soltas de texto, organizamos tudo em um **Funil de Decisão Cognitiva de 3 Segundos**:</p>
+      <ul class="audit-list">
+        <li><strong>Segurou o olho (0.5s):</strong> A tarja verde <em>"COMPENSA ACEITAR"</em> ou vermelha <em>"NÃO COMPENSA"</em> já decide na hora sem você ler número.</li>
+        <li><strong>Os 3 Heróis (1.0s):</strong> R$/km, R$/h e Nota em fonte gigante 21px com barrinhas coloridas (como no Rota Pro).</li>
+        <li><strong>O que vai pro bolso (1.5s):</strong> Card destacado com o Lucro Líquido Real e o gasto de combustível descontado.</li>
+        <li><strong>Contexto secundário:</strong> KM total, minutos e endereço continuam presentes, mas sem poluir a visão central.</li>
+        <li><strong>Fachada Street View:</strong> Mantida a 1 clique sem ocupar espaço fixo na tela.</li>
+      </ul>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  let currentPlatform = "UBER";
+  let vehicleType = "MOTO"; // "MOTO" ou "CARRO"
+  let fuelConsumption = 31.0; // 31 km/L na moto do usuário
+  let maintenancePerKm = 0.03; // manutenção moto
+  let isModoCasaActive = true;
+
+  function toggleModoCasa() {
+    isModoCasaActive = !isModoCasaActive;
+    const btn = document.getElementById('btnToggleModoCasa');
+    if (isModoCasaActive) {
+      btn.innerText = "ATIVADO";
+      btn.style.color = "#31D477";
+      btn.style.borderColor = "#31D477";
+      btn.style.background = "rgba(49,212,119,0.2)";
+    } else {
+      btn.innerText = "DESATIVADO";
+      btn.style.color = "#9FA4B4";
+      btn.style.borderColor = "#444";
+      btn.style.background = "#1A1D27";
+    }
+    recalc();
+  }
+
+  function setDelta(val) {
+    document.getElementById('inputDeltaHome').value = val;
+    if (val < 0) {
+      document.getElementById('valDestinationText').innerText = "Rua das Palmeiras, 320 - Bairro de Casa";
+    } else {
+      document.getElementById('valDestinationText').innerText = "Rodovia dos Imigrantes, km 38 - Litoral";
+    }
+    recalc();
+  }
+
+  function setVehicle(type) {
+    vehicleType = type;
+    const btnMoto = document.getElementById('btnModeMoto');
+    const btnCar = document.getElementById('btnModeCar');
+    const dispType = document.getElementById('dispVehicleType');
+
+    if (type === 'MOTO') {
+      fuelConsumption = 31.0;
+      maintenancePerKm = 0.03;
+      dispType.innerText = '🏍️ Sua Moto (31 km/L)';
+      btnMoto.style.borderColor = '#31D477';
+      btnMoto.style.background = 'rgba(49,212,119,0.18)';
+      btnMoto.style.color = '#31D477';
+      btnCar.style.borderColor = '#333';
+      btnCar.style.background = '#1A1D27';
+      btnCar.style.color = '#9FA4B4';
+    } else {
+      fuelConsumption = 10.0;
+      maintenancePerKm = 0.20;
+      dispType.innerText = '🚗 Carro (10 km/L)';
+      btnCar.style.borderColor = '#31D477';
+      btnCar.style.background = 'rgba(49,212,119,0.18)';
+      btnCar.style.color = '#31D477';
+      btnMoto.style.borderColor = '#333';
+      btnMoto.style.background = '#1A1D27';
+      btnMoto.style.color = '#9FA4B4';
+    }
+    recalc();
+  }
+
+  function setPlatform(plat) {
+    currentPlatform = plat;
+    document.getElementById('dispPlatform').innerText = plat;
+    const badge = document.getElementById('platformBadge');
+    badge.innerText = plat;
+    badge.className = plat === 'UBER' ? 'platform-pill uber' : 'platform-pill p99';
+    recalc();
+  }
+
+  function toggleStreetView() {
+    const container = document.getElementById('streetViewContainer');
+    const arrow = document.getElementById('iconStreetViewArrow');
+    if (container.classList.contains('open')) {
+      container.classList.remove('open');
+      arrow.innerText = '▼ Ver Fachada';
+    } else {
+      container.classList.add('open');
+      arrow.innerText = '▲ Ocultar Fachada';
+    }
+  }
+
+  function applyPreset(type) {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+
+    if (type === 'file') {
+      setPlatform('UBER');
+      document.getElementById('inputPrice').value = 35.5;
+      document.getElementById('inputDistance').value = 8.2;
+      document.getElementById('inputDuration').value = 18;
+      document.getElementById('inputRating').value = 4.95;
+      document.getElementById('valDestinationText').innerText = "Av. Paulista, 1578 - Bela Vista";
+    } else if (type === 'duvidosa') {
+      setPlatform('99');
+      document.getElementById('inputPrice').value = 15.0;
+      document.getElementById('inputDistance').value = 6.8;
+      document.getElementById('inputDuration').value = 19;
+      document.getElementById('inputRating').value = 4.80;
+      document.getElementById('valDestinationText').innerText = "Rua Augusta, 900 - Consolação";
+    } else if (type === 'prejuizo') {
+      setPlatform('99');
+      document.getElementById('inputPrice').value = 11.5;
+      document.getElementById('inputDistance').value = 9.0;
+      document.getElementById('inputDuration').value = 24;
+      document.getElementById('inputRating').value = 4.88;
+      document.getElementById('valDestinationText').innerText = "Estrada do Campo Limpo, 2400";
+    } else if (type === 'notabaixa') {
+      setPlatform('UBER');
+      document.getElementById('inputPrice').value = 28.0;
+      document.getElementById('inputDistance').value = 5.0;
+      document.getElementById('inputDuration').value = 12;
+      document.getElementById('inputRating').value = 4.58;
+      document.getElementById('valDestinationText').innerText = "Praça da Sé, 100 - Centro Histórico";
+    }
+    recalc();
+  }
+
+  function recalc() {
+    const price = parseFloat(document.getElementById('inputPrice').value);
+    const distance = parseFloat(document.getElementById('inputDistance').value);
+    const duration = parseInt(document.getElementById('inputDuration').value);
+    const rating = parseFloat(document.getElementById('inputRating').value);
+    const fuelPrice = parseFloat(document.getElementById('inputFuelPrice').value);
+    const deltaHome = parseFloat(document.getElementById('inputDeltaHome').value);
+
+    // Custo por KM baseado no veículo (Moto vs Carro)
+    const costPerKm = (fuelPrice / fuelConsumption) + maintenancePerKm;
+    const fuelCost = distance * costPerKm;
+    const netProfit = price - fuelCost;
+
+    // Atualiza Labels dos Sliders
+    document.getElementById('dispPrice').innerText = 'R$ ' + price.toFixed(2).replace('.', ',');
+    document.getElementById('dispDistance').innerText = distance.toFixed(1) + ' km';
+    document.getElementById('dispDuration').innerText = duration + ' min';
+    document.getElementById('dispRating').innerText = rating.toFixed(2);
+    document.getElementById('dispFuelPrice').innerText = 'R$ ' + fuelPrice.toFixed(2).replace('.', ',') + ' / L';
+    document.getElementById('dispFuelCalc').innerText = 'R$ ' + costPerKm.toFixed(2).replace('.', ',') + ' / km (' + (vehicleType === 'MOTO' ? 'Moto 31 km/L' : 'Carro 10 km/L') + ')';
+
+    // Label do Delta de Casa
+    const dispDelta = document.getElementById('dispDeltaHome');
+    if (deltaHome < 0) {
+      dispDelta.innerText = `${deltaHome.toFixed(1)} km (Aproxima)`;
+      dispDelta.style.color = '#31D477';
+    } else if (deltaHome > 0) {
+      dispDelta.innerText = `+${deltaHome.toFixed(1)} km (Afasta)`;
+      dispDelta.style.color = '#FF454D';
+    } else {
+      dispDelta.innerText = `0.0 km (Neutro)`;
+      dispDelta.style.color = '#FBBF24';
+    }
+
+    // Cálculos de R$/km e R$/h
+    const rateKm = distance > 0 ? (price / distance) : 0;
+    const rateHour = duration > 0 ? (price / (duration / 60)) : 0;
+
+    // Atualiza Metadados Superiores
+    document.getElementById('metaGross').innerText = 'Bruto R$ ' + price.toFixed(2).replace('.', ',');
+    document.getElementById('metaDistance').innerText = distance.toFixed(1) + ' km';
+    document.getElementById('metaDuration').innerText = duration + ' min';
+
+    // Atualiza os 3 Números Grandes
+    document.getElementById('valRateKm').innerHTML = `<span class="currency-symbol">R$</span>${rateKm.toFixed(2).replace('.', ',')}`;
+    document.getElementById('valRateHour').innerHTML = `<span class="currency-symbol">R$</span>${Math.round(rateHour)}`;
+    document.getElementById('valRating').innerText = rating.toFixed(2);
+
+    // Barrinhas Coloridas dos 3 Heróis
+    updateBar('barRateKm', rateKm >= 2.50 ? 'status-green' : (rateKm >= 2.00 ? 'status-yellow' : 'status-red'));
+    updateBar('barRateHour', rateHour >= 45 ? 'status-green' : (rateHour >= 30 ? 'status-yellow' : 'status-red'));
+    updateBar('barRating', rating >= 4.75 ? 'status-green' : 'status-red');
+
+    // Lucro Real & Gasto
+    document.getElementById('valNetProfit').innerText = 'R$ ' + netProfit.toFixed(2).replace('.', ',');
+    document.getElementById('valFuelCost').innerText = '- R$ ' + fuelCost.toFixed(2).replace('.', ',');
+
+    // Regra de Lucratividade Padrão
+    const isLowRating = rating < 4.75;
+    const isProfitable = (rateKm >= 2.00 && rateHour >= 32.0 && !isLowRating);
+
+    const overlay = document.getElementById('driflyOverlay');
+    const verdictBadge = document.getElementById('verdictBadge');
+    const verdictText = document.getElementById('verdictText');
+    const pillModoCasa = document.getElementById('modoCasaPill');
+    const kmTextModoCasa = document.getElementById('modoCasaKmText');
+
+    if (!isModoCasaActive) {
+      pillModoCasa.style.display = 'none';
+      if (isProfitable) {
+        overlay.className = 'drifly-overlay verdict-good';
+        verdictBadge.className = 'verdict-badge good';
+        verdictText.innerText = 'Aceitar ✅';
+      } else {
+        overlay.className = 'drifly-overlay verdict-bad';
+        verdictBadge.className = 'verdict-badge bad';
+        verdictText.innerText = 'Recusar ❌';
+      }
+    } else {
+      pillModoCasa.style.display = 'inline-flex';
+      const kmFormatted = deltaHome > 0 ? `+${deltaHome.toFixed(1)} km` : `${deltaHome.toFixed(1)} km`;
+      kmTextModoCasa.innerText = kmFormatted;
+
+      if (deltaHome <= 0) {
+        // Rumo a Casa (Aproximação)
+        pillModoCasa.className = 'modo-casa-pill approaching';
+        overlay.className = 'drifly-overlay verdict-good';
+        verdictBadge.className = 'verdict-badge good';
+
+        if (deltaHome <= -8.0) {
+          verdictText.innerText = 'Perfeita Direção ✅';
+        } else if (deltaHome <= -4.0) {
+          verdictText.innerText = 'Excelente Direção ✅';
+        } else {
+          verdictText.innerText = 'Boa Direção ✅';
+        }
+      } else {
+        // Afasta de Casa
+        pillModoCasa.className = 'modo-casa-pill moving-away';
+        overlay.className = 'drifly-overlay verdict-bad';
+        verdictBadge.className = 'verdict-badge bad';
+
+        if (deltaHome <= 4.0) {
+          verdictText.innerText = 'Ruim Direção ❌';
+        } else if (deltaHome <= 9.0) {
+          verdictText.innerText = 'Péssima Direção ❌';
+        } else {
+          verdictText.innerText = 'Evitar Direção ❌';
+        }
+      }
+    }
+  }
+
+  function updateBar(elementId, className) {
+    const el = document.getElementById(elementId);
+    el.className = 'hero-status-bar ' + className;
+  }
+
+  // Inicializa com os valores padrão
+  recalc();
+</script>
+
+</body>
+</html>

@@ -103,6 +103,7 @@
             android:textColorHint="#5A6072"
             android:fontFamily="@font/plus_jakarta_sans"
             android:inputType="numberDecimal"
+            android:digits="0123456789,."
             android:paddingHorizontal="14dp"
             android:textSize="15sp"
             android:hint="0,00" />
