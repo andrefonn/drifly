@@ -1,10 +1,13 @@
 package com.drifly.app
 
+import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -20,10 +23,12 @@ import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 
 class BubbleOverlayService : Service() {
 
@@ -192,9 +197,8 @@ class BubbleOverlayService : Service() {
         root?.let { view ->
             val durationMs = getDismissDelayForOffer(offer, prefs)
             bindOverlayData(view, offer, prefs)
-            bindStreetViewPreview(this@BubbleOverlayService, view, offer.destinationAddress, isOfferGood(offer, prefs)) {
-                resetAutoDismissTimer(AUTO_DISMISS_STREETVIEW_MS)
-                startVisualTimerBar(view, AUTO_DISMISS_STREETVIEW_MS)
+            bindStreetViewPreview(this@BubbleOverlayService, view, offer.destinationAddress, true) {
+                pauseAutoDismiss(view)
             }
             resetAutoDismissTimer(durationMs)
             startVisualTimerBar(view, durationMs)
@@ -313,15 +317,49 @@ class BubbleOverlayService : Service() {
         const val NOTIFICATION_ID = 2002
         const val ACTION_STOP_BUBBLE = "com.drifly.app.ACTION_STOP_BUBBLE"
         const val AUTO_DISMISS_DELAY_MS = 20_000L
-        const val AUTO_DISMISS_BAD_OFFER_MS = 4_500L
-        const val AUTO_DISMISS_GOOD_OFFER_MS = 10_000L
+        // 7s: o motorista precisa de tempo para ler os números antes de decidir (antes eram 4,5s)
+        const val AUTO_DISMISS_BAD_OFFER_MS = 7_000L
+        // 15s para a oferta boa: dá tempo de ler com calma e decidir
+        const val AUTO_DISMISS_GOOD_OFFER_MS = 15_000L
         const val AUTO_DISMISS_STREETVIEW_MS = 15_000L
 
         private var instance: BubbleOverlayService? = null
         private var directBubbleView: View? = null
         private val directHandler = Handler(Looper.getMainLooper())
-        private val directAutoDismiss = Runnable { dismissDirectOverlay() }
+        private var activeOverlayOffer: RideOffer? = null
+        private var activeOverlayRideId: Long? = null
+        private var activeAppContext: Context? = null
+
+        private val directAutoDismiss = Runnable {
+            val offer = activeOverlayOffer
+            val rideId = activeOverlayRideId
+            val ctx = activeAppContext
+            if (offer != null && rideId != null && ctx != null) {
+                val prefs = PreferencesManager(ctx)
+                if (!isOfferGood(offer, prefs)) {
+                    // Oferta ruim/não lucrativa que expirou sem o motorista aceitar: descarta do banco
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            DatabaseHelper(ctx).deleteRide(rideId)
+                            ctx.sendBroadcast(Intent(RotaAccessibilityService.ACTION_RIDE_UPDATED).apply {
+                                setPackage(ctx.packageName)
+                            })
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+            activeOverlayRideId = null
+            activeOverlayOffer = null
+            dismissDirectOverlay()
+        }
         private var timerAnimator: android.animation.ObjectAnimator? = null
+
+        // Notificações de oferta (histórico na barra, opção B: uma por oferta)
+        const val OFFERS_CHANNEL_ID = "drifly_offers_channel"
+        private const val OFFERS_GROUP_KEY = "drifly_offers_group"
+        private const val OFFERS_SUMMARY_ID = 2100
+        private const val OFFER_NOTIFICATION_BASE_ID = 2200
+        private val offerNotificationSeq = AtomicInteger(0)
 
         fun isRunning(): Boolean = instance != null || directBubbleView != null
 
@@ -344,6 +382,7 @@ class BubbleOverlayService : Service() {
         private fun startVisualTimerBar(view: View, durationMs: Long) {
             val pbTimer = view.findViewById<android.widget.ProgressBar>(R.id.pbOverlayTimer) ?: return
             timerAnimator?.cancel()
+            pbTimer.visibility = View.VISIBLE
             pbTimer.max = 1000
             pbTimer.progress = 1000
             timerAnimator = android.animation.ObjectAnimator.ofInt(pbTimer, "progress", 1000, 0).apply {
@@ -354,10 +393,27 @@ class BubbleOverlayService : Service() {
         }
 
         /**
+         * Para a contagem regressiva e mantém o card na tela até o motorista fechar no X.
+         * Usado quando ele abre a fachada: precisa de tempo para olhar a foto e decidir.
+         */
+        private fun pauseAutoDismiss(view: View) {
+            directHandler.removeCallbacks(directAutoDismiss)
+            timerAnimator?.cancel()
+            timerAnimator = null
+            instance?.let { current ->
+                current.autoDismissHandler.removeCallbacks(current.autoDismissRunnable)
+            }
+            view.findViewById<View>(R.id.pbOverlayTimer)?.visibility = View.GONE
+            Log.i(TAG, "Contagem pausada: o card agora só fecha no X")
+        }
+
+        /**
          * Quando o motorista ACEITA a corrida, se houver endereço de destino, mantém o overlay por mais 8 segundos
          * com a foto da fachada do Street View aberta automaticamente e depois fecha sozinho.
          */
         fun onRideAcceptedShowStreetViewBriefly(context: Context, destination: String?) {
+            // Garante que uma corrida aceita pelo motorista nunca seja apagada por auto-dismiss ou descarte
+            activeOverlayRideId = null
             directHandler.post {
                 val view = directBubbleView ?: instance?.bubbleView
                 if (view == null || !view.isAttachedToWindow || destination.isNullOrBlank()) {
@@ -379,18 +435,30 @@ class BubbleOverlayService : Service() {
             }
         }
 
-        fun showOffer(context: Context, offer: RideOffer) {
+        fun showOffer(context: Context, offer: RideOffer, rideId: Long? = null) {
+            // Publica a oferta na barra (histórico) ANTES de tentar o overlay: assim, mesmo que a
+            // permissão de sobreposição esteja bloqueada, os valores continuam acessíveis.
+            try {
+                postOfferNotification(context.applicationContext, offer, PreferencesManager(context.applicationContext), rideId)
+            } catch (t: Throwable) {
+                try { Log.w(TAG, "Falha ao publicar notificação da oferta", t) } catch (ignored: Throwable) {}
+            }
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
                 Log.w(TAG, "Permissão SYSTEM_ALERT_WINDOW não concedida.")
                 return
             }
 
             directHandler.post {
-                showDirectOverlay(context.applicationContext, offer)
+                showDirectOverlay(context.applicationContext, offer, rideId)
             }
         }
 
-        private fun showDirectOverlay(appContext: Context, offer: RideOffer) {
+        private fun showDirectOverlay(appContext: Context, offer: RideOffer, rideId: Long? = null) {
+            activeOverlayOffer = offer
+            activeOverlayRideId = rideId
+            activeAppContext = appContext
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(appContext)) {
                 return
             }
@@ -409,10 +477,8 @@ class BubbleOverlayService : Service() {
             val existingView = directBubbleView
             if (existingView != null && existingView.isAttachedToWindow) {
                 bindOverlayData(existingView, offer, prefs)
-                bindStreetViewPreview(appContext, existingView, offer.destinationAddress, goodOffer) {
-                    directHandler.removeCallbacks(directAutoDismiss)
-                    directHandler.postDelayed(directAutoDismiss, AUTO_DISMISS_STREETVIEW_MS)
-                    startVisualTimerBar(existingView, AUTO_DISMISS_STREETVIEW_MS)
+                bindStreetViewPreview(appContext, existingView, offer.destinationAddress, true) {
+                    pauseAutoDismiss(existingView)
                 }
                 directHandler.removeCallbacks(directAutoDismiss)
                 directHandler.postDelayed(directAutoDismiss, dismissDelayMs)
@@ -470,14 +536,25 @@ class BubbleOverlayService : Service() {
             directBubbleView = root
 
             root.findViewById<View>(R.id.btnCloseBubble)?.setOnClickListener {
+                val idToDelete = activeOverlayRideId
+                if (idToDelete != null) {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            DatabaseHelper(appContext).deleteRide(idToDelete)
+                            appContext.sendBroadcast(Intent(RotaAccessibilityService.ACTION_RIDE_UPDATED).apply {
+                                setPackage(appContext.packageName)
+                            })
+                        } catch (_: Exception) {}
+                    }
+                }
+                activeOverlayRideId = null
+                activeOverlayOffer = null
                 dismissDirectOverlay()
             }
 
             bindOverlayData(root, offer, prefs)
-            bindStreetViewPreview(appContext, root, offer.destinationAddress, goodOffer) {
-                directHandler.removeCallbacks(directAutoDismiss)
-                directHandler.postDelayed(directAutoDismiss, AUTO_DISMISS_STREETVIEW_MS)
-                startVisualTimerBar(root, AUTO_DISMISS_STREETVIEW_MS)
+            bindStreetViewPreview(appContext, root, offer.destinationAddress, true) {
+                pauseAutoDismiss(root)
             }
 
             root.visibility = View.VISIBLE
@@ -688,13 +765,13 @@ class BubbleOverlayService : Service() {
                 }
             }
 
-            // Pré-carrega o Street View em segundo plano quando a corrida é boa para abrir instantaneamente
+            // Pré-carrega a fachada SEMPRE (não só nas ofertas boas): assim o toque em "Fachada"
+            // mostra a foto na hora, sem esperar geocodificação + download.
             if (autoOpen) {
                 loadStreetViewNow()
             }
 
             btnToggle.setOnClickListener {
-                onExpand()
                 val isVisible = frameContainer.visibility == View.VISIBLE
                 if (isVisible) {
                     frameContainer.visibility = View.GONE
@@ -703,7 +780,134 @@ class BubbleOverlayService : Service() {
                     frameContainer.visibility = View.VISIBLE
                     tvIcon.text = "▲ Ocultar"
                     loadStreetViewNow()
+                    // Motorista abriu a fachada: para de contar o tempo, ele fecha no X
+                    onExpand()
                 }
+            }
+        }
+
+        /**
+         * Publica a oferta na barra de notificações.
+         *
+         * Objetivo: se o motorista aceitar e o overlay fechar, ele continua tendo acesso aos valores,
+         * ao endereço e à fachada pela notificação. Cada oferta vira uma notificação própria (histórico),
+         * agrupadas sob o mesmo grupo para não poluir a barra.
+         */
+        fun postOfferNotification(
+            context: Context,
+            offer: RideOffer,
+            prefs: PreferencesManager,
+            rideId: Long? = null
+        ) {
+            try {
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val channel = NotificationChannel(
+                        OFFERS_CHANNEL_ID,
+                        "Ofertas recebidas",
+                        NotificationManager.IMPORTANCE_DEFAULT
+                    ).apply {
+                        description = "Histórico das ofertas com valores, lucro e acesso à fachada"
+                        setShowBadge(true)
+                    }
+                    manager.createNotificationChannel(channel)
+                }
+
+                val ptBr = Locale("pt", "BR")
+                val isGood = isOfferGood(offer, prefs)
+                val verdict = if (isGood) "Aceitar ✅" else "Recusar ❌"
+                val accent = if (isGood) 0xFF31D477.toInt() else 0xFFFF454D.toInt()
+
+                val title = String.format(ptBr, "%s • %s • R$ %.2f", verdict, offer.platform, offer.price)
+
+                val summaryLine = buildString {
+                    append(String.format(ptBr, "%.1f km", offer.distanceKm))
+                    append(String.format(ptBr, " • R$/km %.2f", offer.ratePerKm))
+                    if (offer.ratePerHour > 0.0) append(String.format(ptBr, " • R$/h %.0f", offer.ratePerHour))
+                    append(String.format(ptBr, " • Lucro R$ %.2f", offer.netProfit))
+                    offer.passengerRating?.let { append(String.format(ptBr, " • Nota %.2f", it)) }
+                }
+
+                val expanded = buildString {
+                    append(summaryLine)
+                    if (offer.durationMinutes > 0) append(String.format(ptBr, "\n⏱ %d min", offer.durationMinutes))
+                    val dest = offer.destinationAddress
+                    if (!dest.isNullOrBlank()) append("\n📍 $dest")
+                    append("\nToque para abrir o DriFly")
+                }
+
+                val notificationId = OFFER_NOTIFICATION_BASE_ID + (offerNotificationSeq.incrementAndGet() % 400)
+
+                val openIntent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                val openPi = PendingIntent.getActivity(
+                    context,
+                    notificationId,
+                    openIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                val builder = NotificationCompat.Builder(context, OFFERS_CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_drifly_logo)
+                    .setContentTitle(title)
+                    .setContentText(summaryLine)
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
+                    .setColor(accent)
+                    .setContentIntent(openPi)
+                    .setAutoCancel(true)
+                    .setOnlyAlertOnce(true)
+                    .setSilent(true)
+                    .setGroup(OFFERS_GROUP_KEY)
+                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+
+                val dest = offer.destinationAddress
+                if (!dest.isNullOrBlank()) {
+                    val streetViewUrl = StreetViewHelper.buildStaticStreetViewUrl(rawAddress = dest)
+                    val facadeIntent = Intent(Intent.ACTION_VIEW, Uri.parse(streetViewUrl)).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    val facadePi = PendingIntent.getActivity(
+                        context,
+                        notificationId + 1000,
+                        facadeIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    builder.addAction(0, "Ver fachada", facadePi)
+                }
+
+                if (rideId != null && rideId > 0) {
+                    val discardIntent = Intent(context, OfferActionReceiver::class.java).apply {
+                        action = OfferActionReceiver.ACTION_DISCARD_OFFER
+                        putExtra(OfferActionReceiver.EXTRA_DISCARD_RIDE_ID, rideId)
+                        putExtra(OfferActionReceiver.EXTRA_DISCARD_NOTIF_ID, notificationId)
+                    }
+                    val discardPi = PendingIntent.getBroadcast(
+                        context,
+                        notificationId + 2000,
+                        discardIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    builder.addAction(0, "🗑️ Descartar", discardPi)
+                }
+
+                builder.addAction(0, "Abrir DriFly", openPi)
+
+                manager.notify(notificationId, builder.build())
+
+                val summary = NotificationCompat.Builder(context, OFFERS_CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_drifly_logo)
+                    .setContentTitle("Ofertas DriFly")
+                    .setContentText("Histórico das ofertas recentes")
+                    .setGroup(OFFERS_GROUP_KEY)
+                    .setGroupSummary(true)
+                    .setSilent(true)
+                    .setAutoCancel(true)
+                    .build()
+                manager.notify(OFFERS_SUMMARY_ID, summary)
+            } catch (t: Throwable) {
+                try { Log.w(TAG, "Falha ao publicar notificação da oferta", t) } catch (ignored: Throwable) {}
             }
         }
 

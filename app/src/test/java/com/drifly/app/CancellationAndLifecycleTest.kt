@@ -272,8 +272,8 @@ class CancellationAndLifecycleTest {
         assertEquals("com.drifly.app.ACTION_STOP_MONITORING", MonitoringService.ACTION_STOP_MONITORING)
         assertEquals("com.drifly.app.ACTION_STOP_BUBBLE", BubbleOverlayService.ACTION_STOP_BUBBLE)
         assertEquals(20_000L, BubbleOverlayService.AUTO_DISMISS_DELAY_MS)
-        assertEquals(4_500L, BubbleOverlayService.AUTO_DISMISS_BAD_OFFER_MS)
-        assertEquals(10_000L, BubbleOverlayService.AUTO_DISMISS_GOOD_OFFER_MS)
+        assertEquals(7_000L, BubbleOverlayService.AUTO_DISMISS_BAD_OFFER_MS)
+        assertEquals(15_000L, BubbleOverlayService.AUTO_DISMISS_GOOD_OFFER_MS)
         assertEquals(15_000L, BubbleOverlayService.AUTO_DISMISS_STREETVIEW_MS)
         assertEquals("drifly_support_reminder_8h", SupportNotificationWorker.WORK_NAME_8H)
         assertEquals("drifly_support_reminder_15h", SupportNotificationWorker.WORK_NAME_15H)
@@ -371,6 +371,28 @@ class CancellationAndLifecycleTest {
             "Subsequent opens after deep-link must also skip splash",
             MainActivity.consumeColdStartSplashEligibility(hasSavedInstanceState = false, isBackgroundShortcutIntent = false)
         )
+    }
+
+    @Test
+    fun testIdleDriverScreenDetectionResetsActiveRide() {
+        val uberIdle = listOf("Você está online", "Procurando viagens")
+        assertTrue("Uber idle screen must be detected", ParsingEngine.isIdleDriverScreen(uberIdle))
+
+        val app99Idle = listOf("Você está online", "Aguardando chamadas")
+        assertTrue("99 idle screen must be detected", ParsingEngine.isIdleDriverScreen(app99Idle))
+
+        val radarIdle = listOf("Radar de viagens", "Encontrar viagens")
+        assertTrue("Trip radar screen must be detected as idle", ParsingEngine.isIdleDriverScreen(radarIdle))
+
+        val activeTrip = listOf("Em viagem com João", "Desembarque na Av Paulista")
+        assertFalse("Active trip must NOT be detected as idle", ParsingEngine.isIdleDriverScreen(activeTrip))
+    }
+
+    @Test
+    fun testOfferActionReceiverConstants() {
+        assertEquals("com.drifly.app.ACTION_DISCARD_OFFER", OfferActionReceiver.ACTION_DISCARD_OFFER)
+        assertEquals("EXTRA_DISCARD_RIDE_ID", OfferActionReceiver.EXTRA_DISCARD_RIDE_ID)
+        assertEquals("EXTRA_DISCARD_NOTIF_ID", OfferActionReceiver.EXTRA_DISCARD_NOTIF_ID)
     }
 }
 

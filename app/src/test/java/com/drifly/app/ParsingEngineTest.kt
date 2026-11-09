@@ -80,6 +80,144 @@ class ParsingEngineTest {
     }
 
     @Test
+    fun testParseRealUberMotoCardComTotalETrechos() {
+        // Texto REAL da tela da Uber Motorista (21:15 de 06/11/2026)
+        val texts = listOf(
+            "Moto",
+            "Exclusivo",
+            "R$5,73",
+            "12min • 4.1km • Est. de R$1,40/km",
+            "5,00 (17)",
+            "6 min (1.8km)",
+            "R. Adolfo Soares, Itinga, Joinville",
+            "6 minutos (2.3km)",
+            "Rua Estados Unidos, 75, Araquari, Araquari",
+            "Aceitar"
+        )
+        val offer = ParsingEngine.parseNodes(
+            packageName = "com.ubercab.driver",
+            texts = texts,
+            costPerKm = 0.2148,
+            minRatingThreshold = 4.75f
+        )
+
+        assertNotNull("Card real da Uber deve gerar oferta", offer)
+        assertEquals("UBER", offer!!.platform)
+        assertEquals(5.73, offer.price, 0.001)
+        assertEquals(4.1, offer.distanceKm, 0.01)
+        assertEquals(12, offer.durationMinutes)
+        assertEquals(1.40, offer.ratePerKm, 0.01)
+        // A fachada deve apontar para o DESTINO (último endereço do card), não para o embarque
+        assertEquals("Rua Estados Unidos, 75, Araquari, Araquari", offer.destinationAddress)
+    }
+
+    @Test
+    fun testParseTrechosComMinutosSemTotalExplicito() {
+        // "minutos" por extenso também precisa contar como trecho (a Uber usa os dois formatos)
+        val texts = listOf(
+            "UberX",
+            "R$ 20,00",
+            "6 min (1.8km)",
+            "6 minutos (2.3km)",
+            "Aceitar"
+        )
+        val offer = ParsingEngine.parseNodes(
+            packageName = "com.ubercab.driver",
+            texts = texts,
+            costPerKm = 0.2148,
+            minRatingThreshold = 4.75f
+        )
+        assertNotNull(offer)
+        assertEquals(4.1, offer!!.distanceKm, 0.01)
+        assertEquals(12, offer.durationMinutes)
+    }
+
+    @Test
+    fun testBannerPromocionalNaoViraCorrida() {
+        // Texto REAL lido por OCR do banner "Você ganhou R$38,2 com o pacote 0% de."
+        // A barra de status ("19:33 M") era interpretada como "33 metros" e gerava uma oferta falsa.
+        val texts = listOf(
+            "19:33 M 99",
+            "Taxa",
+            "% 0% de Taxa 13:23:30",
+            "Ver",
+            "ITÌNGA",
+            "Você ganhou R$38,2 com o pacote 0% de",
+            "9A060%",
+            "Conectar",
+            "%",
+            "A"
+        )
+        val offer = ParsingEngine.parseNodes(
+            packageName = "com.app99.driver",
+            texts = texts,
+            costPerKm = 0.2148,
+            minRatingThreshold = 4.75f
+        )
+        assertNull("Banner promocional não pode virar oferta de corrida", offer)
+    }
+
+    @Test
+    fun testRelogioDaBarraDeStatusNaoViraDistancia() {
+        val texts = listOf("19:42 M 99", "R$ 12,50", "Taxa", "Conectar")
+        val offer = ParsingEngine.parseNodes(
+            packageName = "com.app99.driver",
+            texts = texts,
+            costPerKm = 0.2148,
+            minRatingThreshold = 4.75f
+        )
+        assertNull("Horário da barra de status não pode ser lido como metros", offer)
+    }
+
+    @Test
+    fun testDistanciaIrrisoriaNaoViraOferta() {
+        val texts = listOf("R$ 9,00", "0,03 km", "Aceitar")
+        val offer = ParsingEngine.parseNodes(
+            packageName = "com.app99.driver",
+            texts = texts,
+            costPerKm = 0.2148,
+            minRatingThreshold = 4.75f
+        )
+        assertNull("Distância residual de 30 metros não pode virar oferta", offer)
+    }
+
+    @Test
+    fun testParse99MotoRealCardWithTwoLegsInMinutesFormat() {
+        // Texto REAL capturado por OCR da tela da 99 (card 99Moto, 06/11/2026 19:02)
+        // Formato dos trechos: "7 min (1,8 km)" = embarque e "2 min (1 km)" = viagem, sem rótulo textual.
+        val texts = listOf(
+            "Moto",
+            "R$5,10",
+            "0% de Taxa99 semanal",
+            "R$1,38 Tarifa base dinâmica incl.",
+            "4,91- 581 corridas",
+            "7 min (1,8 km)",
+            "ponto final do ônibus Itinga, Itinga",
+            "2 min (1 km)",
+            "CPF e Cartão verif.",
+            "Itinga",
+            "Carine cílios e sobrancelhas, Rua São João, 62 -",
+            "Aceitar"
+        )
+        val offer = ParsingEngine.parseNodes(
+            packageName = "com.app99.driver",
+            texts = texts,
+            costPerKm = 0.2148,
+            minRatingThreshold = 4.75f
+        )
+
+        assertNotNull("Card real da 99Moto deve gerar oferta", offer)
+        assertEquals("99", offer!!.platform)
+        assertEquals(5.10, offer.price, 0.001)
+        // Embarque (1,8 km) + viagem (1,0 km) = 2,8 km percorridos no total
+        assertEquals(2.8, offer.distanceKm, 0.01)
+        // 7 min de embarque + 2 min de viagem = 9 min
+        assertEquals(9, offer.durationMinutes)
+        // R$/km real = 5,10 / 2,8 = 1,82 (e não 2,83 usando só o embarque)
+        assertEquals(1.82, offer.ratePerKm, 0.01)
+    }
+
+    @Test
     fun testParse99OfferWithSplitCurrencyAndNumber() {
         // Simula a árvore de nós real da 99 onde R$, valor, número e km são TextViews separados
         val texts = listOf(

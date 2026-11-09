@@ -173,6 +173,47 @@ class DatabaseHelper(context: Context) :
         return ride
     }
 
+    /**
+     * Busca se já existe uma corrida registrada recentemente para a mesma plataforma com valor
+     * e distância equivalentes. Evita que a mesma oferta gere duas linhas no banco quando tanto
+     * o AccessibilityService quanto o NotificationListener a detectam.
+     */
+    fun findRecentDuplicateRide(
+        platform: String,
+        price: Double,
+        distanceKm: Double,
+        withinMs: Long = 25_000L
+    ): RideRecord? {
+        val db = readableDatabase
+        val since = System.currentTimeMillis() - withinMs
+        val cursor = db.rawQuery(
+            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price " +
+                    "FROM rides WHERE UPPER(platform) = UPPER(?) AND timestamp >= ? ORDER BY timestamp DESC",
+            arrayOf(platform, since.toString())
+        )
+        var match: RideRecord? = null
+        while (cursor.moveToNext()) {
+            val gross = cursor.getDouble(2)
+            val dist = cursor.getDouble(3)
+            if (Math.abs(gross - price) < 0.05 && Math.abs(dist - distanceKm) < 0.2) {
+                match = RideRecord(
+                    id = cursor.getLong(0),
+                    platform = cursor.getString(1),
+                    grossPrice = gross,
+                    distanceKm = dist,
+                    netProfit = cursor.getDouble(4),
+                    timestamp = cursor.getLong(5),
+                    status = cursor.getString(6) ?: RideRecord.STATUS_ESTIMADO,
+                    cancellationFee = cursor.getDouble(7),
+                    originalPrice = cursor.getDouble(8)
+                )
+                break
+            }
+        }
+        cursor.close()
+        return match
+    }
+
     fun getLatestEstimatedRide(platform: String? = null): RideRecord? {
         val db = readableDatabase
         val sql = if (platform != null) {

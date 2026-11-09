@@ -11,10 +11,16 @@ android {
         applicationId = "com.drifly.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Somente arquiteturas de celular de verdade: as libs x86/x86_64 do OCR (22 MB)
+        // servem apenas para emulador e não têm uso na distribuição.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     signingConfigs {
@@ -75,7 +81,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("com.google.android.gms:play-services-location:21.3.0")
-    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
+    // OCR EMBUTIDO (não depende do Google Play Services nem de download em 1º uso).
+    // O modelo vem dentro do APK — é o que garante leitura da 99 (canvas) em qualquer aparelho.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
 }

@@ -82,6 +82,14 @@
         </receiver>
 
         <receiver
+            android:name=".OfferActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.drifly.app.ACTION_DISCARD_OFFER" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".RideSimulationReceiver"
             android:exported="true">
             <intent-filter>

@@ -58,6 +58,7 @@ class BackupAndUpdateTest {
     fun testVersionComparisonLogic() {
         assertTrue(UpdateManager.isNewerVersion("1.0.1", "1.0.0"))
         assertTrue(UpdateManager.isNewerVersion("v1.1.0", "1.0.9"))
+        assertTrue(UpdateManager.isNewerVersion("v1.1.1", "1.1.0"))
         assertTrue(UpdateManager.isNewerVersion("v2.0.0", "1.9.9"))
         assertTrue(UpdateManager.isNewerVersion("2.1", "2.0.5"))
         assertFalse(UpdateManager.isNewerVersion("1.0.0", "1.0.0"))

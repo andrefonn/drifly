@@ -192,6 +192,7 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
+        AppLogger.init(this)
         prefs = PreferencesManager(this)
         db = DatabaseHelper(this)
 
@@ -202,6 +203,13 @@ class MainActivity : AppCompatActivity() {
         // Agenda tarefas automáticas em segundo plano (Backup 00:00 e Lembretes 08h, 15h, 20h)
         DailyBackupWorker.scheduleDailyBackup(this)
         SupportNotificationWorker.scheduleAllSupportReminders(this)
+
+        // Autocorreção: a preferência pode dizer "monitoramento ativo" enquanto o serviço em primeiro
+        // plano morreu (acontece a cada atualização do APK). Religa para o usuário não ficar sem
+        // notificação contínua e sem a proteção contra o sistema matar o app.
+        if (prefs.isMonitoringActive && !MonitoringService.isRunning()) {
+            MonitoringService.start(this)
+        }
 
         // Registra o broadcast receiver para mudanças no estado do monitoramento e odômetro
         val filter = IntentFilter().apply {

@@ -1426,7 +1426,7 @@
                         android:id="@+id/tvAppVersionFooter"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="DriFly v1.1.0 • Compilação Oficial"
+                        android:text="DriFly v1.1.1 • Compilação Oficial"
                         android:textColor="#A3A8B5"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp" />

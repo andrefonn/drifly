@@ -10,6 +10,10 @@ object ParsingEngine {
     // Valor mínimo real de uma oferta de corrida (filtra tarifas R$/km residuais como R$ 1,59 ou saldos R$ 0,00)
     const val MIN_VALID_RIDE_PRICE = 3.80
 
+    // Guarda-corpos contra lixo de OCR (banner promocional, barra de status, texto solto da tela)
+    const val MIN_VALID_DISTANCE_KM = 0.1
+    const val MAX_PLAUSIBLE_RATE_PER_KM = 50.0
+
     // Regex para Preço: Suporta R$ 18,90 / R$ 18.90 / R$ 1.520,50 / R$ 25 (e ignora tarifas por km como R$ 2,50/km ou R$ 1,59 (por km))
     private val REGEX_PRECO_EXPLICITO = Pattern.compile(
         """(?i)R\$\s*([0-9]{1,4}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,4}[.,][0-9]{2}|[0-9]{1,4})(?!\s*\(?\s*(?:/|por)\s*km)"""
@@ -77,10 +81,19 @@ object ParsingEngine {
 
     // Regex de Distância em KM e Metros
     private val REGEX_KM = Pattern.compile("""(?i)(\d{1,3}(?:[.,]\d{1,2})?)\s*km""")
-    private val REGEX_METROS = Pattern.compile("""(?i)(\d{2,4})\s*(?:m|metros)\b(?!\s*in)""")
+
+    // Metros: exige que o número NÃO venha logo depois de outro dígito ou de ':' para não ler
+    // o relógio da barra de status ("19:33 M 99" virava "33 metros" e criava oferta falsa).
+    private val REGEX_METROS = Pattern.compile("""(?i)(?<![\d:])(\d{2,4})\s*(?:metros|m)\b(?!\d)(?!\s*in)""")
 
     // Regex de Duração
     private val REGEX_MIN = Pattern.compile("""(?i)(\d{1,3})\s*min""")
+
+    // Trecho no formato "7 min (1,8 km)" — usado pelos cards da 99 e da Uber para
+    // distância/tempo até o passageiro e de viagem. A Uber escreve tanto "6 min" quanto "6 minutos".
+    private val REGEX_TRECHO_MIN_KM = Pattern.compile(
+        """(?i)(\d{1,3})\s*(?:minutos|minuto|min)\s*\(\s*(\d{1,3}(?:[.,]\d{1,2})?)\s*km\s*\)"""
+    )
 
     // Regex de Nota do passageiro (3.00 a 5.00)
     private val REGEX_NOTA = Pattern.compile("""(?:★|\*|\b)?\s*([345][.,]\d{1,2})\b""")
@@ -204,6 +217,26 @@ object ParsingEngine {
     fun isActiveRideOrNavigationScreen(texts: List<String>): Boolean {
         val joined = texts.joinToString(" ").lowercase()
         return ACTIVE_RIDE_OR_NAVIGATION_MARKERS.any { joined.contains(it) }
+    }
+
+    private val IDLE_DRIVER_MARKERS = listOf(
+        "você está online",
+        "voce esta online",
+        "procurando viagens",
+        "encontrar viagens",
+        "aguardando chamadas",
+        "aguardando pedidos",
+        "em busca de passageiros",
+        "radar de viagens"
+    )
+
+    /**
+     * Verifica se o motorista está na tela ociosa dos apps parceiros (online aguardando chamadas).
+     * Usado para resetar qualquer estado residual de "corrida em andamento".
+     */
+    fun isIdleDriverScreen(texts: List<String>): Boolean {
+        val joined = texts.joinToString(" ").lowercase()
+        return IDLE_DRIVER_MARKERS.any { joined.contains(it) }
     }
 
     /**
@@ -364,10 +397,40 @@ object ParsingEngine {
             }
         }
 
+        // 2b. Trechos no formato "7 min (1,8 km)": embarque e viagem.
+        // Quando o card não traz rótulo textual ("até o passageiro" / "de viagem"), esse formato é o
+        // único indício de que existem DOIS trechos. Somar ambos é o que reflete o km realmente rodado
+        // (usar só o primeiro trecho infla o R$/km e faz o app recomendar corrida ruim).
+        var legsDistanceSum: Double? = null
+        var legsDurationSum: Int? = null
+        var legCount = 0
+        var legDistanceAccum = 0.0
+        var legMinutesAccum = 0
+        for (text in cleanTexts) {
+            val matcher = REGEX_TRECHO_MIN_KM.matcher(text)
+            while (matcher.find()) {
+                val mins = matcher.group(1)?.toIntOrNull()
+                val km = matcher.group(2)?.replace(",", ".")?.toDoubleOrNull()
+                if (mins != null && km != null && km > 0.0) {
+                    legDistanceAccum += km
+                    legMinutesAccum += mins
+                    legCount++
+                }
+            }
+        }
+        if (legCount >= 2) {
+            legsDistanceSum = Math.round(legDistanceAccum * 100.0) / 100.0
+            legsDurationSum = legMinutesAccum
+        }
+
         // Determinação da distância final:
         // Se houver total explícito, usa ele
+        val legsSum = legsDistanceSum
         if (totalDistKm != null && totalDistKm > 0.0) {
             distance = totalDistKm
+        } else if (legsSum != null && legsSum > 0.0) {
+            // Embarque + viagem identificados pelo formato "X min (Y km)"
+            distance = legsSum
         } else if (pickupDistKm != null && tripDistKm != null) {
             // Se identificou trecho até o passageiro E trecho de viagem, a distância total é a soma
             distance = Math.round((pickupDistKm + tripDistKm) * 100.0) / 100.0
@@ -394,6 +457,12 @@ object ParsingEngine {
             }
         }
 
+        // Se identificamos múltiplos trechos ("X min (Y km)"), o tempo real é a soma deles
+        val legsMinutes = legsDurationSum
+        if (legsMinutes != null && legsMinutes > 0) {
+            duration = legsMinutes
+        }
+
         // 4. Extração de Nota do Passageiro (★ 4.85 ou 4.85)
         for (text in cleanTexts) {
             if (text.contains("R$") || text.contains("km", ignoreCase = true) || text.contains("min", ignoreCase = true)) {
@@ -414,6 +483,15 @@ object ParsingEngine {
         if (price != null && distance != null && distance > 0.0) {
             val rate = price / distance
             val roundedRate = Math.round(rate * 100.0) / 100.0
+
+            // Guarda-corpo: distância irrisória ou rentabilidade absurda não vêm de um card de corrida,
+            // e sim de texto residual da tela (banner de recompensa, barra de status, botão solto).
+            if (distance < MIN_VALID_DISTANCE_KM || rate > MAX_PLAUSIBLE_RATE_PER_KM) {
+                try {
+                    Log.d(TAG, "parseNodes DESCARTADO (fora de faixa plausível): R$$price, ${distance}km, R$/km=$roundedRate")
+                } catch (ignored: Throwable) {}
+                return null
+            }
 
             val ratePerHour = if (duration != null && duration > 0) {
                 Math.round((price / (duration / 60.0)) * 100.0) / 100.0
@@ -454,17 +532,25 @@ object ParsingEngine {
         return null
     }
 
+    /**
+     * Extrai o endereço de DESTINO da oferta.
+     *
+     * Os cards da Uber e da 99 listam o ponto de EMBARQUE primeiro e o destino depois.
+     * Por isso ficamos com o ÚLTIMO endereço encontrado (antes pegávamos o primeiro e a
+     * fachada abria no lugar errado).
+     */
     fun extractDestinationAddress(texts: List<String>): String? {
+        var lastAddress: String? = null
         for (text in texts) {
             val m = REGEX_ENDERECO.matcher(text)
-            if (m.find()) {
+            while (m.find()) {
                 val addr = m.group()?.trim()?.trimEnd(',', '-', '.', ' ')
                 if (!addr.isNullOrBlank() && !addr.contains("R$") && !addr.contains("km", ignoreCase = true)) {
-                    return addr
+                    lastAddress = addr
                 }
             }
         }
-        return null
+        return lastAddress
     }
 
     fun parseReceipt(packageName: String, texts: List<String>): ReceiptResult? {

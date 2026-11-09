@@ -6,6 +6,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Path
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
@@ -35,17 +37,93 @@ class RotaAccessibilityService : AccessibilityService() {
     private var lastReceiptProcessedTimestamp: Long = 0L
     private var lastScreenshotTimestamp: Long = 0L
     private var declineCooldownUntil: Long = 0L
+    private var lastDiagEventTimestamp: Long = 0L
+    private var activeRideStartTime: Long = 0L
+
+    // Vigia de OCR: a 99 desenha o card em canvas e emite pouquíssimos eventos de acessibilidade,
+    // então não dá para depender de evento para capturar a oferta. Este watchdog tenta o OCR
+    // periodicamente enquanto o app monitorado está na tela e a árvore veio sem nenhum texto.
+    private val ocrHandler = Handler(Looper.getMainLooper())
+    private var consecutiveEmptyOcrCount = 0
+
+    @Volatile
+    private var ocrFastRetryPending = false
 
     private lateinit var prefs: PreferencesManager
     private lateinit var db: DatabaseHelper
 
     override fun onCreate() {
         super.onCreate()
+        AppLogger.init(this)
         prefs = PreferencesManager(this)
         db = DatabaseHelper(this)
         try {
             Log.i(TAG, "RotaAccessibilityService inicializado com sucesso.")
         } catch (ignored: Throwable) {}
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        AppLogger.init(this)
+        ocrHandler.removeCallbacks(ocrWatchdogRunnable)
+        ocrHandler.postDelayed(ocrWatchdogRunnable, OCR_WATCHDOG_INTERVAL_MS)
+        diag("WATCHDOG iniciado")
+    }
+
+    /**
+     * Vigia periódico de OCR.
+     *
+     * Por que existe: a 99 renderiza o card de oferta em canvas Flutter, sem nenhum texto na árvore
+     * de acessibilidade, e dispara pouquíssimos eventos. Depender de evento significava UMA tentativa
+     * de captura por oferta — e se essa única captura caísse no meio da transição de tela (frame
+     * preto), a oferta passava batida e o overlay nunca aparecia.
+     */
+    private val ocrWatchdogRunnable = object : Runnable {
+        override fun run() {
+            var nextDelay = OCR_WATCHDOG_INTERVAL_MS
+            try {
+                val started = runOcrWatchdogTick()
+                if (started && ocrFastRetryPending && consecutiveEmptyOcrCount < OCR_MAX_FAST_RETRIES) {
+                    nextDelay = OCR_FAST_RETRY_MS
+                } else {
+                    ocrFastRetryPending = false
+                }
+            } catch (t: Throwable) {
+                try { Log.w(TAG, "Falha no watchdog de OCR", t) } catch (ignored: Throwable) {}
+            } finally {
+                ocrHandler.removeCallbacks(this)
+                ocrHandler.postDelayed(this, nextDelay)
+            }
+        }
+    }
+
+    /** @return true se disparou uma captura de tela + OCR nesta passagem. */
+    private fun runOcrWatchdogTick(): Boolean {
+        if (!prefs.isMonitoringActive) return false
+        if (BubbleOverlayService.isRunning()) return false
+        if (System.currentTimeMillis() < declineCooldownUntil) return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
+
+        val now = System.currentTimeMillis()
+        if (now - lastScreenshotTimestamp < OCR_MIN_INTERVAL_MS) return false
+
+        val root = try { rootInActiveWindow } catch (_: Exception) { null } ?: return false
+        val activePkg = try { root.packageName?.toString() ?: "" } catch (_: Exception) { "" }
+        if (activePkg.contains("com.drifly.app", ignoreCase = true)) return false
+        if (!isSupportedPackageName(activePkg)) return false
+
+        // Se a árvore tem texto, o caminho normal de leitura já resolve (Uber, iFood...)
+        val texts = ArrayList<String>()
+        val clickables = ArrayList<AccessibilityNodeInfo>()
+        try { traverseNodes(root, texts, clickables, 0) } catch (_: Exception) {}
+        if (texts.isNotEmpty()) {
+            ocrFastRetryPending = false
+            return false
+        }
+
+        diag("WATCHDOG OCR pkg=$activePkg")
+        performOcrFallback(activePkg, clickables)
+        return true
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -58,6 +136,12 @@ class RotaAccessibilityService : AccessibilityService() {
         if (!isSupportedPackageName(packageName)) return
 
         val now = System.currentTimeMillis()
+
+        // DIAGNÓSTICO: registra cada evento recebido dos apps monitorados (limitado a 1 por segundo)
+        if (now - lastDiagEventTimestamp > 1000L) {
+            lastDiagEventTimestamp = now
+            diag("EVT pkg=$packageName type=${AccessibilityEvent.eventTypeToString(event.eventType)} className=${event.className}")
+        }
 
         // 0. Detecção de Clique Manual em Aceitar ou Recusar Corrida
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
@@ -105,12 +189,18 @@ class RotaAccessibilityService : AccessibilityService() {
         if (!isProcessingTree.compareAndSet(false, true)) return
         lastScanTimestamp = now
 
+        // CRÍTICO: o sistema RECICLA o AccessibilityEvent assim que onAccessibilityEvent retorna.
+        // Ler event.eventType / event.source dentro da corrotina devolve valores zerados (type=0, source=null).
+        // Por isso capturamos tipo e origem aqui, de forma síncrona, antes de ir para a thread de trabalho.
+        val eventType = event.eventType
+        val eventSource = try { event.source } catch (_: Exception) { null }
+
         serviceScope.launch {
             try {
                 // Coleta raízes em background sem travar a UI thread do sistema
                 val candidateRoots = ArrayList<AccessibilityNodeInfo>()
                 try {
-                    event.source?.let { src ->
+                    eventSource?.let { src ->
                         val pkg = src.packageName?.toString() ?: ""
                         if (!pkg.contains("com.drifly.app", ignoreCase = true)) {
                             candidateRoots.add(src)
@@ -169,28 +259,26 @@ class RotaAccessibilityService : AccessibilityService() {
                     traverseNodes(topRoot, extractedTexts, clickableNodes, 0)
                 }
 
+                diag("TREE pkg=$packageName roots=${topRoots.size} texts=${extractedTexts.size} click=${clickableNodes.size} rideActive=$isRideCurrentlyActive")
                 if (extractedTexts.isNotEmpty()) {
-                    // 1. Verifica se o motorista entrou em corrida ativa / navegação
-                    if (ParsingEngine.isActiveRideOrNavigationScreen(extractedTexts)) {
-                        handleTransitionToActiveRide(now)
-                        return@launch
+                    diag("TEXTS pkg=$packageName :: ${extractedTexts.joinToString(" | ").take(400)}")
+                }
+
+                if (extractedTexts.isNotEmpty()) {
+                    // Reseta corrida ativa se o motorista voltou para tela ociosa (online procurando corridas)
+                    if (isRideCurrentlyActive && ParsingEngine.isIdleDriverScreen(extractedTexts)) {
+                        diag("BRANCH IDLE_SCREEN -> motorista online aguardando chamadas, limpa status de corrida ativa")
+                        isRideCurrentlyActive = false
                     }
 
-                    // 2. Se estamos em corrida ativa, verificamos apenas se chegou na tela de recibo/conclusão ou cancelamento
-                    if (isRideCurrentlyActive) {
-                        val receipt = ParsingEngine.parseReceipt(packageName, extractedTexts)
-                        if (receipt != null) {
-                            val currentReceiptHash = receipt.hashCode()
-                            if (currentReceiptHash != lastReceiptHash && (now - lastReceiptProcessedTimestamp) > 8_000L) {
-                                lastReceiptHash = currentReceiptHash
-                                lastReceiptTimestamp = now
-                                handleReceipt(receipt)
-                            }
-                        }
-                        return@launch
+                    // Se a corrida ativa ficou sem eventos de navegação por mais de 45 min, expira o bloqueio
+                    if (isRideCurrentlyActive && (now - activeRideStartTime > 45 * 60 * 1000L)) {
+                        diag("ACTIVE_RIDE expirada por timeout (45 min)")
+                        isRideCurrentlyActive = false
                     }
 
-                    // 3. Tenta extrair oferta de corrida
+                    // 1. TENTA EXTRAIR OFERTA DE CORRIDA PRIMEIRO
+                    // (Permite que corridas consecutivas/back-to-back e novas ofertas nunca sejam bloqueadas)
                     val offer = ParsingEngine.parseNodes(
                         packageName,
                         extractedTexts,
@@ -199,11 +287,16 @@ class RotaAccessibilityService : AccessibilityService() {
                     )
 
                     if (offer != null) {
+                        diag("BRANCH OFFER_OK ${offer.platform} R$ ${offer.price} ${offer.distanceKm}km")
                         processDetectedOffer(offer, clickableNodes, now)
+                    } else if (ParsingEngine.isActiveRideOrNavigationScreen(extractedTexts)) {
+                        diag("BRANCH ACTIVE_RIDE_SCREEN -> motorista em navegação/viagem")
+                        handleTransitionToActiveRide(now)
                     } else {
                         // Verifica se a tela é de conclusão de corrida ou de cancelamento
                         val receipt = ParsingEngine.parseReceipt(packageName, extractedTexts)
                         if (receipt != null) {
+                            diag("BRANCH RECEIPT ${receipt.platform} completed=${receipt.isCompleted} cancelled=${receipt.isCancelled}")
                             val currentReceiptHash = receipt.hashCode()
                             if (currentReceiptHash != lastReceiptHash && (now - lastReceiptProcessedTimestamp) > 8_000L) {
                                 lastReceiptHash = currentReceiptHash
@@ -212,15 +305,27 @@ class RotaAccessibilityService : AccessibilityService() {
                             }
                         }
                     }
-                } else if (!isRideCurrentlyActive &&
-                    event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+                } else if (
+                    (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+                            eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) &&
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-                    (now - lastScreenshotTimestamp > 4000L) &&
+                    (now - lastScreenshotTimestamp > OCR_MIN_INTERVAL_MS) &&
                     !BubbleOverlayService.isRunning()
                 ) {
-                    // OCR fallback SOMENTE quando uma janela nova abre, a árvore veio vazia, não há corrida ativa e o overlay não está na tela
-                    lastScreenshotTimestamp = now
+                    // OCR fallback quando a árvore veio sem NENHUM texto (caso da 99, que desenha a oferta em canvas Flutter).
+                    // Precisa cobrir TANTO abertura de janela quanto mudança de conteúdo: o card de oferta da 99
+                    // aparece dentro da mesma HomePageActivity, sem trocar de janela.
+                    diag(
+                        "BRANCH OCR_FALLBACK disparado type=${AccessibilityEvent.eventTypeToString(eventType)} " +
+                                "msDesdeUltimoOcr=${now - lastScreenshotTimestamp}"
+                    )
                     performOcrFallback(packageName, clickableNodes)
+                } else if (extractedTexts.isEmpty()) {
+                    diag(
+                        "BRANCH OCR_BLOQUEADO pkg=$packageName type=${AccessibilityEvent.eventTypeToString(eventType)} " +
+                                "overlayRunning=${BubbleOverlayService.isRunning()} " +
+                                "msDesdeUltimoOcr=${now - lastScreenshotTimestamp}"
+                    )
                 }
             } finally {
                 isProcessingTree.set(false)
@@ -260,35 +365,43 @@ class RotaAccessibilityService : AccessibilityService() {
             BubbleOverlayService.stop(this)
         }
         isRideCurrentlyActive = true
+        activeRideStartTime = now
     }
 
     private fun commitPendingOfferAsAccepted(now: Long) {
         val offerToSave = pendingOffer ?: return
         if ((now - pendingOfferTimestamp) > PENDING_OFFER_VALIDITY_MS) {
             pendingOffer = null
+            pendingOfferRideId = null
             return
         }
 
         // Consome a oferta pendente para nunca salvar duplicado
         pendingOffer = null
+        val rideId = pendingOfferRideId
+        pendingOfferRideId = null
         isRideCurrentlyActive = true
+        activeRideStartTime = now
         declineCooldownUntil = now + 2500L
 
         // Ao aceitar a corrida, se houver endereço, mantém o overlay por mais 8 segundos com o Street View aberto pro motorista ver a fachada!
         BubbleOverlayService.onRideAcceptedShowStreetViewBriefly(this, offerToSave.destinationAddress)
 
-        val insertedId = db.insertRide(
-            platform = offerToSave.platform,
-            gross = offerToSave.price,
-            distance = offerToSave.distanceKm,
-            net = offerToSave.netProfit,
-            status = RideRecord.STATUS_ESTIMADO,
-            originalPrice = offerToSave.price
-        )
+        val finalRideId = if (rideId != null) {
+            rideId
+        } else {
+            val existing = db.findRecentDuplicateRide(offerToSave.platform, offerToSave.price, offerToSave.distanceKm)
+            existing?.id ?: db.insertRide(
+                platform = offerToSave.platform,
+                gross = offerToSave.price,
+                distance = offerToSave.distanceKm,
+                net = offerToSave.netProfit,
+                status = RideRecord.STATUS_ESTIMADO,
+                originalPrice = offerToSave.price
+            )
+        }
 
-        try {
-            Log.i(TAG, "CORRIDA ACEITA E SALVA [#${insertedId} - ${offerToSave.platform}]: R$ ${offerToSave.price} (${offerToSave.distanceKm} km)")
-        } catch (ignored: Throwable) {}
+        diag("CORRIDA ACEITA E CONFIRMADA [#${finalRideId} - ${offerToSave.platform}]: R$ ${offerToSave.price} (${offerToSave.distanceKm} km)")
 
         sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
             setPackage(this@RotaAccessibilityService.packageName)
@@ -296,13 +409,23 @@ class RotaAccessibilityService : AccessibilityService() {
     }
 
     private fun clearPendingOfferAndDismissOverlay(now: Long) {
+        val rideId = pendingOfferRideId
+        if (rideId != null) {
+            serviceScope.launch(Dispatchers.IO) {
+                try {
+                    db.deleteRide(rideId)
+                    sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
+                        setPackage(this@RotaAccessibilityService.packageName)
+                    })
+                } catch (_: Exception) {}
+            }
+        }
         pendingOffer = null
+        pendingOfferRideId = null
         isRideCurrentlyActive = false
         declineCooldownUntil = now + 2500L
         BubbleOverlayService.stop(this)
-        try {
-            Log.i(TAG, "Corrida recusada pelo motorista. Oferta descartada sem salvar no banco e overlay fechado.")
-        } catch (ignored: Throwable) {}
+        diag("Corrida recusada pelo motorista. Oferta descartada do banco e overlay fechado.")
     }
 
     private fun isSupportedPackageName(pkg: String): Boolean {
@@ -322,7 +445,10 @@ class RotaAccessibilityService : AccessibilityService() {
         clickableNodes: List<AccessibilityNodeInfo>,
         timestamp: Long
     ) {
-        if (timestamp < declineCooldownUntil) return
+        if (timestamp < declineCooldownUntil) {
+            diag("PROCESS_OFFER ignorada: em cooldown de recusa (faltam ${declineCooldownUntil - timestamp}ms)")
+            return
+        }
 
         // Se uma nova oferta legítima tocou na tela, significa que não estamos em viagem bloqueada
         isRideCurrentlyActive = false
@@ -335,7 +461,7 @@ class RotaAccessibilityService : AccessibilityService() {
                 Math.abs(existingPending.price - offer.price) < 0.01 &&
                 Math.abs(existingPending.distanceKm - offer.distanceKm) < 0.1
 
-        if (isSameOfferAsPending && (timestamp - lastOfferTimestamp) < 12_000L) {
+        if (isSameOfferAsPending && (timestamp - lastOfferTimestamp) < SAME_OFFER_SUPPRESS_MS) {
             return
         }
 
@@ -353,19 +479,33 @@ class RotaAccessibilityService : AccessibilityService() {
                 offer
             }
 
-            try {
-                Log.i(TAG, "OFERTA DETECTADA [${finalOffer.platform}]: R$ ${finalOffer.price} | ${finalOffer.distanceKm}km | R$/km ${finalOffer.ratePerKm} | Lucro R$ ${finalOffer.netProfit} | ModoCasa: ${finalOffer.isHeadingHome} (${finalOffer.homeDistanceDeltaKm}km)")
-            } catch (ignored: Throwable) {}
+            diag("OFERTA DETECTADA [${finalOffer.platform}]: R$ ${finalOffer.price} | ${finalOffer.distanceKm}km | R$/km ${finalOffer.ratePerKm} | Lucro R$ ${finalOffer.netProfit} | ModoCasa: ${finalOffer.isHeadingHome} (${finalOffer.homeDistanceDeltaKm}km)")
 
-            // Guarda como oferta pendente (NÃO salva no banco ainda — só salva se aceitar!)
-            setPendingOffer(finalOffer, timestamp)
+            // 1. Registra oferta como ESTIMADO no banco financeiro (garante que o faturamento NUNCA zere)
+            val existingRide = db.findRecentDuplicateRide(finalOffer.platform, finalOffer.price, finalOffer.distanceKm)
+            val rideId = existingRide?.id ?: db.insertRide(
+                platform = finalOffer.platform,
+                gross = finalOffer.price,
+                distance = finalOffer.distanceKm,
+                net = finalOffer.netProfit,
+                status = RideRecord.STATUS_ESTIMADO,
+                originalPrice = finalOffer.price
+            )
 
-            // Dispara Bolha/Overlay diretamente na tela
-            BubbleOverlayService.showOffer(this, finalOffer)
+            // Guarda como oferta pendente associada ao ID
+            setPendingOffer(finalOffer, timestamp, rideId)
 
-            // Processa Lógica de Aceite / Recusa Automática
+            // Atualiza Dashboard / Card Última Corrida
+            sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
+                setPackage(this@RotaAccessibilityService.packageName)
+            })
+
+            // 2. Dispara Bolha/Overlay e Notificação diretamente na tela
+            BubbleOverlayService.showOffer(this, finalOffer, rideId)
+
+            // 3. Processa Lógica de Aceite / Recusa Automática
             if (clickableNodes.isNotEmpty()) {
-                handleAutomation(finalOffer, clickableNodes, timestamp)
+                handleAutomation(finalOffer, clickableNodes, timestamp, rideId)
             }
         }
     }
@@ -373,6 +513,7 @@ class RotaAccessibilityService : AccessibilityService() {
     private fun handleReceipt(receipt: ReceiptResult) {
         isRideCurrentlyActive = false
         pendingOffer = null
+        pendingOfferRideId = null
         BubbleOverlayService.stop(this)
 
         val ride = db.getLatestEstimatedRide(receipt.platform) ?: return
@@ -380,33 +521,27 @@ class RotaAccessibilityService : AccessibilityService() {
         lastHandledRideId = ride.id
         lastReceiptProcessedTimestamp = System.currentTimeMillis()
 
-        try {
-            Log.i(TAG, "RECIBO DETECTADO [${receipt.platform}]: finalPrice=${receipt.finalPrice}, cancelado=${receipt.isCancelled}")
-        } catch (ignored: Throwable) {}
+        diag("RECIBO DETECTADO [${receipt.platform}]: finalPrice=${receipt.finalPrice}, cancelado=${receipt.isCancelled}")
 
         if (receipt.isCompleted) {
-            if (receipt.finalPrice != null && receipt.finalPrice > 0.0) {
-                val cost = ride.distanceKm * prefs.costPerKm
-                val newNet = Math.round((receipt.finalPrice - cost) * 100.0) / 100.0
-                db.updateRidePrice(ride.id, receipt.finalPrice, newNet, RideRecord.STATUS_CONCLUIDO)
-            } else {
-                db.updateRideStatus(ride.id, RideRecord.STATUS_CONCLUIDO)
-            }
-            sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
-                setPackage(this@RotaAccessibilityService.packageName)
-            })
+            val finalPrice = receipt.finalPrice ?: ride.originalPrice
+            val cost = ride.distanceKm * prefs.costPerKm
+            val newNet = Math.max(0.0, Math.round((finalPrice - cost) * 100.0) / 100.0)
+            db.updateRidePrice(ride.id, finalPrice, newNet, RideRecord.STATUS_CONCLUIDO)
         } else if (receipt.isCancelled) {
             db.updateRideStatus(ride.id, receipt.status, receipt.cancellationFee ?: 0.0)
-            sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
-                setPackage(this@RotaAccessibilityService.packageName)
-            })
         }
+
+        sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
+            setPackage(this@RotaAccessibilityService.packageName)
+        })
     }
 
     private fun handleAutomation(
         offer: RideOffer,
         clickableNodes: List<AccessibilityNodeInfo>,
-        timestamp: Long
+        timestamp: Long,
+        rideId: Long
     ) {
         val matchesConditions = (offer.ratePerKm >= prefs.minRatePerKm) &&
                 (offer.distanceKm <= prefs.maxDistanceKm)
@@ -479,13 +614,16 @@ class RotaAccessibilityService : AccessibilityService() {
 
     @RequiresApi(Build.VERSION_CODES.R)
     private fun performOcrFallback(packageName: String, clickableNodes: List<AccessibilityNodeInfo>) {
-        if (BubbleOverlayService.isRunning() || isRideCurrentlyActive) return
+        if (BubbleOverlayService.isRunning()) return
+        lastScreenshotTimestamp = System.currentTimeMillis()
+        diag("OCR_START pkg=$packageName")
         try {
             takeScreenshot(
                 Display.DEFAULT_DISPLAY,
                 mainExecutor,
                 object : TakeScreenshotCallback {
                     override fun onSuccess(screenshotResult: ScreenshotResult) {
+                        diag("OCR_SCREENSHOT_OK")
                         serviceScope.launch(Dispatchers.Default) {
                             try {
                                 val buffer = screenshotResult.hardwareBuffer
@@ -508,7 +646,8 @@ class RotaAccessibilityService : AccessibilityService() {
                                                     }
                                                 }
                                             }
-                                            if (ocrTexts.isNotEmpty() && !BubbleOverlayService.isRunning() && !isRideCurrentlyActive) {
+                                            if (ocrTexts.isNotEmpty() && !BubbleOverlayService.isRunning()) {
+                                                diag("OCR_TEXTS n=${ocrTexts.size} :: ${ocrTexts.joinToString(" | ").take(400)}")
                                                 val ocrOffer = ParsingEngine.parseNodes(
                                                     packageName = packageName,
                                                     texts = ocrTexts,
@@ -516,12 +655,23 @@ class RotaAccessibilityService : AccessibilityService() {
                                                     minRatingThreshold = prefs.minPassengerRating
                                                 )
                                                 if (ocrOffer != null) {
+                                                    consecutiveEmptyOcrCount = 0
+                                                    ocrFastRetryPending = false
                                                     processDetectedOffer(ocrOffer, clickableNodes, System.currentTimeMillis())
+                                                } else {
+                                                    diag("OCR_PARSE_NULL (texto lido, mas sem preço+distância válidos)")
+                                                    markOcrResult(ocrTexts.size)
                                                 }
+                                            } else {
+                                                diag("OCR_TEXTS vazio/ignorado (n=${ocrTexts.size}, overlay=${BubbleOverlayService.isRunning()})")
+                                                markOcrResult(ocrTexts.size)
                                             }
                                         }
                                         .addOnCompleteListener {
                                             bitmap.recycle()
+                                        }
+                                        .addOnFailureListener { err ->
+                                            diag("OCR_MLKIT_FAIL ${err.javaClass.simpleName}: ${err.message}")
                                         }
                                 }
                             } catch (e: Exception) {
@@ -531,6 +681,7 @@ class RotaAccessibilityService : AccessibilityService() {
                     }
 
                     override fun onFailure(errorCode: Int) {
+                        diag("OCR_SCREENSHOT_FAIL code=$errorCode")
                         Log.d(TAG, "takeScreenshot falhou com código: $errorCode")
                     }
                 }
@@ -538,6 +689,34 @@ class RotaAccessibilityService : AccessibilityService() {
         } catch (e: Exception) {
             Log.w(TAG, "Falha ao invocar takeScreenshot para OCR", e)
         }
+    }
+
+    /**
+     * Classifica o resultado de uma captura de OCR.
+     *
+     * Captura "quase vazia" (só a barra de status) normalmente significa que a tela estava no meio
+     * de uma transição — frame preto. Nesse caso pedimos uma nova tentativa rápida, em vez de
+     * esperar ~5s do vigia ou (pior) o próximo evento, que a 99 pode nunca emitir.
+     */
+    private fun markOcrResult(textCount: Int) {
+        if (textCount <= OCR_EMPTY_TEXT_THRESHOLD) {
+            consecutiveEmptyOcrCount++
+            ocrFastRetryPending = true
+            diag("OCR_INCOMPLETO n=$textCount -> nova captura em ${OCR_FAST_RETRY_MS}ms (#$consecutiveEmptyOcrCount)")
+            // Reagenda na hora: esperar o próximo ciclo de 5s poderia perder a janela da oferta.
+            if (consecutiveEmptyOcrCount <= OCR_MAX_FAST_RETRIES) {
+                ocrHandler.removeCallbacks(ocrWatchdogRunnable)
+                ocrHandler.postDelayed(ocrWatchdogRunnable, OCR_FAST_RETRY_MS)
+            }
+        } else {
+            consecutiveEmptyOcrCount = 0
+            ocrFastRetryPending = false
+        }
+    }
+
+    private fun diag(message: String) {
+        if (!DIAG_ENABLED) return
+        AppLogger.i(TAG_DIAG, message)
     }
 
     private fun traverseNodes(
@@ -576,13 +755,34 @@ class RotaAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        ocrHandler.removeCallbacks(ocrWatchdogRunnable)
         serviceScope.cancel()
     }
 
     companion object {
         private const val TAG = "RotaAccessibilityService"
+        private const val TAG_DIAG = "DriFlyDiag"
+        private const val DIAG_ENABLED = true
         const val ACTION_RIDE_UPDATED = "com.drifly.app.ACTION_RIDE_UPDATED"
         private const val PENDING_OFFER_VALIDITY_MS = 45_000L
+
+        // Janela em que a MESMA oferta (mesmo preço e distância) não é exibida de novo pelo overlay.
+        // Precisa cobrir a duração do card na tela (~15-20s), senão o overlay reaparece durante a oferta.
+        private const val SAME_OFFER_SUPPRESS_MS = 20_000L
+
+        // Intervalo mínimo entre capturas de tela + OCR (evita custo excessivo de CPU/bateria).
+        // O OCR "quente" leva ~400ms no dispositivo de referência, então 1200ms mantém o custo baixo.
+        private const val OCR_MIN_INTERVAL_MS = 1_200L
+
+        // Vigia: tenta o OCR a cada 5s enquanto o app monitorado está na tela sem texto na árvore.
+        private const val OCR_WATCHDOG_INTERVAL_MS = 5_000L
+
+        // Quando a captura vem incompleta (tela em transição), tenta de novo rapidamente.
+        // Precisa ser MAIOR que OCR_MIN_INTERVAL_MS, senão a nova tentativa é descartada pelo
+        // intervalo mínimo e a oferta só é lida no ciclo seguinte de 5s (foi o atraso observado).
+        private const val OCR_FAST_RETRY_MS = 1_300L
+        private const val OCR_MAX_FAST_RETRIES = 10
+        private const val OCR_EMPTY_TEXT_THRESHOLD = 3
 
         @Volatile
         var pendingOffer: RideOffer? = null
@@ -593,11 +793,16 @@ class RotaAccessibilityService : AccessibilityService() {
             private set
 
         @Volatile
+        var pendingOfferRideId: Long? = null
+            private set
+
+        @Volatile
         var isRideCurrentlyActive: Boolean = false
 
-        fun setPendingOffer(offer: RideOffer, timestamp: Long = System.currentTimeMillis()) {
+        fun setPendingOffer(offer: RideOffer, timestamp: Long = System.currentTimeMillis(), rideId: Long? = null) {
             pendingOffer = offer
             pendingOfferTimestamp = timestamp
+            pendingOfferRideId = rideId
         }
     }
 }

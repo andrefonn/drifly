@@ -111,11 +111,26 @@ class RideNotificationListenerService : NotificationListenerService() {
                             Log.i(TAG, "OFERTA VIA NOTIFICAÇÃO [${offer.platform}]: R$ ${offer.price} | ${offer.distanceKm}km | Lucro R$ ${offer.netProfit}")
                         } catch (ignored: Throwable) {}
 
-                        // Armazena como oferta pendente (SÓ salva no banco se o motorista ACEITAR a corrida)
-                        RotaAccessibilityService.setPendingOffer(offer)
+                        // Evita duplicar se o accessibility service já inseriu
+                        val existingRide = db.findRecentDuplicateRide(offer.platform, offer.price, offer.distanceKm)
+                        val rideId = existingRide?.id ?: db.insertRide(
+                            platform = offer.platform,
+                            gross = offer.price,
+                            distance = offer.distanceKm,
+                            net = offer.netProfit,
+                            status = RideRecord.STATUS_ESTIMADO,
+                            originalPrice = offer.price
+                        )
 
-                        // Dispara flutuante na tela
-                        BubbleOverlayService.showOffer(this, offer)
+                        // Armazena como oferta pendente associada ao ID registrado
+                        RotaAccessibilityService.setPendingOffer(offer, now, rideId)
+
+                        // Dispara flutuante e notificação na tela
+                        BubbleOverlayService.showOffer(this, offer, rideId)
+
+                        sendBroadcast(Intent(RotaAccessibilityService.ACTION_RIDE_UPDATED).apply {
+                            setPackage(this@RideNotificationListenerService.packageName)
+                        })
                     }
                 }
             }

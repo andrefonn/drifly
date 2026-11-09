@@ -32,6 +32,27 @@ class RideSimulationReceiver : BroadcastReceiver() {
                 return
             }
 
+            // Permite validar o lembrete de apoio na hora, sem esperar o horário agendado
+            if (intent.getBooleanExtra("test_support_notification", false)) {
+                val posted = SupportNotificationWorker.postReminderIfAllowed(context)
+                Log.i(TAG, "Teste do lembrete de apoio: publicado=$posted")
+                return
+            }
+
+            // Permite inspecionar ou limpar logs de diagnóstico persistentes
+            if (intent.getBooleanExtra("dump_diag_logs", false)) {
+                AppLogger.init(context)
+                val content = AppLogger.getLogContent()
+                Log.i(TAG, "=== DRIFLY DIAG LOGS (${content.length} chars) ===\n$content")
+                return
+            }
+            if (intent.getBooleanExtra("clear_diag_logs", false)) {
+                AppLogger.init(context)
+                AppLogger.clear()
+                Log.i(TAG, "Logs de diagnóstico limpos com sucesso.")
+                return
+            }
+
             val setModoCasa = when {
                 intent.hasExtra("set_modo_casa") -> intent.getBooleanExtra("set_modo_casa", false)
                 intent.hasExtra("modo_casa") -> intent.getBooleanExtra("modo_casa", false)

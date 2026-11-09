@@ -67,8 +67,9 @@ object RideSimulator {
         Log.i(TAG, "Simulando oferta [$platform]: R$ $price | $distanceKm km | Lucro R$ $netProfit | ModoCasa: $effectiveHeadingHome ($effectiveDeltaKm km) | saveToDb=$saveToDb")
 
         // 1. Apenas registra no banco financeiro se solicitado explicitamente (não polui o extrato em simulações visuais de overlay)
+        var simulatedRideId: Long? = null
         if (saveToDb) {
-            db.insertRide(
+            simulatedRideId = db.insertRide(
                 platform = platform,
                 gross = price,
                 distance = distanceKm,
@@ -84,7 +85,7 @@ object RideSimulator {
         }
 
         // 2. Dispara a bolha/overlay diretamente na tela
-        BubbleOverlayService.showOffer(context, offer)
+        BubbleOverlayService.showOffer(context, offer, simulatedRideId)
 
         // 3. Som e vibração para reproduzir a sensação real de toque de corrida
         playAlertSoundAndVibrate(context)
