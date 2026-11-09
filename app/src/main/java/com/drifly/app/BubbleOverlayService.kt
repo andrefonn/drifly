@@ -322,6 +322,9 @@ class BubbleOverlayService : Service() {
         // 15s para a oferta boa: dá tempo de ler com calma e decidir
         const val AUTO_DISMISS_GOOD_OFFER_MS = 15_000L
         const val AUTO_DISMISS_STREETVIEW_MS = 15_000L
+        // Enquanto a fachada está aberta a contagem fica pausada, mas não para sempre:
+        // um card preso mantém isRunning()=true e bloqueia a captura (OCR) de novas ofertas.
+        private const val PAUSED_OVERLAY_MAX_MS = 60_000L
 
         private var instance: BubbleOverlayService? = null
         private var directBubbleView: View? = null
@@ -404,7 +407,10 @@ class BubbleOverlayService : Service() {
                 current.autoDismissHandler.removeCallbacks(current.autoDismissRunnable)
             }
             view.findViewById<View>(R.id.pbOverlayTimer)?.visibility = View.GONE
-            Log.i(TAG, "Contagem pausada: o card agora só fecha no X")
+            // Backstop: sem isso, deixar a fachada aberta prende o card indefinidamente e o
+            // monitoramento deixa de capturar novas ofertas (BubbleOverlayService.isRunning()).
+            directHandler.postDelayed(directAutoDismiss, PAUSED_OVERLAY_MAX_MS)
+            Log.i(TAG, "Contagem pausada: o card fecha no X ou em ${PAUSED_OVERLAY_MAX_MS / 1000}s")
         }
 
         /**

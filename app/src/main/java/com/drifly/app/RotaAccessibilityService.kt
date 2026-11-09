@@ -277,25 +277,18 @@ class RotaAccessibilityService : AccessibilityService() {
                         isRideCurrentlyActive = false
                     }
 
-                    // 1. TENTA EXTRAIR OFERTA DE CORRIDA PRIMEIRO
-                    // (Permite que corridas consecutivas/back-to-back e novas ofertas nunca sejam bloqueadas)
-                    val offer = ParsingEngine.parseNodes(
-                        packageName,
-                        extractedTexts,
-                        prefs.costPerKm,
-                        prefs.minPassengerRating
-                    )
-
-                    if (offer != null) {
-                        diag("BRANCH OFFER_OK ${offer.platform} R$ ${offer.price} ${offer.distanceKm}km")
-                        processDetectedOffer(offer, clickableNodes, now)
-                    } else if (ParsingEngine.isActiveRideOrNavigationScreen(extractedTexts)) {
-                        diag("BRANCH ACTIVE_RIDE_SCREEN -> motorista em navegação/viagem")
-                        handleTransitionToActiveRide(now)
-                    } else {
-                        // Verifica se a tela é de conclusão de corrida ou de cancelamento
-                        val receipt = ParsingEngine.parseReceipt(packageName, extractedTexts)
-                        if (receipt != null) {
+                    // Classificação em ordem segura:
+                    // recibo/cancelamento -> nova oferta -> tela de corrida ativa.
+                    // (O recibo precisa vir primeiro: ver comentário em ScreenRouter.)
+                    when (val reading = ScreenRouter.read(
+                        packageName = packageName,
+                        texts = extractedTexts,
+                        costPerKm = prefs.costPerKm,
+                        minRatingThreshold = prefs.minPassengerRating,
+                        isRideCurrentlyActive = isRideCurrentlyActive
+                    )) {
+                        is ScreenReading.Receipt -> {
+                            val receipt = reading.receipt
                             diag("BRANCH RECEIPT ${receipt.platform} completed=${receipt.isCompleted} cancelled=${receipt.isCancelled}")
                             val currentReceiptHash = receipt.hashCode()
                             if (currentReceiptHash != lastReceiptHash && (now - lastReceiptProcessedTimestamp) > 8_000L) {
@@ -304,6 +297,19 @@ class RotaAccessibilityService : AccessibilityService() {
                                 handleReceipt(receipt)
                             }
                         }
+
+                        is ScreenReading.Offer -> {
+                            val offer = reading.offer
+                            diag("BRANCH OFFER_OK ${offer.platform} R$ ${offer.price} ${offer.distanceKm}km")
+                            processDetectedOffer(offer, clickableNodes, now)
+                        }
+
+                        is ScreenReading.ActiveRide -> {
+                            diag("BRANCH ACTIVE_RIDE_SCREEN -> motorista em navegação/viagem")
+                            handleTransitionToActiveRide(now)
+                        }
+
+                        is ScreenReading.Unknown -> Unit
                     }
                 } else if (
                     (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
