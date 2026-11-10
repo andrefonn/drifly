@@ -39,6 +39,7 @@ class RotaAccessibilityService : AccessibilityService() {
     private var declineCooldownUntil: Long = 0L
     private var lastDiagEventTimestamp: Long = 0L
     private var activeRideStartTime: Long = 0L
+    private var lastAcceptedTimestamp: Long = 0L
 
     // Vigia de OCR: a 99 desenha o card em canvas e emite pouquíssimos eventos de acessibilidade,
     // então não dá para depender de evento para capturar a oferta. Este watchdog tenta o OCR
@@ -367,7 +368,7 @@ class RotaAccessibilityService : AccessibilityService() {
         val pending = pendingOffer
         if (pending != null && (now - pendingOfferTimestamp) <= PENDING_OFFER_VALIDITY_MS) {
             commitPendingOfferAsAccepted(now)
-        } else if (BubbleOverlayService.isRunning()) {
+        } else if (BubbleOverlayService.isRunning() && (now - lastAcceptedTimestamp) > ACCEPTED_STREET_VIEW_GRACE_MS) {
             BubbleOverlayService.stop(this)
         }
         isRideCurrentlyActive = true
@@ -388,6 +389,7 @@ class RotaAccessibilityService : AccessibilityService() {
         pendingOfferRideId = null
         isRideCurrentlyActive = true
         activeRideStartTime = now
+        lastAcceptedTimestamp = now
         declineCooldownUntil = now + 2500L
 
         // Ao aceitar a corrida, se houver endereço, mantém o overlay por mais 8 segundos com o Street View aberto pro motorista ver a fachada!
@@ -654,19 +656,45 @@ class RotaAccessibilityService : AccessibilityService() {
                                             }
                                             if (ocrTexts.isNotEmpty() && !BubbleOverlayService.isRunning()) {
                                                 diag("OCR_TEXTS n=${ocrTexts.size} :: ${ocrTexts.joinToString(" | ").take(400)}")
-                                                val ocrOffer = ParsingEngine.parseNodes(
+                                                val ocrNow = System.currentTimeMillis()
+                                                if (isRideCurrentlyActive && ParsingEngine.isIdleDriverScreen(ocrTexts)) {
+                                                    diag("BRANCH OCR_IDLE_SCREEN -> motorista na tela inicial, limpa status de corrida ativa")
+                                                    isRideCurrentlyActive = false
+                                                }
+                                                when (val reading = ScreenRouter.read(
                                                     packageName = packageName,
                                                     texts = ocrTexts,
                                                     costPerKm = prefs.costPerKm,
-                                                    minRatingThreshold = prefs.minPassengerRating
-                                                )
-                                                if (ocrOffer != null) {
-                                                    consecutiveEmptyOcrCount = 0
-                                                    ocrFastRetryPending = false
-                                                    processDetectedOffer(ocrOffer, clickableNodes, System.currentTimeMillis())
-                                                } else {
-                                                    diag("OCR_PARSE_NULL (texto lido, mas sem preço+distância válidos)")
-                                                    markOcrResult(ocrTexts.size)
+                                                    minRatingThreshold = prefs.minPassengerRating,
+                                                    isRideCurrentlyActive = isRideCurrentlyActive
+                                                )) {
+                                                    is ScreenReading.Receipt -> {
+                                                        consecutiveEmptyOcrCount = 0
+                                                        ocrFastRetryPending = false
+                                                        val receipt = reading.receipt
+                                                        diag("BRANCH OCR_RECEIPT ${receipt.platform} completed=${receipt.isCompleted} cancelled=${receipt.isCancelled}")
+                                                        val currentReceiptHash = receipt.hashCode()
+                                                        if (currentReceiptHash != lastReceiptHash && (ocrNow - lastReceiptProcessedTimestamp) > 8_000L) {
+                                                            lastReceiptHash = currentReceiptHash
+                                                            lastReceiptTimestamp = ocrNow
+                                                            handleReceipt(receipt)
+                                                        }
+                                                    }
+                                                    is ScreenReading.Offer -> {
+                                                        consecutiveEmptyOcrCount = 0
+                                                        ocrFastRetryPending = false
+                                                        processDetectedOffer(reading.offer, clickableNodes, ocrNow)
+                                                    }
+                                                    is ScreenReading.ActiveRide -> {
+                                                        consecutiveEmptyOcrCount = 0
+                                                        ocrFastRetryPending = false
+                                                        diag("BRANCH OCR_ACTIVE_RIDE_SCREEN -> motorista em navegação/viagem")
+                                                        handleTransitionToActiveRide(ocrNow)
+                                                    }
+                                                    is ScreenReading.Unknown -> {
+                                                        diag("OCR_PARSE_NULL (texto lido, mas sem preço+distância válidos)")
+                                                        markOcrResult(ocrTexts.size)
+                                                    }
                                                 }
                                             } else {
                                                 diag("OCR_TEXTS vazio/ignorado (n=${ocrTexts.size}, overlay=${BubbleOverlayService.isRunning()})")
@@ -771,6 +799,7 @@ class RotaAccessibilityService : AccessibilityService() {
         private const val DIAG_ENABLED = true
         const val ACTION_RIDE_UPDATED = "com.drifly.app.ACTION_RIDE_UPDATED"
         private const val PENDING_OFFER_VALIDITY_MS = 45_000L
+        private const val ACCEPTED_STREET_VIEW_GRACE_MS = 8_500L
 
         // Janela em que a MESMA oferta (mesmo preço e distância) não é exibida de novo pelo overlay.
         // Precisa cobrir a duração do card na tela (~15-20s), senão o overlay reaparece durante a oferta.

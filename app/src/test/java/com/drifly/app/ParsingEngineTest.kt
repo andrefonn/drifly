@@ -478,4 +478,147 @@ class ParsingEngineTest {
         assertEquals(150.0f, ParsingEngine.parseFlexibleFloat("150,00", 0f), 0.001f)
         assertEquals(1250.50f, ParsingEngine.parseFlexibleFloat("1.250,50", 0f), 0.001f)
     }
+
+    @Test
+    fun testUberActivePickupAndDropoffScreensNeverTriggerFalseOverlays() {
+        // Capturas reais do drifly_diag.log.old após aceitar corrida (Yondri e Denise)
+        val pickupYondri = listOf(
+            "Página inicial", "R$ 16,12", "Pesquisar locais", "60", "LIMITE",
+            "Recursos de segurança", "Rua Expedicionário Holz", "0.7 km", "Rua Conselheiro Arp",
+            "Está tudo pronto para você ficar online", "Preferências", "3 min", "1,4 km",
+            "Encontro com Yondri", "Recomendado para você", "Conteúdo", "Registro de viagens"
+        )
+        val dropoffYondri = listOf(
+            "Página inicial", "R$ 16,12", "Pesquisar locais", "30", "LIMITE",
+            "Recursos de segurança", "Rua Vinte e Cinco de Julho", "150 m", "Rua Orestes Guimarães",
+            "Está tudo pronto para você ficar online", "Preferências", "2 min", "0,4 km",
+            "Destino de Yondri", "Recomendado para você", "Conteúdo", "Registro de viagens"
+        )
+        val pickupDeniseDrawer = listOf(
+            "Está tudo pronto para você ficar online", "3 min", "1,6 km", "Agenda de viagens",
+            "Conteúdo", "Registro de viagens", "Preferências", "Interromper novas solicitações",
+            "Pesquisar", "Página inicial", "R$ 22,13", "Pesquisar locais", "30", "LIMITE",
+            "Recursos de segurança", "Rua dos Ginásticos", "250 m", "Rua Doutor João Colin"
+        )
+        val pickupDeniseBanner = listOf(
+            "Página inicial", "R$ 22,13", "HOJE", "Pesquisar locais", "30", "LIMITE",
+            "Recursos de segurança", "Rua dos Ginásticos", "Embarque em Rua Germano Stein",
+            "Perto de Drogaria Catarinense, R. Germano Stein, 249 - America, Joinville - SC, 89204-090",
+            "Está tudo pronto para você ficar online", "Preferências", "3 min", "1,5 km",
+            "Encontro com Denise", "Agenda de viagens", "Conteúdo", "Registro de viagens"
+        )
+
+        for (screen in listOf(pickupYondri, dropoffYondri, pickupDeniseDrawer, pickupDeniseBanner)) {
+            assertTrue(
+                "Tela de corrida ativa da Uber deve ser reconhecida como ativa: ${screen.joinToString(" | ")}",
+                ParsingEngine.isActiveRideOrNavigationScreen(screen)
+            )
+            assertNull(
+                "Tela de corrida ativa da Uber NUNCA deve gerar oferta falsa com o saldo do topo",
+                ParsingEngine.parseNodes("com.ubercab.driver", screen, 0.2148, 4.75f)
+            )
+        }
+    }
+
+    @Test
+    fun testUberOfferCardOverMapHeaderIgnoresDailyEarningsPill() {
+        // Captura real (10:55:44.350) onde o card "Moto | R$ 9,02" aparece com o topo do mapa "Página inicial | R$ 22,13 | HOJE" ainda na árvore
+        val texts = listOf(
+            "Página inicial", "R$ 22,13", "HOJE", "Pesquisar locais", "Recursos de segurança",
+            "Está tudo pronto para você ficar online", "Preferências", "Você está online",
+            "Recomendado para você", "Conteúdo", "O passe de 24 horas está ativo",
+            "Expira em 11 de nov., 09:26", "Hoje, mais tarde", "Veja as próximas promoções",
+            "Ver tempo ao volante", "Registro de viagens", "1-8 min",
+            "Moto", "R$ 9,02", "16 min • 6.7 km • Est. de R$1,35/km", "4,97 (500+)",
+            "Verificado", "4 min (1.6 km)", "Rua Orestes Guimarães, 728, América, Joinville",
+            "12 minutos (5.1 km)", "Rua Xanxerê, 23, Saguaçu, Joinville", "Aceitar"
+        )
+
+        val offer = ParsingEngine.parseNodes(
+            packageName = "com.ubercab.driver",
+            texts = texts,
+            costPerKm = 0.2148,
+            minRatingThreshold = 4.75f
+        )
+
+        assertNotNull("Deve extrair a oferta real mesmo com o cabeçalho do mapa visível", offer)
+        assertEquals(9.02, offer!!.price, 0.001)
+        assertEquals(6.7, offer.distanceKm, 0.01)
+        assertEquals(16, offer.durationMinutes)
+    }
+
+    @Test
+    fun testUberIdleScreenWithBusyAreaGuidanceIsNeitherActiveRideNorOffer() {
+        // Captura real (11:05:57.768): motorista online procurando viagens com "A caminho de uma região movimentada"
+        val idleBusyAreaTexts = listOf(
+            "Página inicial", "R$ 22,13", "Pesquisar locais", "80", "LIMITE",
+            "Recursos de segurança", "Radar de Viagens", "350 m", "Rua Dona Francisca",
+            "Está tudo pronto para você ficar online", "Preferências", "13 min", "6,6 km",
+            "Procurando viagens", "Recomendado para você", "Conteúdo",
+            "O passe de 24 horas está ativo", "Expira em 11 de nov., 09:26",
+            "A caminho de uma região movimentada", "Disponível para todas as viagens"
+        )
+
+        assertFalse(
+            "Tela ociosa 'Procurando viagens' com 'A caminho de uma região movimentada' NÃO é corrida ativa",
+            ParsingEngine.isActiveRideOrNavigationScreen(idleBusyAreaTexts)
+        )
+        assertNull(
+            "Tela ociosa do mapa com saldo R$ 22,13 NÃO pode virar oferta de corrida",
+            ParsingEngine.parseNodes("com.ubercab.driver", idleBusyAreaTexts, 0.2148, 4.75f)
+        )
+    }
+
+    @Test
+    fun test99ActivePickupAndInTripOcrScreensNeverTriggerFalseOverlays() {
+        // Simula o OCR periódico (a cada 5s) na 99 após aceitar uma corrida:
+        // O motorista está indo buscar o passageiro ou em viagem, sem "Vire à direita" no momento,
+        // mas com botões/textos da corrida ativa da 99 e valor/distância visíveis no mapa.
+        val pickup99Ocr = listOf(
+            "09:42", "R$ 14,80", "350 m", "Rua XV de Novembro",
+            "4 min • 1,3 km", "Ponto de encontro", "Cheguei", "Ligar", "Cancelar corrida"
+        )
+        val inTrip99Ocr = listOf(
+            "09:48", "R$ 14,80", "1,8 km", "Av. Getúlio Vargas",
+            "Passageiro a bordo", "A caminho do destino", "Segurança"
+        )
+
+        for (screen in listOf(pickup99Ocr, inTrip99Ocr)) {
+            assertTrue(
+                "Tela de corrida ativa da 99 lida via OCR deve ser reconhecida como ativa: ${screen.joinToString(" | ")}",
+                ParsingEngine.isActiveRideOrNavigationScreen(screen)
+            )
+            assertNull(
+                "Tela de corrida ativa da 99 NUNCA deve disparar novo overlay durante o trajeto",
+                ParsingEngine.parseNodes("com.taxis99", screen, 0.2148, 4.75f)
+            )
+        }
+    }
+
+    @Test
+    fun testOcrMapScreenOfflineOrIdleWithBalanceAndDistanceNeverTriggersOffer() {
+        // No OCR da tela de mapa (99 ou Uber), o ícone "Página inicial" não aparece como texto,
+        // mas o saldo "R$ 22,13" e alguma distância do mapa ("1,2 km") podem aparecer junto com "Conectar" / "Você está offline" / "Você está online".
+        val uberOfflineOcrWithDistance = listOf(
+            "11:16", "Joinville", "R$ 22,13", "Estádio Arena", "1,2 km",
+            "COMEÇAR", "Agenda de viagens", "Você está offline"
+        )
+        val app99IdleOcrWithDistance = listOf(
+            "11:20", "Taxa", "0% de Taxa", "R$ 34,50", "Zona de alta demanda a 1,4 km",
+            "Conectar", "Preferências"
+        )
+
+        assertFalse(
+            "Tela offline com 'Agenda de viagens' NÃO pode ser marcada como corrida ativa",
+            ParsingEngine.isActiveRideOrNavigationScreen(uberOfflineOcrWithDistance)
+        )
+        assertNull(
+            "OCR do mapa offline da Uber com R$ 22,13 e distância não pode virar oferta",
+            ParsingEngine.parseNodes("com.ubercab.driver", uberOfflineOcrWithDistance, 0.2148, 4.75f)
+        )
+        assertNull(
+            "OCR do mapa ocioso da 99 com saldo R$ 34,50 e distância não pode virar oferta",
+            ParsingEngine.parseNodes("com.taxis99", app99IdleOcrWithDistance, 0.2148, 4.75f)
+        )
+    }
 }

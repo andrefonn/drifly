@@ -62,9 +62,28 @@ object ParsingEngine {
         "aguardando passageiro",
         "esperando passageiro",
         "em viagem com",
-        "a caminho de",
+        "encontro com ",
+        "destino de ",
         "embarque de ",
+        "embarque em ",
         "desembarque de ",
+        "local de partida",
+        "ponto de encontro",
+        "passageiro a bordo",
+        "a caminho do passageiro",
+        "a caminho do embarque",
+        "a caminho do destino",
+        "buscar passageiro",
+        "deixar passageiro",
+        "cancelar corrida",
+        "cancelar a corrida",
+        "cancelar viagem",
+        "viagem em andamento",
+        "corrida em andamento",
+        "interromper novas solicitações",
+        "interromper novas solicitacoes",
+        "aconteceu alguma coisa?",
+        "quer cancelar a viagem",
         "vire à esquerda",
         "vire a esquerda",
         "vire à direita",
@@ -77,6 +96,15 @@ object ParsingEngine {
         "mantenha-se à",
         "mantenha-se a",
         "recalculando rota"
+    )
+
+    // Rótulos do cabeçalho do mapa da Uber onde fica a pílula de saldo acumulado do dia ("Página inicial | R$ 22,13 | HOJE | Pesquisar locais")
+    private val MAP_HEADER_NEIGHBOR_LABELS = setOf(
+        "página inicial",
+        "pagina inicial",
+        "hoje",
+        "pesquisar locais",
+        "saldo"
     )
 
     // Regex de Distância em KM e Metros
@@ -215,28 +243,109 @@ object ParsingEngine {
      * ou em navegação passo-a-passo (evitando falsos overlays durante a corrida).
      */
     fun isActiveRideOrNavigationScreen(texts: List<String>): Boolean {
+        if (texts.isEmpty()) return false
         val joined = texts.joinToString(" ").lowercase()
+
+        // Se há um card explícito de nova oferta na tela (ex: corrida consecutiva tocando no fim da viagem
+        // ou card sobreposto ao mapa), nunca bloqueia como corrida ativa.
+        val hasExplicitOfferCard = texts.any {
+            val trimmed = it.trim()
+            isAcceptActionText(trimmed) || trimmed.equals("tenho interesse", ignoreCase = true)
+        } || joined.contains("est. de r$")
+        if (hasExplicitOfferCard) return false
+
+        // Se o motorista está na tela ociosa ("Procurando viagens" / "Você está online"),
+        // avisos de mapa como "A caminho de uma região movimentada" não são corrida ativa.
+        if (isIdleDriverScreen(texts)) return false
+
+        val hasExactActiveButton = texts.any {
+            val t = it.trim().lowercase()
+            t == "cheguei" || t == "ir buscar"
+        }
+        if (hasExactActiveButton) return true
+
         return ACTIVE_RIDE_OR_NAVIGATION_MARKERS.any { joined.contains(it) }
+    }
+
+    /**
+     * Identifica se o token na posição [index] faz parte da pílula de ganhos acumulados no topo do mapa
+     * da Uber ("Página inicial | R$ 22,13 | HOJE | Pesquisar locais"), que nunca deve ser lida como preço de oferta.
+     */
+    private fun isMapHeaderPriceToken(cleanTexts: List<String>, index: Int): Boolean {
+        if (index !in cleanTexts.indices) return false
+        val prev1 = if (index - 1 >= 0) cleanTexts[index - 1].trim().lowercase() else ""
+        val prev2 = if (index - 2 >= 0) cleanTexts[index - 2].trim().lowercase() else ""
+        val next1 = if (index + 1 < cleanTexts.size) cleanTexts[index + 1].trim().lowercase() else ""
+        val next2 = if (index + 2 < cleanTexts.size) cleanTexts[index + 2].trim().lowercase() else ""
+
+        if (prev1 == "página inicial" || prev1 == "pagina inicial") return true
+        if ((prev1 == "r$" && (prev2 == "página inicial" || prev2 == "pagina inicial"))) return true
+        if (next1 in MAP_HEADER_NEIGHBOR_LABELS) return true
+        if (cleanTexts[index].equals("R$", ignoreCase = true) && next2 in MAP_HEADER_NEIGHBOR_LABELS) return true
+        return false
     }
 
     private val IDLE_DRIVER_MARKERS = listOf(
         "você está online",
         "voce esta online",
+        "você está offline",
+        "voce esta offline",
         "procurando viagens",
+        "procurando corridas",
         "encontrar viagens",
         "aguardando chamadas",
         "aguardando pedidos",
+        "ouvindo chamadas",
         "em busca de passageiros",
         "radar de viagens"
     )
 
     /**
-     * Verifica se o motorista está na tela ociosa dos apps parceiros (online aguardando chamadas).
-     * Usado para resetar qualquer estado residual de "corrida em andamento".
+     * Verifica se o motorista está na tela ociosa ou offline dos apps parceiros (mapa inicial).
+     * Usado para resetar qualquer estado residual de "corrida em andamento" e filtrar saldos do mapa.
      */
     fun isIdleDriverScreen(texts: List<String>): Boolean {
         val joined = texts.joinToString(" ").lowercase()
-        return IDLE_DRIVER_MARKERS.any { joined.contains(it) }
+        if (IDLE_DRIVER_MARKERS.any { joined.contains(it) }) return true
+        return texts.any {
+            val t = it.trim().lowercase()
+            t == "conectar" || t == "começar" || t == "comecar"
+        }
+    }
+
+    /**
+     * Verifica se uma tela (que contém marcadores de mapa ocioso/offline ao fundo) possui
+     * sinais inequívocos de um card de oferta de corrida sobreposto.
+     */
+    private fun hasOfferCardSignal(cleanTexts: List<String>): Boolean {
+        val joined = cleanTexts.joinToString(" ").lowercase()
+        if (cleanTexts.any {
+                val t = it.trim()
+                isAcceptActionText(t) || t.equals("tenho interesse", ignoreCase = true) || t.equals("negociar", ignoreCase = true)
+            }
+        ) {
+            return true
+        }
+        if (joined.contains("est. de r$") ||
+            joined.contains("/km") ||
+            joined.contains("por km") ||
+            joined.contains("nova corrida") ||
+            joined.contains("novo pedido") ||
+            joined.contains("tarifa base") ||
+            joined.contains("até o passageiro") ||
+            joined.contains("de viagem")
+        ) {
+            return true
+        }
+        var legs = 0
+        for (text in cleanTexts) {
+            val m = REGEX_TRECHO_MIN_KM.matcher(text)
+            while (m.find()) {
+                legs++
+                if (legs >= 2) return true
+            }
+        }
+        return false
     }
 
     /**
@@ -272,6 +381,12 @@ object ParsingEngine {
             return null
         }
 
+        // Proteção 3: Se a tela é o mapa inicial ocioso/offline (ex: "Você está offline", "Conectar", "Procurando viagens")
+        // e NÃO há nenhum card de oferta sobreposto, qualquer R$ + km na tela é saldo do topo + distância de mapa/demanda.
+        if (isIdleDriverScreen(cleanTexts) && !hasOfferCardSignal(cleanTexts)) {
+            return null
+        }
+
         var price: Double? = null
         var distance: Double? = null
         var duration: Int? = null
@@ -279,7 +394,10 @@ object ParsingEngine {
 
         // 1. Extração de Preço (Individual, Janela Deslizante de 2 Tokens e Texto Completo)
         // Ignora tokens que sejam tarifas por km (ex: "R$ 1,59/km" ou "R$ 1,59" seguido de "/km" ou "(por km)")
+        // e ignora a pílula de ganhos acumulados do topo do mapa ("Página inicial | R$ 22,13 | HOJE")
         for (i in cleanTexts.indices) {
+            if (isMapHeaderPriceToken(cleanTexts, i)) continue
+
             val current = cleanTexts[i]
             val nextToken = if (i + 1 < cleanTexts.size) cleanTexts[i + 1].lowercase() else ""
             val prevToken = if (i > 0) cleanTexts[i - 1].lowercase() else ""
@@ -310,6 +428,7 @@ object ParsingEngine {
 
             // Caso "R$" esteja em um token e o valor numérico no token imediatamente seguinte
             if (current.equals("R$", ignoreCase = true) && i + 1 < cleanTexts.size) {
+                if (isMapHeaderPriceToken(cleanTexts, i + 1)) continue
                 val next = cleanTexts[i + 1]
                 val afterNext = if (i + 2 < cleanTexts.size) cleanTexts[i + 2].lowercase() else ""
                 if (afterNext.startsWith("/km") || afterNext.startsWith("por km") || afterNext.startsWith("(por km")) {
@@ -329,9 +448,10 @@ object ParsingEngine {
             }
         }
 
-        // Passo 1b: Se ainda não achou preço, busca no texto completo concatenado
+        // Passo 1b: Se ainda não achou preço, busca no texto completo concatenado (excluindo tokens do cabeçalho do mapa)
         if (price == null) {
-            val fullText = cleanTexts.joinToString(" ")
+            val nonHeaderTexts = cleanTexts.filterIndexed { idx, _ -> !isMapHeaderPriceToken(cleanTexts, idx) }
+            val fullText = nonHeaderTexts.joinToString(" ")
             val mPrecoFull = REGEX_PRECO_EXPLICITO.matcher(fullText)
             while (mPrecoFull.find()) {
                 val groupVal = mPrecoFull.group(1)

@@ -105,4 +105,24 @@ class OrderingProbeTest {
             assertTrue("Leitura deve ser estável entre chamadas", reading is ScreenReading.Offer)
         }
     }
+
+    @Test
+    fun uberPickupAndDropoffMapScreensRouteToActiveRideNotOffer() {
+        val pickupTexts = listOf(
+            "Página inicial", "R$ 16,12", "Pesquisar locais", "60", "LIMITE",
+            "Recursos de segurança", "Rua Expedicionário Holz", "0.7 km", "Rua Conselheiro Arp",
+            "Está tudo pronto para você ficar online", "Preferências", "3 min", "1,4 km",
+            "Encontro com Yondri", "Recomendado para você", "Conteúdo", "Registro de viagens"
+        )
+        assertEquals(ScreenReading.ActiveRide, read("com.ubercab.driver", pickupTexts, active = true))
+
+        val idleWithBusyArea = listOf(
+            "Página inicial", "R$ 22,13", "Pesquisar locais", "80", "LIMITE",
+            "Recursos de segurança", "Radar de Viagens", "350 m", "Rua Dona Francisca",
+            "Está tudo pronto para você ficar online", "Preferências", "13 min", "6,6 km",
+            "Procurando viagens", "Recomendado para você", "Conteúdo",
+            "A caminho de uma região movimentada", "Disponível para todas as viagens"
+        )
+        assertEquals(ScreenReading.Unknown, read("com.ubercab.driver", idleWithBusyArea, active = false))
+    }
 }
