@@ -621,4 +621,11 @@ class ParsingEngineTest {
             ParsingEngine.parseNodes("com.taxis99", app99IdleOcrWithDistance, 0.2148, 4.75f)
         )
     }
+
+    @Test
+    fun testPainelDeGanhos99NaoViraOferta() {
+        val texts = listOf("R$45,93", "6 Solicitações", "Último R$5,10", "Recompensas", "Ganhos desta semana R$155,79", "3,1 km")
+        val offer = ParsingEngine.parseNodes("com.app99.driver", texts, 0.78, 4.75f)
+        assertNull("Painel/pílula de ganhos não é oferta", offer)
+    }
 }

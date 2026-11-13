@@ -348,6 +348,17 @@ object ParsingEngine {
         return false
     }
 
+    private val EARNINGS_PANEL_MARKERS = listOf(
+        "solicitações", "solicitacoes", "solicitação", "central de ganhos", "ganhos desta semana",
+        "ganhos de hoje", "ganhos do dia", "recompensas", "painel de ganhos", "meta do dia"
+    )
+
+    /** Tela com o painel de ganhos acumulados (pílula do topo / painel da 99). */
+    fun isEarningsPanelScreen(texts: List<String>): Boolean {
+        val joined = texts.joinToString(" ").lowercase()
+        return EARNINGS_PANEL_MARKERS.any { joined.contains(it) }
+    }
+
     /**
      * Verifica se os textos capturados contêm elementos do próprio overlay do DriFly.
      */
@@ -384,6 +395,12 @@ object ParsingEngine {
         // Proteção 3: Se a tela é o mapa inicial ocioso/offline (ex: "Você está offline", "Conectar", "Procurando viagens")
         // e NÃO há nenhum card de oferta sobreposto, qualquer R$ + km na tela é saldo do topo + distância de mapa/demanda.
         if (isIdleDriverScreen(cleanTexts) && !hasOfferCardSignal(cleanTexts)) {
+            return null
+        }
+
+        // Proteção 4: painel/central de ganhos da 99 e Uber ("R$45,93", "6 Solicitações", "Recompensas").
+        // Esses valores são o ACUMULADO do dia, nunca o preço de uma corrida. Sem sinais de card de oferta, ignora.
+        if (isEarningsPanelScreen(cleanTexts) && !hasOfferCardSignal(cleanTexts)) {
             return null
         }
 

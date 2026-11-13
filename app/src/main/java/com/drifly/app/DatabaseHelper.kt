@@ -27,6 +27,8 @@ data class RideRecord(
 ) {
     companion object {
         const val STATUS_ESTIMADO = "ESTIMADO"
+        /** Oferta detectada mas AINDA NÃO aceita: nunca entra em faturamento nem histórico. */
+        const val STATUS_OFERTA = "OFERTA"
         const val STATUS_CONCLUIDO = "CONCLUIDO"
         const val STATUS_CANCELADO = "CANCELADO"
         const val STATUS_CANCELADO_TAXA = "CANCELADO_TAXA"
@@ -214,6 +216,17 @@ class DatabaseHelper(context: Context) :
         return match
     }
 
+    /** Promove uma oferta (OFERTA) para corrida aceita (ESTIMADO). Só a partir daqui ela conta no faturamento. */
+    fun acceptRide(id: Long): Boolean {
+        val cv = ContentValues().apply {
+            put("status", RideRecord.STATUS_ESTIMADO)
+            put("timestamp", System.currentTimeMillis())
+        }
+        return writableDatabase.update(
+            "rides", cv, "id = ? AND status = ?", arrayOf(id.toString(), RideRecord.STATUS_OFERTA)
+        ) > 0
+    }
+
     fun getLatestEstimatedRide(platform: String? = null): RideRecord? {
         val db = readableDatabase
         val sql = if (platform != null) {
@@ -261,7 +274,7 @@ class DatabaseHelper(context: Context) :
         val list = mutableListOf<RideRecord>()
         val db = readableDatabase
         val cursor = db.rawQuery(
-            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides ORDER BY timestamp ASC",
+            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status IS NULL OR status != 'OFERTA' ORDER BY timestamp ASC",
             null
         )
         while (cursor.moveToNext()) {
@@ -288,7 +301,7 @@ class DatabaseHelper(context: Context) :
         val list = mutableListOf<RideRecord>()
         val db = readableDatabase
         val cursor = db.rawQuery(
-            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE timestamp BETWEEN ? AND ? ORDER BY timestamp DESC",
+            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE timestamp BETWEEN ? AND ? AND (status IS NULL OR status != 'OFERTA') ORDER BY timestamp DESC",
             arrayOf(start.toString(), end.toString())
         )
         while (cursor.moveToNext()) {
@@ -417,6 +430,7 @@ class DatabaseHelper(context: Context) :
             val fee = rideCursor.getDouble(3)
 
             when (status) {
+                RideRecord.STATUS_OFERTA -> Unit
                 RideRecord.STATUS_CONCLUIDO, RideRecord.STATUS_ESTIMADO -> {
                     gross += grossPrice
                     net += netProfit

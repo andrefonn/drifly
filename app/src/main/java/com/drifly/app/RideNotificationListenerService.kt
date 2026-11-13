@@ -118,7 +118,7 @@ class RideNotificationListenerService : NotificationListenerService() {
                             gross = offer.price,
                             distance = offer.distanceKm,
                             net = offer.netProfit,
-                            status = RideRecord.STATUS_ESTIMADO,
+                            status = RideRecord.STATUS_OFERTA,
                             originalPrice = offer.price
                         )
 

@@ -396,6 +396,7 @@ class RotaAccessibilityService : AccessibilityService() {
         BubbleOverlayService.onRideAcceptedShowStreetViewBriefly(this, offerToSave.destinationAddress)
 
         val finalRideId = if (rideId != null) {
+            db.acceptRide(rideId)
             rideId
         } else {
             val existing = db.findRecentDuplicateRide(offerToSave.platform, offerToSave.price, offerToSave.distanceKm)
@@ -489,14 +490,14 @@ class RotaAccessibilityService : AccessibilityService() {
 
             diag("OFERTA DETECTADA [${finalOffer.platform}]: R$ ${finalOffer.price} | ${finalOffer.distanceKm}km | R$/km ${finalOffer.ratePerKm} | Lucro R$ ${finalOffer.netProfit} | ModoCasa: ${finalOffer.isHeadingHome} (${finalOffer.homeDistanceDeltaKm}km)")
 
-            // 1. Registra oferta como ESTIMADO no banco financeiro (garante que o faturamento NUNCA zere)
+            // 1. Registra a oferta como OFERTA (oculta do faturamento). Só vira ESTIMADO quando o motorista ACEITAR.
             val existingRide = db.findRecentDuplicateRide(finalOffer.platform, finalOffer.price, finalOffer.distanceKm)
             val rideId = existingRide?.id ?: db.insertRide(
                 platform = finalOffer.platform,
                 gross = finalOffer.price,
                 distance = finalOffer.distanceKm,
                 net = finalOffer.netProfit,
-                status = RideRecord.STATUS_ESTIMADO,
+                status = RideRecord.STATUS_OFERTA,
                 originalPrice = finalOffer.price
             )
 
