@@ -27,17 +27,28 @@ android {
         create("release") {
             val ksFile = file("drifly-release.jks")
             if (ksFile.exists()) {
+                // Segredos nunca ficam no codigo (repo publico): vem de variaveis de ambiente
+                // ou do arquivo local signing.env (ignorado pelo Git). Ver SIGNING.md.
+                val envFile = rootProject.file("signing.env")
+                val fileVars = if (envFile.exists()) {
+                    envFile.readLines()
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() && !it.startsWith("#") && it.contains("=") }
+                        .associate { it.substringBefore("=").trim() to it.substringAfter("=").trim() }
+                } else emptyMap()
+                fun secret(name: String): String =
+                    System.getenv(name) ?: fileVars[name]
+                        ?: throw GradleException("Assinatura: defina $name (env) ou crie signing.env. Veja SIGNING.md")
                 storeFile = ksFile
-                storePassword = System.getenv("DRIFLY_KEYSTORE_PASSWORD") ?: "drifly2026"
-                keyAlias = System.getenv("DRIFLY_KEY_ALIAS") ?: "drifly_key"
-                keyPassword = System.getenv("DRIFLY_KEY_PASSWORD") ?: "drifly2026"
+                storePassword = secret("DRIFLY_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("DRIFLY_KEY_ALIAS") ?: fileVars["DRIFLY_KEY_ALIAS"] ?: "drifly_key"
+                keyPassword = secret("DRIFLY_KEY_PASSWORD")
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
             }
         }
     }
-
     buildTypes {
         release {
             isMinifyEnabled = false
