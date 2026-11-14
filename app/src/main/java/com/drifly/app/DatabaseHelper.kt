@@ -434,6 +434,13 @@ class DatabaseHelper(context: Context) :
         ) > 0
     }
 
+    fun rideExists(id: Long): Boolean {
+        val cursor = readableDatabase.rawQuery("SELECT 1 FROM rides WHERE id = ? LIMIT 1", arrayOf(id.toString()))
+        val exists = cursor.moveToFirst()
+        cursor.close()
+        return exists
+    }
+
     fun getLatestEstimatedRide(platform: String? = null): RideRecord? {
         val db = readableDatabase
         val sql = if (platform != null) {

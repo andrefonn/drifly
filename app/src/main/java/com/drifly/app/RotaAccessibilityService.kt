@@ -42,6 +42,18 @@ class RotaAccessibilityService : AccessibilityService() {
     private var activeRideStartTime: Long = 0L
     private var lastAcceptedTimestamp: Long = 0L
 
+    // Pacote do app de corrida visto por último (usado para reler a tela ao verificar um aceite).
+    @Volatile
+    private var lastSupportedPackage: String = ""
+
+    // A oferta pendente chegou enquanto outra corrida já estava em andamento. Nesse caso a tela de
+    // navegação que continua visível NÃO prova que o motorista aceitou a nova oferta.
+    @Volatile
+    private var offerArrivedDuringRide: Boolean = false
+
+    @Volatile
+    private var idleSeenSince: Long = 0L
+
     // Vigia de OCR: a 99 desenha o card em canvas e emite pouquíssimos eventos de acessibilidade,
     // então não dá para depender de evento para capturar a oferta. Este watchdog tenta o OCR
     // periodicamente enquanto o app monitorado está na tela e a árvore veio sem nenhum texto.
@@ -141,6 +153,7 @@ class RotaAccessibilityService : AccessibilityService() {
         if (isOwnAppForeground()) return
 
         val now = System.currentTimeMillis()
+        lastSupportedPackage = packageName
 
         // DIAGNÓSTICO: registra cada evento recebido dos apps monitorados (limitado a 1 por segundo)
         if (now - lastDiagEventTimestamp > 1000L) {
@@ -314,7 +327,7 @@ class RotaAccessibilityService : AccessibilityService() {
                             handleTransitionToActiveRide(now)
                         }
 
-                        is ScreenReading.Unknown -> Unit
+                        is ScreenReading.Unknown -> onUnknownReading(extractedTexts, now)
                     }
                 } else if (
                     (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
@@ -367,10 +380,15 @@ class RotaAccessibilityService : AccessibilityService() {
     }
 
     private fun handleTransitionToActiveRide(now: Long) {
-        // Se havia uma oferta pendente recente (ex: motorista aceitou no gesto ou botão não reportou clique)
-        // consolida a oferta pendente no banco e fecha o overlay para não atrapalhar a navegação
-        val pending = pendingOffer
-        if (pending != null && (now - pendingOfferTimestamp) <= PENDING_OFFER_VALIDITY_MS) {
+        // A tela de corrida ativa só prova o aceite quando a oferta pendente é recente E não chegou
+        // durante outra corrida (senão a navegação anterior continua na tela mesmo sem aceitar).
+        if (AcceptanceRules.canCommitOnActiveRideScreen(
+                hasPending = pendingOffer != null,
+                pendingTimestamp = pendingOfferTimestamp,
+                now = now,
+                offerArrivedDuringRide = offerArrivedDuringRide
+            )
+        ) {
             commitPendingOfferAsAccepted(now)
         } else if (BubbleOverlayService.isRunning() && (now - lastAcceptedTimestamp) > ACCEPTED_STREET_VIEW_GRACE_MS) {
             BubbleOverlayService.stop(this)
@@ -379,9 +397,38 @@ class RotaAccessibilityService : AccessibilityService() {
         activeRideStartTime = now
     }
 
+    /**
+     * Tela ociosa (online procurando corridas) sem card de oferta: a oferta que estava pendente
+     * expirou, foi recusada ou foi ignorada. Ela não pode mais virar corrida aceita.
+     */
+    private fun onUnknownReading(texts: List<String>, now: Long) {
+        val looksIdle = ParsingEngine.isIdleDriverScreen(texts) &&
+                texts.none { ParsingEngine.isAcceptActionText(it) }
+        if (!looksIdle) {
+            idleSeenSince = 0L
+            return
+        }
+        // Exige a tela ociosa por >= 2s seguidos: uma leitura parcial do card não pode descartar a oferta.
+        if (idleSeenSince == 0L) {
+            idleSeenSince = now
+        } else if (now - idleSeenSince >= 2_000L) {
+            discardPendingOfferOnIdleScreen()
+        }
+    }
+
+    private fun discardPendingOfferOnIdleScreen() {
+        if (pendingOffer != null) {
+            diag("Tela ociosa sem card: oferta pendente descartada (não aceita)")
+        }
+        pendingOffer = null
+        pendingOfferRideId = null
+        isRideCurrentlyActive = false
+        idleSeenSince = 0L
+    }
+
     private fun commitPendingOfferAsAccepted(now: Long) {
         val offerToSave = pendingOffer ?: return
-        if ((now - pendingOfferTimestamp) > PENDING_OFFER_VALIDITY_MS) {
+        if (!AcceptanceRules.canCommitOnAcceptClick(true, pendingOfferTimestamp, now)) {
             pendingOffer = null
             pendingOfferRideId = null
             return
@@ -391,6 +438,7 @@ class RotaAccessibilityService : AccessibilityService() {
         pendingOffer = null
         val rideId = pendingOfferRideId
         pendingOfferRideId = null
+        offerArrivedDuringRide = false
         isRideCurrentlyActive = true
         activeRideStartTime = now
         lastAcceptedTimestamp = now
@@ -399,20 +447,26 @@ class RotaAccessibilityService : AccessibilityService() {
         // Ao aceitar a corrida, se houver endereço, mantém o overlay por mais 8 segundos com o Street View aberto pro motorista ver a fachada!
         BubbleOverlayService.onRideAcceptedShowStreetViewBriefly(this, offerToSave.destinationAddress)
 
-        val finalRideId = if (rideId != null) {
-            db.acceptRide(rideId)
+        val finalRideId = if (rideId != null && (db.acceptRide(rideId) || db.rideExists(rideId))) {
             rideId
         } else {
+            // Sem linha de oferta (apagada por fechar/expirar o overlay antes do aceite): grava como aceita.
             val existing = db.findRecentDuplicateRide(offerToSave.platform, offerToSave.price, offerToSave.distanceKm)
-            existing?.id ?: db.insertRide(
-                platform = offerToSave.platform,
-                gross = offerToSave.price,
-                distance = offerToSave.distanceKm,
-                net = offerToSave.netProfit,
-                status = RideRecord.STATUS_ESTIMADO,
-                originalPrice = offerToSave.price
-            )
+            if (existing != null) {
+                db.acceptRide(existing.id)
+                existing.id
+            } else {
+                db.insertRide(
+                    platform = offerToSave.platform,
+                    gross = offerToSave.price,
+                    distance = offerToSave.distanceKm,
+                    net = offerToSave.netProfit,
+                    status = RideRecord.STATUS_ESTIMADO,
+                    originalPrice = offerToSave.price
+                )
+            }
         }
+
 
         diag("CORRIDA ACEITA E CONFIRMADA [#${finalRideId} - ${offerToSave.platform}]: R$ ${offerToSave.price} (${offerToSave.distanceKm} km)")
 
@@ -486,8 +540,16 @@ class RotaAccessibilityService : AccessibilityService() {
             return
         }
 
-        // Se uma nova oferta legítima tocou na tela, significa que não estamos em viagem bloqueada
+        // Se uma nova oferta legítima tocou na tela, significa que não estamos em viagem bloqueada.
+        // Guarda se ela chegou DURANTE outra corrida: nesse caso só clique/toque confirmado prova aceite.
+        val isNewOfferCard = pendingOffer == null ||
+                pendingOffer?.platform != offer.platform ||
+                Math.abs((pendingOffer?.price ?: 0.0) - offer.price) >= 0.01
+        if (isNewOfferCard) {
+            offerArrivedDuringRide = isRideCurrentlyActive
+        }
         isRideCurrentlyActive = false
+        idleSeenSince = 0L
 
         val currentHash = offer.hashCode()
         // Dedup da mesma corrida enquanto ela está tocando na tela (evita reprocessar o mesmo card a cada segundo)
@@ -634,28 +696,227 @@ class RotaAccessibilityService : AccessibilityService() {
         diag("MANUAL ACCEPT TRIGGERED VIA OVERLAY TOUCH")
         val now = System.currentTimeMillis()
 
-        if (prefs.isMotorcycleMode) {
-            performSwipeAcceptGesture()
-        } else {
-            val root = try { rootInActiveWindow } catch (_: Exception) { null }
-            var clicked = false
-            if (root != null) {
-                val texts = ArrayList<String>()
-                val clickables = ArrayList<AccessibilityNodeInfo>()
-                try { traverseNodes(root, texts, clickables, 0) } catch (_: Exception) {}
-                clicked = performClickAccept(clickables)
-            }
-            if (!clicked) {
-                performSwipeAcceptGesture()
+        if (pendingOffer == null) {
+            BubbleOverlayService.activeOverlayOffer?.let {
+                setPendingOffer(it, now, BubbleOverlayService.activeOverlayRideId)
             }
         }
+        val offer = pendingOffer
+        if (offer == null) {
+            finishManualAccept(success = false, reason = "sem oferta pendente")
+            return
+        }
+        // Mantém a oferta elegível enquanto o aceite está em andamento.
+        setPendingOffer(offer, now, pendingOfferRideId)
 
-        if (pendingOffer == null && BubbleOverlayService.activeOverlayOffer != null) {
-            setPendingOffer(BubbleOverlayService.activeOverlayOffer!!, now, BubbleOverlayService.activeOverlayRideId)
+        // 1. Clique por nó de acessibilidade (Uber e qualquer tela que exponha o botão): o sistema
+        //    informa se o clique foi executado, então é evidência forte de aceite.
+        if (!prefs.isMotorcycleMode && clickAcceptInAnyWindow()) {
+            diag("MANUAL ACCEPT: clique por nó de acessibilidade executado")
+            finishManualAccept(success = true, reason = "clique em nó")
+            return
         }
 
-        commitPendingOfferAsAccepted(now)
+        // 2. Sem nós (99 desenha em canvas): esconde o overlay para ele não tapar o botão nem
+        //    sair no print, e age por gesto. O resultado só vale depois de verificar a tela.
+        BubbleOverlayService.setPassThrough(this, true)
+        ocrHandler.postDelayed({
+            if (prefs.isMotorcycleMode) {
+                dispatchSwipeAcceptGesture { dispatched ->
+                    if (dispatched) verifyAcceptanceAfterGesture(offer, 0)
+                    else finishManualAccept(false, "gesto de deslizar não executado")
+                }
+            } else {
+                captureScreenLines { lines ->
+                    val target = lines
+                        ?.filter { ParsingEngine.isAcceptActionText(it.text) && it.bounds != null }
+                        ?.maxByOrNull { it.bounds!!.bottom }
+                    if (target == null) {
+                        ocrHandler.post { finishManualAccept(false, "botão Aceitar não encontrado na tela") }
+                    } else {
+                        val b = target.bounds!!
+                        diag("MANUAL ACCEPT: botão '${target.text}' em (${b.centerX()},${b.centerY()})")
+                        dispatchTapGesture(b.centerX().toFloat(), b.centerY().toFloat()) { dispatched ->
+                            ocrHandler.post {
+                                if (dispatched) verifyAcceptanceAfterGesture(offer, 0)
+                                else finishManualAccept(false, "toque não executado")
+                            }
+                        }
+                    }
+                }
+            }
+        }, 180L)
     }
+
+    /**
+     * Depois do gesto, confere na tela se o card da oferta realmente sumiu. Só então a corrida entra
+     * no Faturamento. Se o card continua lá, o aceite falhou e nada é salvo.
+     */
+    private fun verifyAcceptanceAfterGesture(offer: RideOffer, attempt: Int) {
+        ocrHandler.postDelayed({
+            captureScreenLines { lines ->
+                ocrHandler.post {
+                    if (lines == null || lines.size <= OCR_EMPTY_TEXT_THRESHOLD) {
+                        // Frame vazio/transição: tenta de novo; no fim, como o gesto foi executado, confirma.
+                        if (attempt < 2) verifyAcceptanceAfterGesture(offer, attempt + 1)
+                        else finishManualAccept(true, "gesto executado; tela em transição")
+                        return@post
+                    }
+                    val reading = ScreenRouter.read(
+                        packageName = lastSupportedPackage,
+                        texts = lines.map { it.text },
+                        costPerKm = prefs.costPerKm,
+                        minRatingThreshold = prefs.minPassengerRating,
+                        isRideCurrentlyActive = isRideCurrentlyActive
+                    )
+                    val stillOffer = reading is ScreenReading.Offer &&
+                            Math.abs(reading.offer.price - offer.price) < 0.01
+                    if (stillOffer) finishManualAccept(false, "o card da oferta continua na tela")
+                    else finishManualAccept(true, "card da oferta sumiu")
+                }
+            }
+        }, 1_300L)
+    }
+
+    private fun finishManualAccept(success: Boolean, reason: String) {
+        BubbleOverlayService.setPassThrough(this, false)
+        if (success) {
+            diag("MANUAL ACCEPT OK ($reason)")
+            commitPendingOfferAsAccepted(System.currentTimeMillis())
+        } else {
+            diag("MANUAL ACCEPT FALHOU ($reason) -> nada salvo no Faturamento")
+            BubbleOverlayService.isAcceptTriggered = false
+            android.widget.Toast.makeText(
+                this,
+                "DriFly não conseguiu aceitar. Aceite direto no app.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private data class OcrLine(val text: String, val bounds: android.graphics.Rect?)
+
+    private fun captureScreenLines(onResult: (List<OcrLine>?) -> Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            onResult(null)
+            return
+        }
+        try {
+            takeScreenshot(
+                Display.DEFAULT_DISPLAY,
+                mainExecutor,
+                object : TakeScreenshotCallback {
+                    override fun onSuccess(screenshotResult: ScreenshotResult) {
+                        serviceScope.launch(Dispatchers.Default) {
+                            try {
+                                val buffer = screenshotResult.hardwareBuffer
+                                val hwBitmap = Bitmap.wrapHardwareBuffer(buffer, screenshotResult.colorSpace)
+                                val bitmap = hwBitmap?.copy(Bitmap.Config.ARGB_8888, false)
+                                buffer.close()
+                                if (bitmap == null) {
+                                    onResult(null)
+                                    return@launch
+                                }
+                                TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                                    .process(InputImage.fromBitmap(bitmap, 0))
+                                    .addOnSuccessListener { visionText ->
+                                        val out = ArrayList<OcrLine>()
+                                        for (block in visionText.textBlocks) {
+                                            for (line in block.lines) {
+                                                val t = line.text.trim()
+                                                if (t.isNotBlank()) out.add(OcrLine(t, line.boundingBox))
+                                            }
+                                        }
+                                        onResult(out)
+                                    }
+                                    .addOnFailureListener { onResult(null) }
+                                    .addOnCompleteListener { bitmap.recycle() }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Erro no OCR do aceite manual", e)
+                                onResult(null)
+                            }
+                        }
+                    }
+
+                    override fun onFailure(errorCode: Int) {
+                        onResult(null)
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Falha ao capturar tela para o aceite manual", e)
+            onResult(null)
+        }
+    }
+
+    private fun dispatchTapGesture(x: Float, y: Float, onDone: (Boolean) -> Unit) {
+        val path = Path().apply {
+            moveTo(x, y)
+            lineTo(x + 1f, y)
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 60))
+            .build()
+        val accepted = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) = onDone(true)
+            override fun onCancelled(gestureDescription: GestureDescription?) = onDone(false)
+        }, null)
+        if (!accepted) onDone(false)
+    }
+
+    private fun dispatchSwipeAcceptGesture(onDone: (Boolean) -> Unit) {
+        val m = resources.displayMetrics
+        val path = Path().apply {
+            moveTo(m.widthPixels * 0.2f, m.heightPixels * 0.78f)
+            lineTo(m.widthPixels * 0.85f, m.heightPixels * 0.78f)
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 250))
+            .build()
+        val accepted = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) = onDone(true)
+            override fun onCancelled(gestureDescription: GestureDescription?) = onDone(false)
+        }, null)
+        if (!accepted) onDone(false)
+    }
+
+    /** Procura o botão Aceitar em todas as janelas (exceto o DriFly) e clica no nó clicável correspondente. */
+    private fun clickAcceptInAnyWindow(): Boolean {
+        val roots = ArrayList<AccessibilityNodeInfo>()
+        try { rootInActiveWindow?.let { roots.add(it) } } catch (_: Exception) {}
+        try {
+            windows?.forEach { w -> w.root?.let { r -> if (roots.none { it == r }) roots.add(r) } }
+        } catch (_: Exception) {}
+        for (root in roots) {
+            val pkg = root.packageName?.toString() ?: ""
+            if (pkg.contains("com.drifly.app", ignoreCase = true)) continue
+            if (clickAcceptNode(root, 0)) return true
+        }
+        return false
+    }
+
+    private fun clickAcceptNode(node: AccessibilityNodeInfo?, depth: Int): Boolean {
+        if (node == null || depth > 30) return false
+        val text = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
+        val id = node.viewIdResourceName ?: ""
+        if (ParsingEngine.isAcceptActionText(text) || ParsingEngine.isAcceptActionText(id)) {
+            var target: AccessibilityNodeInfo? = node
+            var hops = 0
+            while (target != null && !target.isClickable && hops < 4) {
+                target = target.parent
+                hops++
+            }
+            if (target != null && target.isClickable && target.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                return true
+            }
+        }
+        for (i in 0 until node.childCount) {
+            val child = try { node.getChild(i) } catch (_: Exception) { null }
+            if (clickAcceptNode(child, depth + 1)) return true
+        }
+        return false
+    }
+
 
     private fun performClickAccept(nodes: List<AccessibilityNodeInfo>): Boolean {
         for (node in nodes) {
@@ -772,6 +1033,7 @@ class RotaAccessibilityService : AccessibilityService() {
                                                     }
                                                     is ScreenReading.Unknown -> {
                                                         diag("OCR_PARSE_NULL (texto lido, mas sem preço+distância válidos)")
+                                                        onUnknownReading(ocrTexts, ocrNow)
                                                         markOcrResult(ocrTexts.size)
                                                     }
                                                 }

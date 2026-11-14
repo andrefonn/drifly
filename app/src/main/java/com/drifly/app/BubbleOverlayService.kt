@@ -393,6 +393,31 @@ class BubbleOverlayService : Service() {
         }
 
         /**
+         * Modo "transparente": esconde o overlay e deixa os toques passarem por ele. Usado enquanto o
+         * DriFly clica/desliza no app da plataforma e tira print, para o card não tapar o botão nem
+         * aparecer no OCR.
+         */
+        fun setPassThrough(context: Context, enabled: Boolean) {
+            directHandler.post {
+                val view = directBubbleView ?: instance?.bubbleView ?: return@post
+                val lp = view.layoutParams as? WindowManager.LayoutParams ?: return@post
+                lp.flags = if (enabled) {
+                    lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                } else {
+                    lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                }
+                view.alpha = if (enabled) 0f else 1f
+                try {
+                    if (view.isAttachedToWindow) {
+                        (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).updateViewLayout(view, lp)
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Falha ao alternar modo transparente do overlay", e)
+                }
+            }
+        }
+
+        /**
          * Quando o motorista ACEITA a corrida, se houver endereço de destino, mantém o overlay por mais 8 segundos
          * com a foto da fachada do Street View aberta automaticamente e depois fecha sozinho.
          */
@@ -514,8 +539,19 @@ class BubbleOverlayService : Service() {
                                     lastAcceptTapTimestamp = now
                                     val currentOffer = activeOverlayOffer ?: offer
                                     Log.i(TAG, "Aceite manual via toque no overlay acionado para oferta [${currentOffer.platform} R$ ${currentOffer.price}]!")
-                                    RotaAccessibilityService.instance?.triggerManualAccept()
-                                    onRideAcceptedShowStreetViewBriefly(root.context, currentOffer.destinationAddress)
+                                    // O serviço de acessibilidade executa o clique/gesto, confere a tela e só então
+                                    // salva a corrida e mostra a fachada (onRideAcceptedShowStreetViewBriefly).
+                                    val service = RotaAccessibilityService.instance
+                                    if (service != null) {
+                                        service.triggerManualAccept()
+                                    } else {
+                                        isAcceptTriggered = false
+                                        android.widget.Toast.makeText(
+                                            root.context,
+                                            "Ative o serviço de acessibilidade do DriFly para aceitar pelo toque.",
+                                            android.widget.Toast.LENGTH_LONG
+                                        ).show()
+                                    }
                                 } else {
                                     Log.d(TAG, "Toque no corpo ignorado: debounce ou aceite já disparado.")
                                 }
