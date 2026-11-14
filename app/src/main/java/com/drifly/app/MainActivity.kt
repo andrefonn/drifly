@@ -266,8 +266,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         AppLogger.init(this)
+        AppLogger.installCrashHandler(this)
         prefs = PreferencesManager(this)
         db = DatabaseHelper(this)
+        CloudLogUploader.autoUploadPendingCrashIfConfigured(this)
 
         initViews()
         loadPreferences()
@@ -2143,6 +2145,18 @@ class MainActivity : AppCompatActivity() {
         val btnOemBatteryOpt = view.findViewById<Button>(R.id.btnOemBatteryOpt)
         val btnOemRestrictedSettings = view.findViewById<Button>(R.id.btnOemRestrictedSettings)
 
+        // Seção 5: Diagnóstico & Logs na Nuvem
+        val headerLogs = view.findViewById<View>(R.id.headerLogsAccordion)
+        val contentLogs = view.findViewById<View>(R.id.contentLogsAccordion)
+        val ivLogsChevron = view.findViewById<ImageView>(R.id.ivLogsChevron)
+        val tvLogsHeaderStatus = view.findViewById<TextView>(R.id.tvLogsHeaderStatus)
+        val tvLogsLocalSummary = view.findViewById<TextView>(R.id.tvLogsLocalSummary)
+        val tvLogsCloudStatus = view.findViewById<TextView>(R.id.tvLogsCloudStatus)
+        val btnUploadLogsCloud = view.findViewById<Button>(R.id.btnUploadLogsCloud)
+        val btnShareLogsDrive = view.findViewById<Button>(R.id.btnShareLogsDrive)
+        val btnConfigCloudLogs = view.findViewById<Button>(R.id.btnConfigCloudLogs)
+        val btnClearLogs = view.findViewById<Button>(R.id.btnClearLogs)
+
         val btnClose = view.findViewById<Button>(R.id.btnDiagClose)
 
         fun refreshPermsState() {
@@ -2357,6 +2371,96 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
+        // Seção 5: Diagnóstico & Logs na Nuvem
+        fun refreshLogsState() {
+            val sizeKb = (AppLogger.getLogSizeBytes() / 1024L).coerceAtLeast(0L)
+            val hasCrash = AppLogger.hasPendingCrash(this)
+            val isConfigured = CloudLogUploader.isConfigured(this)
+
+            if (hasCrash) {
+                tvLogsHeaderStatus.text = "⚠️ Erro fatal recente registrado • Toque para enviar"
+                tvLogsHeaderStatus.setTextColor(0xFFFFB800.toInt())
+                tvLogsLocalSummary.text = "Log local: ${sizeKb} KB (⚠️ crash recente pendente)"
+                tvLogsLocalSummary.setTextColor(0xFFFFB800.toInt())
+            } else {
+                tvLogsHeaderStatus.text = if (isConfigured) "Nuvem conectada • Log ${sizeKb} KB" else "Log local ${sizeKb} KB • Toque para enviar"
+                tvLogsHeaderStatus.setTextColor(if (isConfigured) 0xFF31D477.toInt() else 0xFFA3A8B5.toInt())
+                tvLogsLocalSummary.text = "Log local: ${sizeKb} KB"
+                tvLogsLocalSummary.setTextColor(0xFF31D477.toInt())
+            }
+
+            if (isConfigured) {
+                val lastTs = prefs.lastCloudLogUploadTimestamp
+                val lastStr = if (lastTs > 0L) {
+                    val fmt = SimpleDateFormat("dd/MM 'às' HH:mm", Locale.getDefault()).format(Date(lastTs))
+                    "Último envio: $fmt"
+                } else {
+                    "Webhook configurado (pronto para enviar)"
+                }
+                val autoStr = if (prefs.autoUploadCrashLogs) " • Auto-crash ON" else ""
+                tvLogsCloudStatus.text = "$lastStr$autoStr"
+            } else {
+                tvLogsCloudStatus.text = "Webhook não configurado. Use 'Salvar no Drive' ou configure o Apps Script."
+            }
+        }
+
+        refreshLogsState()
+
+        headerLogs.setOnClickListener {
+            val willExpand = (contentLogs.visibility == View.GONE)
+            TransitionManager.beginDelayedTransition(layoutAccordionContainer, AutoTransition().setDuration(220))
+            contentLogs.visibility = if (willExpand) View.VISIBLE else View.GONE
+            ivLogsChevron.animate().rotation(if (willExpand) 180f else 0f).setDuration(220).start()
+        }
+
+        btnUploadLogsCloud.setOnClickListener {
+            if (!CloudLogUploader.isConfigured(this)) {
+                showCloudLogsConfigDialog { refreshLogsState() }
+                return@setOnClickListener
+            }
+            btnUploadLogsCloud.isEnabled = false
+            btnUploadLogsCloud.text = "Enviando..."
+            CloudLogUploader.uploadLogs(this, reason = "manual") { result ->
+                btnUploadLogsCloud.isEnabled = true
+                btnUploadLogsCloud.text = "Enviar Nuvem"
+                result.onSuccess { msg ->
+                    refreshLogsState()
+                    showNotificationBanner("$msg para o Google Drive!", BannerType.SUCCESS)
+                }.onFailure { err ->
+                    showNotificationBanner("Falha ao enviar log: ${err.message}", BannerType.ERROR)
+                }
+            }
+        }
+
+        btnShareLogsDrive.setOnClickListener {
+            try {
+                val reportFile = AppLogger.exportReportToCacheFile(this)
+                val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", reportFile)
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_SUBJECT, "DriFly Log - ${reportFile.name}")
+                    putExtra(Intent.EXTRA_TEXT, "Log de diagnóstico do DriFly para análise no Antigravity Nuvem.")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(shareIntent, "Salvar log no Google Drive ou compartilhar"))
+            } catch (e: Exception) {
+                AppLogger.e("MainActivity", "Erro ao exportar log para compartilhamento", e)
+                showNotificationBanner("Erro ao exportar log: ${e.message}", BannerType.ERROR)
+            }
+        }
+
+        btnConfigCloudLogs.setOnClickListener {
+            showCloudLogsConfigDialog { refreshLogsState() }
+        }
+
+        btnClearLogs.setOnClickListener {
+            AppLogger.clear()
+            AppLogger.clearPendingCrash(this)
+            refreshLogsState()
+            showNotificationBanner("Logs locais limpos.", BannerType.INFO)
+        }
+
         val dialog = AlertDialog.Builder(this)
             .setView(view)
             .create()
@@ -2364,6 +2468,7 @@ class MainActivity : AppCompatActivity() {
         activePermissionsDialogRefresh = {
             refreshPermsState()
             refreshBackupState()
+            refreshLogsState()
         }
 
         dialog.setOnDismissListener {
@@ -2380,6 +2485,57 @@ class MainActivity : AppCompatActivity() {
             setDimAmount(0.75f)
         }
         dialog.show()
+    }
+
+    private fun showCloudLogsConfigDialog(onSaved: () -> Unit) {
+        val density = resources.displayMetrics.density
+        val pad = (16 * density).toInt()
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad / 2, pad, 0)
+        }
+
+        val tvHint = TextView(this).apply {
+            text = "Cole a URL do Web App (Google Apps Script) para enviar logs direto ao seu Google Drive com 1 toque. Veja o passo a passo em docs/CLOUD_LOGS.md no GitHub."
+            textSize = 12f
+            setPadding(0, 0, 0, (10 * density).toInt())
+        }
+        container.addView(tvHint)
+
+        val etUrl = EditText(this).apply {
+            hint = "https://script.google.com/macros/s/.../exec"
+            setText(prefs.cloudLogWebhookUrl)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            maxLines = 3
+        }
+        container.addView(etUrl)
+
+        val etToken = EditText(this).apply {
+            hint = "Token secreto (opcional)"
+            setText(prefs.cloudLogToken)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            maxLines = 1
+        }
+        container.addView(etToken)
+
+        val cbAutoCrash = CheckBox(this).apply {
+            text = "Enviar automaticamente ao abrir após crash"
+            isChecked = prefs.autoUploadCrashLogs
+        }
+        container.addView(cbAutoCrash)
+
+        AlertDialog.Builder(this)
+            .setTitle("Webhook de Logs na Nuvem")
+            .setView(container)
+            .setPositiveButton("Salvar") { _, _ ->
+                prefs.cloudLogWebhookUrl = etUrl.text.toString().trim()
+                prefs.cloudLogToken = etToken.text.toString().trim()
+                prefs.autoUploadCrashLogs = cbAutoCrash.isChecked
+                onSaved()
+                showNotificationBanner("Configuração de logs na nuvem salva!", BannerType.SUCCESS)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun handleBackupImport(uri: Uri) {

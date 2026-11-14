@@ -70,6 +70,7 @@ class RotaAccessibilityService : AccessibilityService() {
         super.onCreate()
         instance = this
         AppLogger.init(this)
+        AppLogger.installCrashHandler(this)
         prefs = PreferencesManager(this)
         db = DatabaseHelper(this)
         try {
