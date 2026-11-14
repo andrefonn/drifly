@@ -45,6 +45,14 @@ class PreferencesManager(context: Context) {
         get() = prefs.getBoolean("is_motorcycle_mode", false)
         set(value) = prefs.edit().putBoolean("is_motorcycle_mode", value).apply()
 
+    var tapToAcceptEnabled: Boolean
+        get() = prefs.getBoolean("tap_to_accept_enabled", false)
+        set(value) = prefs.edit().putBoolean("tap_to_accept_enabled", value).apply()
+
+    var blacklistEnabled: Boolean
+        get() = prefs.getBoolean("blacklist_enabled", false)
+        set(value) = prefs.edit().putBoolean("blacklist_enabled", value).apply()
+
     // Posição de Exibição da Bolha: "TOP" (Topo), "CENTER" (Meio) ou "BOTTOM" (Base)
     var overlayPosition: String
         get() = prefs.getString("overlay_position", "TOP") ?: "TOP"

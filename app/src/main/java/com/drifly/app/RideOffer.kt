@@ -13,5 +13,8 @@ data class RideOffer(
     val isLowRating: Boolean = false,
     val destinationAddress: String? = null,
     val isHeadingHome: Boolean = false,
-    val homeDistanceDeltaKm: Double = 0.0
+    val homeDistanceDeltaKm: Double = 0.0,
+    val pickupAddress: String? = null,
+    val isBlacklistBlocked: Boolean = false,
+    val blacklistAlert: String? = null
 )

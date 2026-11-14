@@ -5,6 +5,10 @@
         android:icon="@drawable/ic_nav_finance"
         android:title="Resultados" />
     <item
+        android:id="@+id/nav_management"
+        android:icon="@drawable/ic_nav_management"
+        android:title="Gestão" />
+    <item
         android:id="@+id/nav_rides"
         android:icon="@drawable/ic_nav_rides"
         android:title="Corridas" />

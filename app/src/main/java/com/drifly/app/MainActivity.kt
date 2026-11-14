@@ -15,6 +15,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.SurfaceTexture
+import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.media.AudioAttributes
 import android.media.AudioManager
@@ -29,6 +30,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.transition.AutoTransition
 import android.transition.TransitionManager
+import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -46,8 +48,15 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import android.text.Editable
+import android.text.TextWatcher
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -71,6 +80,7 @@ class MainActivity : AppCompatActivity() {
     // Navegação e Abas
     private lateinit var bottomNavigation: BottomNavigationView
     private lateinit var viewTabFinance: View
+    private lateinit var viewTabManagement: View
     private lateinit var viewTabRides: View
     private lateinit var viewTabSupport: View
 
@@ -97,11 +107,67 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvMonitoringSubtitle: TextView
     private lateinit var tvMonitoringBadge: TextView
 
-    // Aba 2: Configurações de Corrida & Modo Casa
+    // Aba 2 (Nova): Gestão Financeira Completa & Salário Real
+    private lateinit var btnPrevMonth: ImageButton
+    private lateinit var btnCurrentMonthChip: View
+    private lateinit var tvSelectedMonthLabel: TextView
+    private lateinit var tvMonthStatusPill: TextView
+    private lateinit var btnNextMonth: ImageButton
+
+    private lateinit var tvRealSalaryHero: TextView
+    private lateinit var tvSalaryTrendBadge: TextView
+    private lateinit var tvPocketCashSubtitle: TextView
+    private lateinit var tvAvgMonthlySalary: TextView
+    private lateinit var tvAvgSalaryContext: TextView
+    private lateinit var tvProjectedMonthlySalary: TextView
+    private lateinit var tvProjectedContext: TextView
+    private lateinit var tvBreakEvenPercent: TextView
+    private lateinit var pbBreakEven: ProgressBar
+    private lateinit var tvFreedomDayStatus: TextView
+
+    private lateinit var tvCascadeGross: TextView
+    private lateinit var tvCascadeStreetCosts: TextView
+    private lateinit var tvCascadeStreetCostsDetail: TextView
+    private lateinit var tvCascadeOpProfit: TextView
+    private lateinit var tvCascadeObligations: TextView
+    private lateinit var tvCascadeObligationsDetail: TextView
+    private lateinit var tvCascadeFinalSalary: TextView
+    private lateinit var tvIcrDiagnostic: TextView
+
+    private lateinit var btnAddObligation: View
+    private lateinit var layoutDueSoonRadar: View
+    private lateinit var tvDueSoonRadarTitle: TextView
+    private lateinit var tvDueSoonRadarSubtitle: TextView
+
+    private lateinit var chipFilterAll: TextView
+    private lateinit var chipFilterInstallments: TextView
+    private lateinit var chipFilterFixed: TextView
+    private lateinit var chipFilterDebts: TextView
+    private lateinit var chipFilterVariable: TextView
+    private lateinit var layoutObligationsList: LinearLayout
+    private lateinit var layoutEmptyObligations: View
+    private lateinit var btnQuickPresetVehicle: View
+    private lateinit var btnQuickPresetMei: View
+    private lateinit var btnQuickPresetHome: View
+
+    private lateinit var cardFinancialInsights: View
+    private lateinit var tvInsightItem1: TextView
+    private lateinit var tvInsightItem2: TextView
+    private lateinit var tvInsightItem3: TextView
+    private lateinit var btnSyncDailyGoalFromManagement: View
+    private lateinit var tvSyncDailyGoalLabel: TextView
+
+    private var selectedManagementYear: Int = Calendar.getInstance().get(Calendar.YEAR)
+    private var selectedManagementMonth: Int = Calendar.getInstance().get(Calendar.MONTH) + 1
+    private var selectedObligationFilter: String = "ALL"
+    private var lastSuggestedDailyGoal: Double = 200.0
+
+    // Aba 3: Configurações de Corrida & Modo Casa
     private lateinit var rgOverlayPosition: RadioGroup
     private lateinit var swAutoAccept: Switch
     private lateinit var swAutoDecline: Switch
     private lateinit var swMotoMode: Switch
+    private lateinit var swTapToAccept: Switch
     private lateinit var etMinRate: EditText
     private lateinit var etMaxDist: EditText
     private lateinit var etMinRating: EditText
@@ -114,6 +180,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSaveHomeAddress: Button
     private lateinit var btnUseCurrentLocationAsHome: Button
     private lateinit var tvHomeConfigStatus: TextView
+
+    private lateinit var cardConfigBlacklist: LinearLayout
+    private lateinit var swBlacklistEnabled: Switch
+    private lateinit var etBlacklistTerm: EditText
+    private lateinit var btnAddBlacklist: Button
+    private lateinit var layoutBlacklistItems: LinearLayout
+    private lateinit var tvBlacklistEmpty: TextView
 
     private lateinit var btnSaveRideSettings: Button
 
@@ -236,7 +309,8 @@ class MainActivity : AppCompatActivity() {
         handleIncomingTabIntent(intent)
 
         // Se nenhuma aba específica foi solicitada, abre Resultados & Finanças
-        if (intent.getStringExtra(EXTRA_OPEN_TAB) != "SUPPORT") {
+        val requestedTab = intent.getStringExtra(EXTRA_OPEN_TAB)
+        if (requestedTab != "SUPPORT" && requestedTab != "MANAGEMENT") {
             bottomNavigation.selectedItemId = R.id.nav_finance
             switchToTab(R.id.nav_finance)
         }
@@ -273,9 +347,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIncomingTabIntent(intent: Intent?) {
-        if (intent?.getStringExtra(EXTRA_OPEN_TAB) == "SUPPORT") {
-            bottomNavigation.selectedItemId = R.id.nav_support
-            switchToTab(R.id.nav_support)
+        when (intent?.getStringExtra(EXTRA_OPEN_TAB)) {
+            "SUPPORT" -> {
+                bottomNavigation.selectedItemId = R.id.nav_support
+                switchToTab(R.id.nav_support)
+            }
+            "MANAGEMENT" -> {
+                bottomNavigation.selectedItemId = R.id.nav_management
+                switchToTab(R.id.nav_management)
+            }
         }
         if (intent?.getBooleanExtra("INSERT_TEST_RIDE", false) == true) {
             val platform = intent.getStringExtra("PLATFORM") ?: "99"
@@ -335,6 +415,7 @@ class MainActivity : AppCompatActivity() {
 
         bottomNavigation = findViewById(R.id.bottomNavigation)
         viewTabFinance = findViewById(R.id.viewTabFinance)
+        viewTabManagement = findViewById(R.id.viewTabManagement)
         viewTabRides = findViewById(R.id.viewTabRides)
         viewTabSupport = findViewById(R.id.viewTabSupport)
 
@@ -360,11 +441,62 @@ class MainActivity : AppCompatActivity() {
         tvMonitoringSubtitle = findViewById(R.id.tvMonitoringSubtitle)
         tvMonitoringBadge = findViewById(R.id.tvMonitoringBadge)
 
-        // Aba 2: Corridas
+        // Aba 2 (Nova): Gestão Financeira & Salário Real
+        btnPrevMonth = findViewById(R.id.btnPrevMonth)
+        btnCurrentMonthChip = findViewById(R.id.btnCurrentMonthChip)
+        tvSelectedMonthLabel = findViewById(R.id.tvSelectedMonthLabel)
+        tvMonthStatusPill = findViewById(R.id.tvMonthStatusPill)
+        btnNextMonth = findViewById(R.id.btnNextMonth)
+
+        tvRealSalaryHero = findViewById(R.id.tvRealSalaryHero)
+        tvSalaryTrendBadge = findViewById(R.id.tvSalaryTrendBadge)
+        tvPocketCashSubtitle = findViewById(R.id.tvPocketCashSubtitle)
+        tvAvgMonthlySalary = findViewById(R.id.tvAvgMonthlySalary)
+        tvAvgSalaryContext = findViewById(R.id.tvAvgSalaryContext)
+        tvProjectedMonthlySalary = findViewById(R.id.tvProjectedMonthlySalary)
+        tvProjectedContext = findViewById(R.id.tvProjectedContext)
+        tvBreakEvenPercent = findViewById(R.id.tvBreakEvenPercent)
+        pbBreakEven = findViewById(R.id.pbBreakEven)
+        tvFreedomDayStatus = findViewById(R.id.tvFreedomDayStatus)
+
+        tvCascadeGross = findViewById(R.id.tvCascadeGross)
+        tvCascadeStreetCosts = findViewById(R.id.tvCascadeStreetCosts)
+        tvCascadeStreetCostsDetail = findViewById(R.id.tvCascadeStreetCostsDetail)
+        tvCascadeOpProfit = findViewById(R.id.tvCascadeOpProfit)
+        tvCascadeObligations = findViewById(R.id.tvCascadeObligations)
+        tvCascadeObligationsDetail = findViewById(R.id.tvCascadeObligationsDetail)
+        tvCascadeFinalSalary = findViewById(R.id.tvCascadeFinalSalary)
+        tvIcrDiagnostic = findViewById(R.id.tvIcrDiagnostic)
+
+        btnAddObligation = findViewById(R.id.btnAddObligation)
+        layoutDueSoonRadar = findViewById(R.id.layoutDueSoonRadar)
+        tvDueSoonRadarTitle = findViewById(R.id.tvDueSoonRadarTitle)
+        tvDueSoonRadarSubtitle = findViewById(R.id.tvDueSoonRadarSubtitle)
+
+        chipFilterAll = findViewById(R.id.chipFilterAll)
+        chipFilterInstallments = findViewById(R.id.chipFilterInstallments)
+        chipFilterFixed = findViewById(R.id.chipFilterFixed)
+        chipFilterDebts = findViewById(R.id.chipFilterDebts)
+        chipFilterVariable = findViewById(R.id.chipFilterVariable)
+        layoutObligationsList = findViewById(R.id.layoutObligationsList)
+        layoutEmptyObligations = findViewById(R.id.layoutEmptyObligations)
+        btnQuickPresetVehicle = findViewById(R.id.btnQuickPresetVehicle)
+        btnQuickPresetMei = findViewById(R.id.btnQuickPresetMei)
+        btnQuickPresetHome = findViewById(R.id.btnQuickPresetHome)
+
+        cardFinancialInsights = findViewById(R.id.cardFinancialInsights)
+        tvInsightItem1 = findViewById(R.id.tvInsightItem1)
+        tvInsightItem2 = findViewById(R.id.tvInsightItem2)
+        tvInsightItem3 = findViewById(R.id.tvInsightItem3)
+        btnSyncDailyGoalFromManagement = findViewById(R.id.btnSyncDailyGoalFromManagement)
+        tvSyncDailyGoalLabel = findViewById(R.id.tvSyncDailyGoalLabel)
+
+        // Aba 3: Corridas
         rgOverlayPosition = findViewById(R.id.rgOverlayPosition)
         swAutoAccept = findViewById(R.id.swAutoAccept)
         swAutoDecline = findViewById(R.id.swAutoDecline)
         swMotoMode = findViewById(R.id.swMotoMode)
+        swTapToAccept = findViewById(R.id.swTapToAccept)
         etMinRate = findViewById(R.id.etMinRate)
         etMaxDist = findViewById(R.id.etMaxDist)
         etMinRating = findViewById(R.id.etMinRating)
@@ -377,6 +509,13 @@ class MainActivity : AppCompatActivity() {
         btnSaveHomeAddress = findViewById(R.id.btnSaveHomeAddress)
         btnUseCurrentLocationAsHome = findViewById(R.id.btnUseCurrentLocationAsHome)
         tvHomeConfigStatus = findViewById(R.id.tvHomeConfigStatus)
+
+        cardConfigBlacklist = findViewById(R.id.cardConfigBlacklist)
+        swBlacklistEnabled = findViewById(R.id.swBlacklistEnabled)
+        etBlacklistTerm = findViewById(R.id.etBlacklistTerm)
+        btnAddBlacklist = findViewById(R.id.btnAddBlacklist)
+        layoutBlacklistItems = findViewById(R.id.layoutBlacklistItems)
+        tvBlacklistEmpty = findViewById(R.id.tvBlacklistEmpty)
 
         btnSaveRideSettings = findViewById(R.id.btnSaveRideSettings)
 
@@ -409,7 +548,16 @@ class MainActivity : AppCompatActivity() {
         applyScaleTouchFeedback(btnSaveGoalOnly)
         applyScaleTouchFeedback(btnOpenFullHistory)
         applyScaleTouchFeedback(cardMonitoringToggle)
+        applyScaleTouchFeedback(btnPrevMonth)
+        applyScaleTouchFeedback(btnCurrentMonthChip)
+        applyScaleTouchFeedback(btnNextMonth)
+        applyScaleTouchFeedback(btnAddObligation)
+        applyScaleTouchFeedback(btnQuickPresetVehicle)
+        applyScaleTouchFeedback(btnQuickPresetMei)
+        applyScaleTouchFeedback(btnQuickPresetHome)
+        applyScaleTouchFeedback(btnSyncDailyGoalFromManagement)
         applyScaleTouchFeedback(btnSaveRideSettings)
+        applyScaleTouchFeedback(btnAddBlacklist)
         applyScaleTouchFeedback(btnSaveHomeAddress)
         applyScaleTouchFeedback(btnUseCurrentLocationAsHome)
         applyScaleTouchFeedback(btnCopyPixKey)
@@ -473,6 +621,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun switchToTab(itemId: Int) {
         viewTabFinance.visibility = View.GONE
+        viewTabManagement.visibility = View.GONE
         viewTabRides.visibility = View.GONE
         viewTabSupport.visibility = View.GONE
 
@@ -483,6 +632,13 @@ class MainActivity : AppCompatActivity() {
                 viewTabFinance.animate().alpha(1f).setDuration(180).start()
                 tvSubtitle.text = "Painel de Resultados"
                 updateDashboard(animate = false)
+            }
+            R.id.nav_management -> {
+                viewTabManagement.visibility = View.VISIBLE
+                viewTabManagement.alpha = 0f
+                viewTabManagement.animate().alpha(1f).setDuration(180).start()
+                tvSubtitle.text = "Gestão Financeira & Salário"
+                updateManagementDashboard(animate = true)
             }
             R.id.nav_rides -> {
                 viewTabRides.visibility = View.VISIBLE
@@ -562,6 +718,7 @@ class MainActivity : AppCompatActivity() {
         swAutoAccept.isChecked = prefs.autoAcceptEnabled
         swAutoDecline.isChecked = prefs.autoDeclineEnabled
         swMotoMode.isChecked = prefs.isMotorcycleMode
+        swTapToAccept.isChecked = prefs.tapToAcceptEnabled
 
         etMinRate.setText(String.format(ptBr, "%.2f", prefs.minRatePerKm))
         etMaxDist.setText(String.format(ptBr, "%.1f", prefs.maxDistanceKm))
@@ -574,6 +731,10 @@ class MainActivity : AppCompatActivity() {
         // Modo Casa
         etHomeAddress.setText(prefs.homeAddress)
         updateHomeConfigStatus()
+
+        // Lista Negra de Bairros
+        swBlacklistEnabled.isChecked = prefs.blacklistEnabled
+        renderBlacklistItems()
     }
 
     private fun enableCommaAndDotDecimalInput(vararg fields: EditText) {
@@ -690,6 +851,8 @@ class MainActivity : AppCompatActivity() {
             prefs.autoAcceptEnabled = swAutoAccept.isChecked
             prefs.autoDeclineEnabled = swAutoDecline.isChecked
             prefs.isMotorcycleMode = swMotoMode.isChecked
+            prefs.tapToAcceptEnabled = swTapToAccept.isChecked
+            prefs.blacklistEnabled = swBlacklistEnabled.isChecked
 
             prefs.minRatePerKm = parseBrFloat(etMinRate.text.toString(), prefs.minRatePerKm)
             prefs.maxDistanceKm = parseBrFloat(etMaxDist.text.toString(), prefs.maxDistanceKm)
@@ -755,10 +918,132 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        swBlacklistEnabled.setOnCheckedChangeListener { _, isChecked ->
+            prefs.blacklistEnabled = isChecked
+            val msg = if (isChecked) "Lista Negra de Bairros ativada" else "Lista Negra de Bairros desativada"
+            showNotificationBanner(msg, BannerType.INFO)
+        }
+
+        btnAddBlacklist.setOnClickListener {
+            val rawTerm = etBlacklistTerm.text.toString().trim()
+            if (rawTerm.isNotBlank()) {
+                val normalized = BlacklistManager.normalizeText(rawTerm)
+                etBlacklistTerm.setText("")
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val coords = ModoCasaHelper.geocodeAddress(this@MainActivity, rawTerm)
+                    db.insertBlacklistItem(
+                        rawTerm = rawTerm,
+                        normalizedTerm = normalized,
+                        latitude = coords?.first,
+                        longitude = coords?.second
+                    )
+                    withContext(Dispatchers.Main) {
+                        renderBlacklistItems()
+                        val msg = if (coords != null) {
+                            "Bairro '$rawTerm' adicionado à Lista Negra (geolocalizado)!"
+                        } else {
+                            "Bairro '$rawTerm' adicionado à Lista Negra (modo texto offline)!"
+                        }
+                        showNotificationBanner(msg, BannerType.SUCCESS)
+                    }
+                }
+            } else {
+                showNotificationBanner("Digite o nome do bairro para adicionar.", BannerType.INFO)
+            }
+        }
+
         btnAddExpense.setOnClickListener { showAddExpenseDialog() }
 
         btnOpenFullHistory.setOnClickListener {
             showReportDialog("DAILY", "Histórico de Corridas")
+        }
+
+        // Aba 2 (Nova): Gestão Financeira Completa & Salário Real
+        btnPrevMonth.setOnClickListener {
+            selectedManagementMonth--
+            if (selectedManagementMonth < 1) {
+                selectedManagementMonth = 12
+                selectedManagementYear--
+            }
+            updateManagementDashboard(animate = true)
+        }
+
+        btnNextMonth.setOnClickListener {
+            selectedManagementMonth++
+            if (selectedManagementMonth > 12) {
+                selectedManagementMonth = 1
+                selectedManagementYear++
+            }
+            updateManagementDashboard(animate = true)
+        }
+
+        btnCurrentMonthChip.setOnClickListener {
+            val cal = Calendar.getInstance()
+            val curY = cal.get(Calendar.YEAR)
+            val curM = cal.get(Calendar.MONTH) + 1
+            if (selectedManagementYear != curY || selectedManagementMonth != curM) {
+                selectedManagementYear = curY
+                selectedManagementMonth = curM
+                updateManagementDashboard(animate = true)
+                showNotificationBanner("Retornado para o mês atual!", BannerType.INFO)
+            } else {
+                updateManagementDashboard(animate = true)
+            }
+        }
+
+        btnAddObligation.setOnClickListener {
+            showAddOrEditObligationDialog()
+        }
+
+        btnQuickPresetVehicle.setOnClickListener {
+            showAddOrEditObligationDialog(initialPreset = "VEHICLE_INSTALLMENT")
+        }
+
+        btnQuickPresetMei.setOnClickListener {
+            showAddOrEditObligationDialog(initialPreset = "MEI_IPVA")
+        }
+
+        btnQuickPresetHome.setOnClickListener {
+            showAddOrEditObligationDialog(initialPreset = "HOUSING")
+        }
+
+        chipFilterAll.setOnClickListener {
+            selectedObligationFilter = "ALL"
+            updateManagementDashboard(animate = false)
+        }
+
+        chipFilterInstallments.setOnClickListener {
+            selectedObligationFilter = MonthlyObligation.TYPE_INSTALLMENT
+            updateManagementDashboard(animate = false)
+        }
+
+        chipFilterFixed.setOnClickListener {
+            selectedObligationFilter = MonthlyObligation.TYPE_FIXED_RECURRING
+            updateManagementDashboard(animate = false)
+        }
+
+        chipFilterDebts.setOnClickListener {
+            selectedObligationFilter = MonthlyObligation.TYPE_DEBT_OPEN
+            updateManagementDashboard(animate = false)
+        }
+
+        chipFilterVariable.setOnClickListener {
+            selectedObligationFilter = MonthlyObligation.TYPE_VARIABLE_MONTHLY
+            updateManagementDashboard(animate = false)
+        }
+
+        btnSyncDailyGoalFromManagement.setOnClickListener {
+            val ptBr = Locale("pt", "BR")
+            val suggested = lastSuggestedDailyGoal.coerceAtLeast(50.0)
+            prefs.goalType = "DAILY"
+            prefs.goalTargetAmount = suggested.toFloat()
+            rgGoalType.check(R.id.rbDaily)
+            etGoalTarget.setText(String.format(ptBr, "%.2f", prefs.goalTargetAmount))
+            updateDashboard(animate = true)
+            showNotificationBanner(
+                "Meta Diária sincronizada para ${FinancialManagementEngine.formatCurrency(suggested)}!",
+                BannerType.SUCCESS
+            )
         }
 
         // Aba de Apoio / Doações PIX
@@ -829,6 +1114,861 @@ class MainActivity : AppCompatActivity() {
         ssb.setSpan(android.text.style.ForegroundColorSpan(0xFFA3A8B5.toInt()), startReached, ssb.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
 
         tvGoalProgress.text = ssb
+
+        // Mantém a aba de Gestão Financeira sempre sincronizada quando corridas/despesas mudam
+        updateManagementDashboard(animate = animate)
+    }
+
+    /**
+     * Renderiza todos os cards, indicadores, cascata financeira, radar de 7 dias,
+     * lista de obrigações e simulador de liberdade da Aba 2 ("Gestão").
+     */
+    private fun updateManagementDashboard(animate: Boolean = false) {
+        val report = FinancialManagementEngine.buildMonthlyReport(
+            db = db,
+            year = selectedManagementYear,
+            month = selectedManagementMonth,
+            currentDailyGoal = prefs.goalTargetAmount.toDouble()
+        )
+        lastSuggestedDailyGoal = report.suggestedDailyGoal
+
+        // 1. Seletor de Competência Mensal
+        tvSelectedMonthLabel.text = report.monthDisplayLabel
+        tvMonthStatusPill.text = report.monthStatusPillText
+        when {
+            report.isCurrentMonth -> {
+                tvMonthStatusPill.setBackgroundResource(R.drawable.bg_pill_orange)
+                tvMonthStatusPill.setTextColor(0xFFFF8A24.toInt())
+            }
+            report.isPastMonth -> {
+                tvMonthStatusPill.setBackgroundResource(R.drawable.bg_period_unselected)
+                tvMonthStatusPill.setTextColor(0xFFA3A8B5.toInt())
+            }
+            else -> {
+                tvMonthStatusPill.setBackgroundResource(R.drawable.bg_pill_green)
+                tvMonthStatusPill.setTextColor(0xFF31D477.toInt())
+            }
+        }
+
+        // 2. Hero Card Principal: Salário Mensal Real (Comportamento em 2 Fases no Mês Atual)
+        if (report.isCurrentMonth && report.totalObligations > 0.0 && !report.isPhase2ProfitInPocket) {
+            tvRealSalaryHero.text = "R$ 0,00 livres hoje"
+            tvRealSalaryHero.setTextColor(0xFFFFB800.toInt())
+            tvSalaryTrendBadge.text = "Faltam ${FinancialManagementEngine.formatCurrency(report.missingForBreakEven)}"
+            tvSalaryTrendBadge.setBackgroundResource(R.drawable.bg_pill_orange)
+            tvSalaryTrendBadge.setTextColor(0xFFFF8A24.toInt())
+        } else {
+            tvRealSalaryHero.text = FinancialManagementEngine.formatCurrency(report.realSalary)
+            tvRealSalaryHero.setTextColor(
+                if (report.realSalary >= 0.0) 0xFF31D477.toInt() else 0xFFFF454D.toInt()
+            )
+            tvSalaryTrendBadge.text = report.salaryTrendBadgeText
+            if (report.salaryTrendPercent >= 0.0 || report.isBreakEvenReached) {
+                tvSalaryTrendBadge.setBackgroundResource(R.drawable.bg_pill_green)
+                tvSalaryTrendBadge.setTextColor(0xFF31D477.toInt())
+            } else {
+                tvSalaryTrendBadge.setBackgroundResource(R.drawable.bg_pill_orange)
+                tvSalaryTrendBadge.setTextColor(0xFFFF8A24.toInt())
+            }
+        }
+
+        tvPocketCashSubtitle.text = report.pocketCashSubtitle
+
+        // Sub-grid: Média Salarial Mensal Estabilizada & Projeção de Fechamento
+        tvAvgMonthlySalary.text = "${FinancialManagementEngine.formatCurrency(report.averageMonthlySalary)} / mês"
+        tvAvgMonthlySalary.setTextColor(
+            if (report.averageMonthlySalary >= 0.0) 0xFFFFFFFF.toInt() else 0xFFFF454D.toInt()
+        )
+        tvAvgSalaryContext.text = report.averageContextLabel
+
+        tvProjectedMonthlySalary.text = "${FinancialManagementEngine.formatCurrency(report.projectedSalary)} livres"
+        tvProjectedMonthlySalary.setTextColor(
+            if (report.projectedSalary >= 0.0) 0xFF31D477.toInt() else 0xFFFF454D.toInt()
+        )
+        tvProjectedContext.text = report.projectedContextLabel
+
+        // 3. Ponto de Equilíbrio ("Dia da Alforria")
+        val reachedAlforria = (report.isBreakEvenReached && report.totalObligations > 0.0)
+        tvBreakEvenPercent.text = if (reachedAlforria) "100% QUITADO!" else "${report.breakEvenPercent}% coberto"
+        tvBreakEvenPercent.setTextColor(if (reachedAlforria) 0xFF31D477.toInt() else 0xFFFF8A24.toInt())
+
+        val targetDrawableRes = if (reachedAlforria) {
+            R.drawable.progress_bar_emerald
+        } else {
+            R.drawable.progress_bar_gradient
+        }
+        ContextCompat.getDrawable(this, targetDrawableRes)?.let { drawable ->
+            val currentBounds = pbBreakEven.progressDrawable?.bounds
+            pbBreakEven.progressDrawable = drawable
+            if (currentBounds != null && !currentBounds.isEmpty) {
+                pbBreakEven.progressDrawable.bounds = currentBounds
+            }
+        }
+
+        val visualBreakEven = when {
+            report.breakEvenPercent > 0 -> report.breakEvenPercent
+            report.totalObligations > 0.0 -> 2
+            else -> 0
+        }
+        if (animate) {
+            val anim = ObjectAnimator.ofInt(pbBreakEven, "progress", pbBreakEven.progress, visualBreakEven)
+            anim.duration = 600
+            anim.interpolator = DecelerateInterpolator()
+            anim.start()
+        } else {
+            pbBreakEven.progress = visualBreakEven
+        }
+
+        tvFreedomDayStatus.text = report.freedomStatusText
+        tvFreedomDayStatus.setTextColor(
+            if (reachedAlforria) 0xFF31D477.toInt() else 0xFFF5F5F7.toInt()
+        )
+
+        // 4. Cascata do Dinheiro (Pista -> Contas -> Seu Bolso) & ICR
+        tvCascadeGross.text = FinancialManagementEngine.formatCurrency(report.grossRides)
+        tvCascadeStreetCosts.text = "- ${FinancialManagementEngine.formatCurrency(report.totalStreetCosts)}"
+        tvCascadeStreetCostsDetail.text = "Desgaste/Combustível KM: ${FinancialManagementEngine.formatCurrency(report.autoKmCost)} • Despesas Rápidas: ${FinancialManagementEngine.formatCurrency(report.streetExpenses)}"
+        tvCascadeOpProfit.text = FinancialManagementEngine.formatCurrency(report.operationalProfit)
+        tvCascadeObligations.text = "- ${FinancialManagementEngine.formatCurrency(report.totalObligations)}"
+        tvCascadeObligationsDetail.text = "Já pagas: ${FinancialManagementEngine.formatCurrency(report.paidObligations)} • Faltam pagar: ${FinancialManagementEngine.formatCurrency(report.unpaidObligations)}"
+        tvCascadeFinalSalary.text = FinancialManagementEngine.formatCurrency(report.realSalary)
+        tvCascadeFinalSalary.setTextColor(
+            if (report.realSalary >= 0.0) 0xFF31D477.toInt() else 0xFFFF454D.toInt()
+        )
+
+        tvIcrDiagnostic.text = report.icrLabel
+        tvIcrDiagnostic.setTextColor(
+            when (report.icrLevel) {
+                IcrLevel.HEALTHY -> 0xFF31D477.toInt()
+                IcrLevel.MODERATE -> 0xFFFFB800.toInt()
+                IcrLevel.CRITICAL -> 0xFFFF454D.toInt()
+            }
+        )
+
+        // 5. Radar de Pressão de 7 Dias
+        if (report.totalEntriesCount > 0) {
+            layoutDueSoonRadar.visibility = View.VISIBLE
+            tvDueSoonRadarTitle.text = "⚡ ${report.radarTitleText}"
+            tvDueSoonRadarSubtitle.text = report.radarSubtitleText
+            tvDueSoonRadarTitle.setTextColor(
+                when {
+                    report.overdueCount > 0 -> 0xFFFF454D.toInt()
+                    report.next7DaysPressureCount > 0 -> 0xFFFFB800.toInt()
+                    else -> 0xFF31D477.toInt()
+                }
+            )
+        } else {
+            layoutDueSoonRadar.visibility = View.GONE
+        }
+
+        // 6. Chips de Filtro Rápido com Contadores
+        chipFilterAll.text = "Todas (${report.countAll})"
+        chipFilterInstallments.text = "Parcelamentos (${report.countInstallments})"
+        chipFilterFixed.text = "Contas Fixas (${report.countFixed})"
+        chipFilterDebts.text = "Cartão & Dívidas (${report.countDebts})"
+        chipFilterVariable.text = "Gastos do Mês (${report.countVariable})"
+
+        val filterChips = listOf(
+            Pair(chipFilterAll, "ALL"),
+            Pair(chipFilterInstallments, MonthlyObligation.TYPE_INSTALLMENT),
+            Pair(chipFilterFixed, MonthlyObligation.TYPE_FIXED_RECURRING),
+            Pair(chipFilterDebts, MonthlyObligation.TYPE_DEBT_OPEN),
+            Pair(chipFilterVariable, MonthlyObligation.TYPE_VARIABLE_MONTHLY)
+        )
+        for ((chipView, filterKey) in filterChips) {
+            if (filterKey == selectedObligationFilter) {
+                chipView.setBackgroundResource(R.drawable.bg_period_selected)
+                chipView.setTextColor(0xFFFFFFFF.toInt())
+            } else {
+                chipView.setBackgroundResource(R.drawable.bg_period_unselected)
+                chipView.setTextColor(0xFFA3A8B5.toInt())
+            }
+        }
+
+        // 7. Lista de Compromissos ou Empty State Interativo
+        layoutObligationsList.removeAllViews()
+        if (report.entries.isEmpty()) {
+            layoutEmptyObligations.visibility = View.VISIBLE
+            layoutObligationsList.visibility = View.GONE
+        } else {
+            layoutEmptyObligations.visibility = View.GONE
+            layoutObligationsList.visibility = View.VISIBLE
+
+            val filteredEntries = if (selectedObligationFilter == "ALL") {
+                report.entries
+            } else {
+                report.entries.filter { it.type == selectedObligationFilter }
+            }
+
+            if (filteredEntries.isEmpty()) {
+                val emptyFilterTv = TextView(this).apply {
+                    text = "Nenhum compromisso nesta categoria neste mês."
+                    textSize = 13f
+                    setTextColor(0xFFA3A8B5.toInt())
+                    gravity = android.view.Gravity.CENTER
+                    setPadding(dpToPx(16), dpToPx(20), dpToPx(16), dpToPx(20))
+                    setBackgroundResource(R.drawable.bg_card_frosted_glass)
+                }
+                layoutObligationsList.addView(emptyFilterTv)
+            } else {
+                for (item in filteredEntries) {
+                    val cardView = createObligationItemCard(item)
+                    layoutObligationsList.addView(cardView)
+                }
+            }
+        }
+
+        // 8. Card de Inteligência & Simulador de Liberdade Financeira
+        val insights = report.freedomInsights
+        if (insights.isNotEmpty()) {
+            tvInsightItem1.visibility = View.VISIBLE
+            tvInsightItem1.text = "• ${insights[0]}"
+        } else {
+            tvInsightItem1.visibility = View.GONE
+        }
+
+        if (insights.size >= 2) {
+            tvInsightItem2.visibility = View.VISIBLE
+            tvInsightItem2.text = "• ${insights[1]}"
+        } else {
+            tvInsightItem2.visibility = View.GONE
+        }
+
+        if (insights.size >= 3) {
+            tvInsightItem3.visibility = View.VISIBLE
+            tvInsightItem3.text = "• ${insights[2]}"
+        } else {
+            tvInsightItem3.visibility = View.GONE
+        }
+
+        tvSyncDailyGoalLabel.text = report.syncDailyGoalLabel
+    }
+
+    /**
+     * Cria o card visual de uma Conta, Parcela ou Dívida com:
+     * - Título, emoji da categoria e badge de tipo/parcela (ex: [14/48], [FIXO])
+     * - Status de vencimento colorido por urgência
+     * - Botão de 1 toque "PAGAR" / "✓ PAGO"
+     * - Barra de progresso da parcela e previsão de término para parcelamentos
+     * - Toque no card para abrir o modal de edição/exclusão
+     */
+    private fun createObligationItemCard(item: ObligationUiItem): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 0, dpToPx(10))
+            }
+            setBackgroundResource(R.drawable.bg_card_frosted_glass)
+            setPadding(dpToPx(14), dpToPx(12), dpToPx(14), dpToPx(12))
+            isClickable = true
+            isFocusable = true
+        }
+
+        applyScaleTouchFeedback(card)
+        card.setOnClickListener {
+            showAddOrEditObligationDialog(existingItem = item)
+        }
+
+        val topRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+
+        // Coluna Esquerda: Título + Badge + Status de Vencimento
+        val leftCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = dpToPx(10)
+            }
+        }
+
+        val tvTitleLine = TextView(this).apply {
+            val ssb = android.text.SpannableStringBuilder()
+            ssb.append("${item.categoryEmoji} ${item.title}  ")
+            val badgeStart = ssb.length
+            ssb.append("[${item.typeBadgeText}]")
+            val badgeColor = when (item.type) {
+                MonthlyObligation.TYPE_INSTALLMENT -> 0xFFFF8A24.toInt()
+                MonthlyObligation.TYPE_FIXED_RECURRING -> 0xFF60A5FA.toInt()
+                MonthlyObligation.TYPE_DEBT_OPEN -> 0xFFFF454D.toInt()
+                else -> 0xFFA3A8B5.toInt()
+            }
+            ssb.setSpan(
+                android.text.style.ForegroundColorSpan(badgeColor),
+                badgeStart,
+                ssb.length,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            ssb.setSpan(
+                android.text.style.RelativeSizeSpan(0.82f),
+                badgeStart,
+                ssb.length,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            text = ssb
+            textSize = 14f
+            setTextColor(0xFFFFFFFF.toInt())
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        }
+
+        val tvDueStatus = TextView(this).apply {
+            val prefix = when (item.computedUrgency) {
+                ObligationUrgency.OVERDUE -> "🔴 "
+                ObligationUrgency.DUE_SOON -> "🟡 "
+                ObligationUrgency.PAID -> "✓ "
+                ObligationUrgency.UPCOMING -> ""
+            }
+            text = "$prefix${item.dueStatusText}"
+            textSize = 11.5f
+            val statusColor = when (item.computedUrgency) {
+                ObligationUrgency.OVERDUE -> 0xFFFF454D.toInt()
+                ObligationUrgency.DUE_SOON -> 0xFFFFB800.toInt()
+                ObligationUrgency.PAID -> 0xFF31D477.toInt()
+                ObligationUrgency.UPCOMING -> 0xFFA3A8B5.toInt()
+            }
+            setTextColor(statusColor)
+            setPadding(0, dpToPx(3), 0, 0)
+        }
+
+        leftCol.addView(tvTitleLine)
+        leftCol.addView(tvDueStatus)
+
+        // Coluna Direita: Valor + Botão 1-Toque (Pagar / Pago)
+        val rightCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            gravity = android.view.Gravity.END
+        }
+
+        val tvAmount = TextView(this).apply {
+            text = FinancialManagementEngine.formatCurrency(item.amount)
+            textSize = 15f
+            setTextColor(if (item.isPaid) 0xFF31D477.toInt() else 0xFFFFFFFF.toInt())
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            gravity = android.view.Gravity.END
+        }
+
+        val btnQuickPay = TextView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(5)
+            }
+            setPadding(dpToPx(12), dpToPx(5), dpToPx(12), dpToPx(5))
+            gravity = android.view.Gravity.CENTER
+            textSize = 11f
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            if (item.isPaid) {
+                text = "✓ PAGO"
+                setBackgroundResource(R.drawable.bg_pill_green)
+                setTextColor(0xFF31D477.toInt())
+            } else {
+                text = "PAGAR"
+                setBackgroundResource(R.drawable.bg_pill_orange)
+                setTextColor(0xFFFF8A24.toInt())
+            }
+            isClickable = true
+            isFocusable = true
+        }
+
+        btnQuickPay.setOnClickListener {
+            card.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            val newStatus = db.toggleObligationEntryPaid(item.entryId)
+            if (newStatus == MonthlyObligationEntry.STATUS_PAID) {
+                showNotificationBanner("✓ '${item.title}' marcada como PAGA! Caixa atualizado.", BannerType.SUCCESS)
+            } else {
+                showNotificationBanner("'${item.title}' marcada como pendente.", BannerType.INFO)
+            }
+            updateDashboard(animate = true)
+        }
+
+        rightCol.addView(tvAmount)
+        rightCol.addView(btnQuickPay)
+
+        topRow.addView(leftCol)
+        topRow.addView(rightCol)
+        card.addView(topRow)
+
+        // Barra de Progresso de Parcelamento (ex: 14/48 -> 29% quitado • Termina em Set/2029)
+        if (item.type == MonthlyObligation.TYPE_INSTALLMENT && item.totalInstallments > 1) {
+            val pbInstallment = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dpToPx(6)
+                ).apply {
+                    topMargin = dpToPx(10)
+                }
+                max = 100
+                progress = item.installmentProgressPercent.coerceIn(2, 100)
+                progressDrawable = ContextCompat.getDrawable(
+                    this@MainActivity,
+                    if (item.isPaid) R.drawable.progress_bar_emerald else R.drawable.progress_bar_gradient
+                )
+            }
+
+            val metaRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = dpToPx(4)
+                }
+            }
+
+            val tvLeftMeta = TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                text = "Parcela ${item.installmentNumber} de ${item.totalInstallments} (${item.installmentProgressPercent}% quitado)"
+                textSize = 10.5f
+                setTextColor(0xFF8E9AA8.toInt())
+            }
+
+            val tvRightMeta = TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                text = if (item.remainingInstallments == 0) {
+                    "Última parcela!"
+                } else {
+                    "Termina em ${item.estimatedEndMonthLabel ?: "-"}"
+                }
+                textSize = 10.5f
+                setTextColor(if (item.remainingInstallments == 0) 0xFF31D477.toInt() else 0xFFA3A8B5.toInt())
+            }
+
+            metaRow.addView(tvLeftMeta)
+            metaRow.addView(tvRightMeta)
+
+            card.addView(pbInstallment)
+            card.addView(metaRow)
+        }
+
+        return card
+    }
+
+    /**
+     * Modal Glassmórfico para Adicionar ou Editar Conta, Parcela ou Dívida Mensal:
+     * - 8 Presets de 1 Toque para motoristas
+     * - Seletor 2x2 de Natureza (Parcelado, Fixo Mensal, Dívida Aberta, Só Deste Mês)
+     * - Conversor Semanal (x4,33) -> Mensal para carro/moto alugada
+     * - Controle de Parcela Atual / Total com preview em tempo real do mês/ano de quitação
+     */
+    private fun showAddOrEditObligationDialog(
+        existingItem: ObligationUiItem? = null,
+        initialPreset: String? = null
+    ) {
+        val ptBr = Locale("pt", "BR")
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_add_obligation, null)
+
+        val tvDialogTitle = view.findViewById<TextView>(R.id.tvObligationDialogTitle)
+        val tvDialogSubtitle = view.findViewById<TextView>(R.id.tvObligationDialogSubtitle)
+
+        val presetVehicleInstallment = view.findViewById<TextView>(R.id.presetVehicleInstallment)
+        val presetVehicleRental = view.findViewById<TextView>(R.id.presetVehicleRental)
+        val presetInsurance = view.findViewById<TextView>(R.id.presetInsurance)
+        val presetMeiIpva = view.findViewById<TextView>(R.id.presetMeiIpva)
+        val presetHousing = view.findViewById<TextView>(R.id.presetHousing)
+        val presetUtilities = view.findViewById<TextView>(R.id.presetUtilities)
+        val presetCreditLoan = view.findViewById<TextView>(R.id.presetCreditLoan)
+        val presetMonthlyMarket = view.findViewById<TextView>(R.id.presetMonthlyMarket)
+
+        val btnTypeInstallment = view.findViewById<TextView>(R.id.btnTypeInstallment)
+        val btnTypeFixed = view.findViewById<TextView>(R.id.btnTypeFixed)
+        val btnTypeDebtOpen = view.findViewById<TextView>(R.id.btnTypeDebtOpen)
+        val btnTypeVariable = view.findViewById<TextView>(R.id.btnTypeVariable)
+
+        val layoutFrequencyToggle = view.findViewById<View>(R.id.layoutFrequencyToggle)
+        val btnFreqMonthly = view.findViewById<TextView>(R.id.btnFreqMonthly)
+        val btnFreqWeekly = view.findViewById<TextView>(R.id.btnFreqWeekly)
+
+        val etTitle = view.findViewById<EditText>(R.id.etObligationTitle)
+        val etAmount = view.findViewById<EditText>(R.id.etObligationAmount)
+        val etDueDay = view.findViewById<EditText>(R.id.etObligationDueDay)
+
+        val layoutInstallmentFields = view.findViewById<View>(R.id.layoutInstallmentFields)
+        val etCurrentInstallment = view.findViewById<EditText>(R.id.etCurrentInstallment)
+        val etTotalInstallments = view.findViewById<EditText>(R.id.etTotalInstallments)
+        val tvInstallmentEndPreview = view.findViewById<TextView>(R.id.tvInstallmentEndPreview)
+
+        val cbPaidThisMonth = view.findViewById<CheckBox>(R.id.cbPaidThisMonth)
+        val btnDelete = view.findViewById<Button>(R.id.btnDeleteObligation)
+        val btnCancel = view.findViewById<Button>(R.id.btnCancelObligation)
+        val btnSave = view.findViewById<Button>(R.id.btnSaveObligation)
+
+        enableCommaAndDotDecimalInput(etAmount)
+
+        val targetYm = DatabaseHelper.formatYearMonth(selectedManagementYear, selectedManagementMonth)
+        var selectedType = existingItem?.type ?: MonthlyObligation.TYPE_INSTALLMENT
+        var selectedCategory = existingItem?.category ?: MonthlyObligation.CATEGORY_VEICULO
+        var isWeeklyFrequency = false
+
+        val allPresetViews = listOf(
+            presetVehicleInstallment,
+            presetVehicleRental,
+            presetInsurance,
+            presetMeiIpva,
+            presetHousing,
+            presetUtilities,
+            presetCreditLoan,
+            presetMonthlyMarket
+        )
+
+        fun highlightPresetChip(activeView: TextView?) {
+            for (chip in allPresetViews) {
+                if (chip == activeView) {
+                    chip.setBackgroundResource(R.drawable.bg_period_selected)
+                    chip.setTextColor(0xFFFFFFFF.toInt())
+                } else {
+                    chip.setBackgroundResource(R.drawable.bg_period_unselected)
+                    chip.setTextColor(0xFFF5F5F7.toInt())
+                }
+            }
+        }
+
+        fun updateLivePreviewTexts() {
+            if (selectedType == MonthlyObligation.TYPE_INSTALLMENT) {
+                val cur = (etCurrentInstallment.text.toString().toIntOrNull() ?: 1).coerceAtLeast(1)
+                val tot = (etTotalInstallments.text.toString().toIntOrNull() ?: 1).coerceAtLeast(cur)
+                tvInstallmentEndPreview.text = FinancialManagementEngine.formatInstallmentEndPreview(
+                    startYearMonth = targetYm,
+                    currentInstallment = cur,
+                    totalInstallments = tot
+                )
+            }
+            if (selectedType == MonthlyObligation.TYPE_FIXED_RECURRING && isWeeklyFrequency) {
+                val weeklyVal = ParsingEngine.parseMoneyValue(etAmount.text.toString()) ?: 0.0
+                if (weeklyVal > 0.0) {
+                    val monthlyConverted = FinancialManagementEngine.convertWeeklyToMonthly(weeklyVal)
+                    tvDialogSubtitle.text = "Conversão Semanal (×4,33): ${FinancialManagementEngine.formatCurrency(weeklyVal)}/sem = ${FinancialManagementEngine.formatCurrency(monthlyConverted)}/mês."
+                    tvDialogSubtitle.setTextColor(0xFF31D477.toInt())
+                } else {
+                    tvDialogSubtitle.text = "Informe o valor semanal do aluguel (será multiplicado por 4,33 semanas no mês)."
+                    tvDialogSubtitle.setTextColor(0xFFFF8A24.toInt())
+                }
+            } else if (existingItem == null) {
+                tvDialogSubtitle.text = "Toque em um atalho rápido ou preencha abaixo para calcular seu Salário Real."
+                tvDialogSubtitle.setTextColor(0xFFA3A8B5.toInt())
+            }
+        }
+
+        fun updateTypeAndFrequencyUI() {
+            val typeButtons = listOf(
+                Pair(btnTypeInstallment, MonthlyObligation.TYPE_INSTALLMENT),
+                Pair(btnTypeFixed, MonthlyObligation.TYPE_FIXED_RECURRING),
+                Pair(btnTypeDebtOpen, MonthlyObligation.TYPE_DEBT_OPEN),
+                Pair(btnTypeVariable, MonthlyObligation.TYPE_VARIABLE_MONTHLY)
+            )
+            for ((btn, typeKey) in typeButtons) {
+                if (typeKey == selectedType) {
+                    btn.setBackgroundResource(R.drawable.bg_period_selected)
+                    btn.setTextColor(0xFFFFFFFF.toInt())
+                } else {
+                    btn.setBackgroundResource(R.drawable.bg_period_unselected)
+                    btn.setTextColor(0xFFA3A8B5.toInt())
+                }
+            }
+
+            layoutInstallmentFields.visibility = if (selectedType == MonthlyObligation.TYPE_INSTALLMENT) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
+
+            if (selectedType == MonthlyObligation.TYPE_FIXED_RECURRING) {
+                layoutFrequencyToggle.visibility = View.VISIBLE
+                if (isWeeklyFrequency) {
+                    btnFreqWeekly.setBackgroundResource(R.drawable.bg_period_selected)
+                    btnFreqWeekly.setTextColor(0xFFFFFFFF.toInt())
+                    btnFreqMonthly.setBackgroundResource(R.drawable.bg_period_unselected)
+                    btnFreqMonthly.setTextColor(0xFFA3A8B5.toInt())
+                } else {
+                    btnFreqMonthly.setBackgroundResource(R.drawable.bg_period_selected)
+                    btnFreqMonthly.setTextColor(0xFFFFFFFF.toInt())
+                    btnFreqWeekly.setBackgroundResource(R.drawable.bg_period_unselected)
+                    btnFreqWeekly.setTextColor(0xFFA3A8B5.toInt())
+                }
+            } else {
+                isWeeklyFrequency = false
+                layoutFrequencyToggle.visibility = View.GONE
+            }
+
+            updateLivePreviewTexts()
+        }
+
+        fun applyPreset(presetKey: String) {
+            when (presetKey) {
+                "VEHICLE_INSTALLMENT" -> {
+                    highlightPresetChip(presetVehicleInstallment)
+                    selectedType = MonthlyObligation.TYPE_INSTALLMENT
+                    selectedCategory = MonthlyObligation.CATEGORY_VEICULO
+                    isWeeklyFrequency = false
+                    etTitle.setText("Financiamento Veículo")
+                    if (etDueDay.text.isNullOrBlank()) etDueDay.setText("10")
+                    if (etCurrentInstallment.text.isNullOrBlank()) etCurrentInstallment.setText("1")
+                    if (etTotalInstallments.text.isNullOrBlank()) etTotalInstallments.setText("48")
+                }
+                "VEHICLE_RENTAL" -> {
+                    highlightPresetChip(presetVehicleRental)
+                    selectedType = MonthlyObligation.TYPE_FIXED_RECURRING
+                    selectedCategory = MonthlyObligation.CATEGORY_VEICULO
+                    isWeeklyFrequency = true
+                    etTitle.setText("Aluguel Veículo")
+                    if (etDueDay.text.isNullOrBlank()) etDueDay.setText("5")
+                }
+                "INSURANCE" -> {
+                    highlightPresetChip(presetInsurance)
+                    selectedType = MonthlyObligation.TYPE_FIXED_RECURRING
+                    selectedCategory = MonthlyObligation.CATEGORY_VEICULO
+                    isWeeklyFrequency = false
+                    etTitle.setText("Seguro / Proteção Veicular")
+                    if (etDueDay.text.isNullOrBlank()) etDueDay.setText("10")
+                }
+                "MEI_IPVA" -> {
+                    highlightPresetChip(presetMeiIpva)
+                    selectedType = MonthlyObligation.TYPE_FIXED_RECURRING
+                    selectedCategory = MonthlyObligation.CATEGORY_IMPOSTOS_MEI
+                    isWeeklyFrequency = false
+                    etTitle.setText("MEI / DAS Motorista")
+                    if (etAmount.text.isNullOrBlank()) etAmount.setText("75,60")
+                    etDueDay.setText("20")
+                }
+                "HOUSING" -> {
+                    highlightPresetChip(presetHousing)
+                    selectedType = MonthlyObligation.TYPE_FIXED_RECURRING
+                    selectedCategory = MonthlyObligation.CATEGORY_MORADIA
+                    isWeeklyFrequency = false
+                    etTitle.setText("Aluguel / Moradia")
+                    if (etDueDay.text.isNullOrBlank()) etDueDay.setText("10")
+                }
+                "UTILITIES" -> {
+                    highlightPresetChip(presetUtilities)
+                    selectedType = MonthlyObligation.TYPE_FIXED_RECURRING
+                    selectedCategory = MonthlyObligation.CATEGORY_UTILIDADES
+                    isWeeklyFrequency = false
+                    etTitle.setText("Água / Luz / Internet")
+                    if (etDueDay.text.isNullOrBlank()) etDueDay.setText("15")
+                }
+                "CREDIT_LOAN" -> {
+                    highlightPresetChip(presetCreditLoan)
+                    selectedType = MonthlyObligation.TYPE_INSTALLMENT
+                    selectedCategory = MonthlyObligation.CATEGORY_CARTAO_EMPRESTIMO
+                    isWeeklyFrequency = false
+                    etTitle.setText("Cartão / Empréstimo")
+                    if (etDueDay.text.isNullOrBlank()) etDueDay.setText("10")
+                    if (etCurrentInstallment.text.isNullOrBlank()) etCurrentInstallment.setText("1")
+                    if (etTotalInstallments.text.isNullOrBlank()) etTotalInstallments.setText("12")
+                }
+                "MONTHLY_MARKET" -> {
+                    highlightPresetChip(presetMonthlyMarket)
+                    selectedType = MonthlyObligation.TYPE_VARIABLE_MONTHLY
+                    selectedCategory = MonthlyObligation.CATEGORY_PESSOAL
+                    isWeeklyFrequency = false
+                    etTitle.setText("Mercado / Gasto do Mês")
+                    if (etDueDay.text.isNullOrBlank()) etDueDay.setText("15")
+                }
+            }
+            updateTypeAndFrequencyUI()
+            etAmount.requestFocus()
+        }
+
+        presetVehicleInstallment.setOnClickListener { applyPreset("VEHICLE_INSTALLMENT") }
+        presetVehicleRental.setOnClickListener { applyPreset("VEHICLE_RENTAL") }
+        presetInsurance.setOnClickListener { applyPreset("INSURANCE") }
+        presetMeiIpva.setOnClickListener { applyPreset("MEI_IPVA") }
+        presetHousing.setOnClickListener { applyPreset("HOUSING") }
+        presetUtilities.setOnClickListener { applyPreset("UTILITIES") }
+        presetCreditLoan.setOnClickListener { applyPreset("CREDIT_LOAN") }
+        presetMonthlyMarket.setOnClickListener { applyPreset("MONTHLY_MARKET") }
+
+        btnTypeInstallment.setOnClickListener {
+            selectedType = MonthlyObligation.TYPE_INSTALLMENT
+            if (etCurrentInstallment.text.isNullOrBlank()) etCurrentInstallment.setText("1")
+            if (etTotalInstallments.text.isNullOrBlank()) etTotalInstallments.setText("12")
+            updateTypeAndFrequencyUI()
+        }
+        btnTypeFixed.setOnClickListener {
+            selectedType = MonthlyObligation.TYPE_FIXED_RECURRING
+            updateTypeAndFrequencyUI()
+        }
+        btnTypeDebtOpen.setOnClickListener {
+            selectedType = MonthlyObligation.TYPE_DEBT_OPEN
+            updateTypeAndFrequencyUI()
+        }
+        btnTypeVariable.setOnClickListener {
+            selectedType = MonthlyObligation.TYPE_VARIABLE_MONTHLY
+            updateTypeAndFrequencyUI()
+        }
+
+        btnFreqMonthly.setOnClickListener {
+            isWeeklyFrequency = false
+            updateTypeAndFrequencyUI()
+        }
+        btnFreqWeekly.setOnClickListener {
+            isWeeklyFrequency = true
+            updateTypeAndFrequencyUI()
+        }
+
+        val previewWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                updateLivePreviewTexts()
+            }
+        }
+        etCurrentInstallment.addTextChangedListener(previewWatcher)
+        etTotalInstallments.addTextChangedListener(previewWatcher)
+        etAmount.addTextChangedListener(previewWatcher)
+
+        // Inicialização de campos (Modo Edição vs Modo Criação)
+        if (existingItem != null) {
+            tvDialogTitle.text = "Editar Compromisso"
+            tvDialogSubtitle.text = "Altere os dados abaixo ou exclua este compromisso da sua Gestão."
+            btnSave.text = "Salvar Alterações"
+            btnDelete.visibility = View.VISIBLE
+
+            etTitle.setText(existingItem.title)
+            etAmount.setText(String.format(ptBr, "%.2f", existingItem.amount))
+            etDueDay.setText(existingItem.dueDay.toString())
+            cbPaidThisMonth.isChecked = existingItem.isPaid
+
+            if (existingItem.type == MonthlyObligation.TYPE_INSTALLMENT) {
+                etCurrentInstallment.setText(existingItem.installmentNumber.coerceAtLeast(1).toString())
+                etTotalInstallments.setText(existingItem.totalInstallments.coerceAtLeast(1).toString())
+            } else {
+                etCurrentInstallment.setText("1")
+                etTotalInstallments.setText("12")
+            }
+            updateTypeAndFrequencyUI()
+        } else {
+            btnDelete.visibility = View.GONE
+            etDueDay.setText("10")
+            etCurrentInstallment.setText("1")
+            etTotalInstallments.setText("48")
+            if (initialPreset != null) {
+                applyPreset(initialPreset)
+            } else {
+                updateTypeAndFrequencyUI()
+            }
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .create()
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        btnDelete.setOnClickListener {
+            if (existingItem != null) {
+                db.deleteMonthlyObligation(existingItem.obligationId)
+                showNotificationBanner("Compromisso '${existingItem.title}' removido.", BannerType.INFO)
+                updateDashboard(animate = true)
+                dialog.dismiss()
+            }
+        }
+
+        btnSave.setOnClickListener {
+            val rawTitle = etTitle.text.toString().trim()
+            val rawAmount = ParsingEngine.parseMoneyValue(etAmount.text.toString()) ?: 0.0
+            if (rawAmount <= 0.0) {
+                showNotificationBanner("Informe um valor válido maior que zero.", BannerType.WARNING)
+                return@setOnClickListener
+            }
+
+            val finalAmount = if (selectedType == MonthlyObligation.TYPE_FIXED_RECURRING && isWeeklyFrequency) {
+                FinancialManagementEngine.convertWeeklyToMonthly(rawAmount)
+            } else {
+                rawAmount
+            }
+
+            val dueDay = (etDueDay.text.toString().toIntOrNull() ?: 10).coerceIn(1, 31)
+            val curInst = (etCurrentInstallment.text.toString().toIntOrNull() ?: 1).coerceAtLeast(1)
+            val totInst = (etTotalInstallments.text.toString().toIntOrNull() ?: 1).coerceAtLeast(curInst)
+
+            val title = rawTitle.ifBlank {
+                when (selectedCategory) {
+                    MonthlyObligation.CATEGORY_VEICULO -> "Veículo"
+                    MonthlyObligation.CATEGORY_MORADIA -> "Moradia"
+                    MonthlyObligation.CATEGORY_IMPOSTOS_MEI -> "MEI / Imposto"
+                    MonthlyObligation.CATEGORY_CARTAO_EMPRESTIMO -> "Cartão / Dívida"
+                    MonthlyObligation.CATEGORY_UTILIDADES -> "Conta Fixa"
+                    else -> "Compromisso Mensal"
+                }
+            }
+
+            // Refina a categoria caso o motorista tenha digitado manualmente sem tocar em um preset
+            val lowerTitle = title.lowercase(ptBr)
+            val inferredCategory = when {
+                lowerTitle.contains("moto") || lowerTitle.contains("carro") || lowerTitle.contains("veículo") ||
+                    lowerTitle.contains("veiculo") || lowerTitle.contains("financiamento") || lowerTitle.contains("seguro") ||
+                    lowerTitle.contains("pneu") -> MonthlyObligation.CATEGORY_VEICULO
+                lowerTitle.contains("mei") || lowerTitle.contains("das") || lowerTitle.contains("ipva") ||
+                    lowerTitle.contains("imposto") || lowerTitle.contains("licenciamento") -> MonthlyObligation.CATEGORY_IMPOSTOS_MEI
+                lowerTitle.contains("casa") || lowerTitle.contains("moradia") || lowerTitle.contains("condomínio") ||
+                    lowerTitle.contains("condominio") -> MonthlyObligation.CATEGORY_MORADIA
+                lowerTitle.contains("água") || lowerTitle.contains("agua") || lowerTitle.contains("luz") ||
+                    lowerTitle.contains("energia") || lowerTitle.contains("internet") || lowerTitle.contains("celular") -> MonthlyObligation.CATEGORY_UTILIDADES
+                lowerTitle.contains("cartão") || lowerTitle.contains("cartao") || lowerTitle.contains("empréstimo") ||
+                    lowerTitle.contains("emprestimo") || lowerTitle.contains("acordo") -> MonthlyObligation.CATEGORY_CARTAO_EMPRESTIMO
+                lowerTitle.contains("mercado") || lowerTitle.contains("feira") || lowerTitle.contains("escola") ||
+                    lowerTitle.contains("farmácia") || lowerTitle.contains("farmacia") -> MonthlyObligation.CATEGORY_PESSOAL
+                else -> selectedCategory
+            }
+
+            if (existingItem == null) {
+                db.insertMonthlyObligation(
+                    title = title,
+                    category = inferredCategory,
+                    type = selectedType,
+                    defaultAmount = finalAmount,
+                    dueDay = dueDay,
+                    startYearMonth = targetYm,
+                    initialInstallment = if (selectedType == MonthlyObligation.TYPE_INSTALLMENT) curInst else 1,
+                    totalInstallments = if (selectedType == MonthlyObligation.TYPE_INSTALLMENT) totInst else 1,
+                    totalDebtBalance = if (selectedType == MonthlyObligation.TYPE_DEBT_OPEN) finalAmount else 0.0,
+                    markPaidInStartMonth = cbPaidThisMonth.isChecked
+                )
+                showNotificationBanner("Compromisso '$title' salvo na Gestão!", BannerType.SUCCESS)
+            } else {
+                db.updateMonthlyObligation(
+                    obligationId = existingItem.obligationId,
+                    title = title,
+                    category = inferredCategory,
+                    type = selectedType,
+                    defaultAmount = finalAmount,
+                    dueDay = dueDay,
+                    targetYearMonth = targetYm,
+                    currentInstallmentInTargetMonth = if (selectedType == MonthlyObligation.TYPE_INSTALLMENT) curInst else 1,
+                    totalInstallments = if (selectedType == MonthlyObligation.TYPE_INSTALLMENT) totInst else 1,
+                    totalDebtBalance = if (selectedType == MonthlyObligation.TYPE_DEBT_OPEN) finalAmount else 0.0,
+                    isPaidInTargetMonth = cbPaidThisMonth.isChecked
+                )
+                showNotificationBanner("Compromisso '$title' atualizado!", BannerType.SUCCESS)
+            }
+
+            updateDashboard(animate = true)
+            dialog.dismiss()
+        }
+
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setDimAmount(0.75f)
+        }
+        dialog.show()
     }
 
     private fun updateHomeToggleVisual() {
@@ -850,6 +1990,99 @@ class MainActivity : AppCompatActivity() {
         } else {
             tvHomeConfigStatus.text = "⚠️ Casa ainda não configurada."
             tvHomeConfigStatus.setTextColor(0xFFFBBF24.toInt())
+        }
+    }
+
+    private fun renderBlacklistItems() {
+        val items = db.getAllBlacklistItems()
+        layoutBlacklistItems.removeAllViews()
+
+        if (items.isEmpty()) {
+            tvBlacklistEmpty.visibility = View.VISIBLE
+            return
+        }
+        tvBlacklistEmpty.visibility = View.GONE
+
+        val density = resources.displayMetrics.density
+
+        for (item in items) {
+            val itemRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setBackgroundResource(R.drawable.bg_card_frosted_glass)
+                setPadding(
+                    (14 * density).toInt(),
+                    (10 * density).toInt(),
+                    (14 * density).toInt(),
+                    (10 * density).toInt()
+                )
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 0, 0, (8 * density).toInt())
+                }
+                layoutParams = lp
+            }
+
+            val infoLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+            }
+
+            val tvTitle = TextView(this).apply {
+                text = "⛔ ${item.rawTerm}"
+                setTextColor(0xFFF5F5F7.toInt())
+                textSize = 14f
+                setTypeface(typeface, Typeface.BOLD)
+                try {
+                    val font = androidx.core.content.res.ResourcesCompat.getFont(this@MainActivity, R.font.plus_jakarta_sans)
+                    if (font != null) typeface = font
+                } catch (_: Exception) {}
+            }
+
+            val tvSub = TextView(this).apply {
+                text = if (item.latitude != null && item.longitude != null) {
+                    "📍 Geolocalizado (${String.format(Locale.US, "%.3f, %.3f", item.latitude, item.longitude)})"
+                } else {
+                    "📴 Modo texto normalizado (${item.normalizedTerm})"
+                }
+                setTextColor(0xFFA3A8B5.toInt())
+                textSize = 11f
+                try {
+                    val font = androidx.core.content.res.ResourcesCompat.getFont(this@MainActivity, R.font.plus_jakarta_sans)
+                    if (font != null) typeface = font
+                } catch (_: Exception) {}
+            }
+
+            infoLayout.addView(tvTitle)
+            infoLayout.addView(tvSub)
+
+            val btnRemove = TextView(this).apply {
+                text = "✕"
+                setTextColor(0xFFFF454D.toInt())
+                textSize = 18f
+                setTypeface(typeface, Typeface.BOLD)
+                setPadding(
+                    (10 * density).toInt(),
+                    (4 * density).toInt(),
+                    (6 * density).toInt(),
+                    (4 * density).toInt()
+                )
+                setOnClickListener {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        db.deleteBlacklistItem(item.id)
+                        withContext(Dispatchers.Main) {
+                            renderBlacklistItems()
+                            showNotificationBanner("Item removido da lista negra.", BannerType.INFO)
+                        }
+                    }
+                }
+            }
+
+            itemRow.addView(infoLayout)
+            itemRow.addView(btnRemove)
+            layoutBlacklistItems.addView(itemRow)
         }
     }
 

@@ -56,6 +56,7 @@ class RotaAccessibilityService : AccessibilityService() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         AppLogger.init(this)
         prefs = PreferencesManager(this)
         db = DatabaseHelper(this)
@@ -66,6 +67,7 @@ class RotaAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        instance = this
         AppLogger.init(this)
         ocrHandler.removeCallbacks(ocrWatchdogRunnable)
         ocrHandler.postDelayed(ocrWatchdogRunnable, OCR_WATCHDOG_INTERVAL_MS)
@@ -503,7 +505,7 @@ class RotaAccessibilityService : AccessibilityService() {
             lastOfferHash = currentHash
             lastOfferTimestamp = timestamp
 
-            val finalOffer = if (prefs.isModoCasaActive) {
+            val offerWithHome = if (prefs.isModoCasaActive) {
                 val eval = ModoCasaHelper.evaluateRideTowardsHome(this, offer.destinationAddress)
                 offer.copy(
                     isHeadingHome = eval.isHeadingHome,
@@ -511,6 +513,13 @@ class RotaAccessibilityService : AccessibilityService() {
                 )
             } else {
                 offer
+            }
+
+            val finalOffer = if (prefs.blacklistEnabled) {
+                val blacklistItems = db.getAllBlacklistItems()
+                BlacklistManager.evaluateOffer(offerWithHome, blacklistItems)
+            } else {
+                offerWithHome
             }
 
             diag("OFERTA DETECTADA [${finalOffer.platform}]: R$ ${finalOffer.price} | ${finalOffer.distanceKm}km | R$/km ${finalOffer.ratePerKm} | Lucro R$ ${finalOffer.netProfit} | ModoCasa: ${finalOffer.isHeadingHome} (${finalOffer.homeDistanceDeltaKm}km)")
@@ -577,6 +586,19 @@ class RotaAccessibilityService : AccessibilityService() {
         timestamp: Long,
         rideId: Long
     ) {
+        // BLOQUEIO ESTREITO DE LISTA NEGRA: se a corrida possui embarque ou destino na lista negra,
+        // o aceite automático é estritamente impedido.
+        if (offer.isBlacklistBlocked) {
+            diag("AUTO-ACCEPT BLOQUEADO: Oferta com bairro na Lista Negra (${offer.blacklistAlert})")
+            if (prefs.autoDeclineEnabled) {
+                val declined = performClickDecline(clickableNodes)
+                if (declined) {
+                    clearPendingOfferAndDismissOverlay(timestamp)
+                }
+            }
+            return
+        }
+
         val matchesConditions = (offer.ratePerKm >= prefs.minRatePerKm) &&
                 (offer.distanceKm <= prefs.maxDistanceKm)
 
@@ -602,6 +624,37 @@ class RotaAccessibilityService : AccessibilityService() {
                 clearPendingOfferAndDismissOverlay(timestamp)
             }
         }
+    }
+
+    /**
+     * Dispara o aceite manual de corrida solicitado via toque no overlay flutuante.
+     * Executa clique nos nós acessíveis de aceite ou gesto de swipe e consolida no banco.
+     */
+    fun triggerManualAccept() {
+        diag("MANUAL ACCEPT TRIGGERED VIA OVERLAY TOUCH")
+        val now = System.currentTimeMillis()
+
+        if (prefs.isMotorcycleMode) {
+            performSwipeAcceptGesture()
+        } else {
+            val root = try { rootInActiveWindow } catch (_: Exception) { null }
+            var clicked = false
+            if (root != null) {
+                val texts = ArrayList<String>()
+                val clickables = ArrayList<AccessibilityNodeInfo>()
+                try { traverseNodes(root, texts, clickables, 0) } catch (_: Exception) {}
+                clicked = performClickAccept(clickables)
+            }
+            if (!clicked) {
+                performSwipeAcceptGesture()
+            }
+        }
+
+        if (pendingOffer == null && BubbleOverlayService.activeOverlayOffer != null) {
+            setPendingOffer(BubbleOverlayService.activeOverlayOffer!!, now, BubbleOverlayService.activeOverlayRideId)
+        }
+
+        commitPendingOfferAsAccepted(now)
     }
 
     private fun performClickAccept(nodes: List<AccessibilityNodeInfo>): Boolean {
@@ -815,11 +868,17 @@ class RotaAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (instance === this) {
+            instance = null
+        }
         ocrHandler.removeCallbacks(ocrWatchdogRunnable)
         serviceScope.cancel()
     }
 
     companion object {
+        @Volatile
+        var instance: RotaAccessibilityService? = null
+
         private const val TAG = "RotaAccessibilityService"
         private const val TAG_DIAG = "DriFlyDiag"
         private const val DIAG_ENABLED = true

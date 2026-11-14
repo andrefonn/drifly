@@ -29,8 +29,8 @@
 
     <style name="Widget.DriFly.BottomNavIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
         <item name="android:color">@color/bottom_nav_indicator_color</item>
-        <item name="android:width">100dp</item>
-        <item name="android:height">48dp</item>
+        <item name="android:width">72dp</item>
+        <item name="android:height">44dp</item>
         <item name="shapeAppearance">@style/ShapeAppearance.DriFly.Pill</item>
     </style>
 

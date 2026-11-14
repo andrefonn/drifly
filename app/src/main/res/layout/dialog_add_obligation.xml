@@ -1,0 +1,577 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:overScrollMode="never"
+    android:background="@drawable/bg_dialog_glass">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Cabeçalho do Modal -->
+        <TextView
+            android:id="@+id/tvObligationDialogTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Nova Conta, Parcela ou Dívida"
+            android:textColor="#FFFFFF"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="18sp" />
+
+        <TextView
+            android:id="@+id/tvObligationDialogSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="14dp"
+            android:text="Toque em um atalho rápido ou preencha abaixo para calcular seu Salário Real."
+            android:textColor="#A3A8B5"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textSize="12sp" />
+
+        <!-- Seção 1: 8 Presets Inteligentes de 1 Toque -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ATALHOS RÁPIDOS DE 1 TOQUE"
+            android:textColor="#FF8A24"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"
+            android:textSize="10sp" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="14dp"
+            android:scrollbars="none"
+            android:overScrollMode="never">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/presetVehicleInstallment"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_period_unselected"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="🚗 Parcela Veículo"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/presetVehicleRental"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_period_unselected"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="🔑 Aluguel Veículo"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/presetInsurance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_period_unselected"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="🛡️ Seguro / Proteção"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/presetMeiIpva"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_period_unselected"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="📄 MEI / IPVA"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/presetHousing"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_period_unselected"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="🏠 Casa / Aluguel"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/presetUtilities"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_period_unselected"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="⚡ Água / Luz / Net"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/presetCreditLoan"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_period_unselected"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="💳 Cartão / Empréstimo"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/presetMonthlyMarket"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_period_unselected"
+                    android:paddingHorizontal="12dp"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="🛒 Mercado / Mês"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Seção 2: Grid 2x2 de Natureza da Obrigação -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tipo de Compromisso"
+            android:textColor="#F5F5F7"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/btnTypeInstallment"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_period_selected"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:text="Parcelado"
+                android:textColor="#FFFFFF"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/btnTypeFixed"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_period_unselected"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:text="Fixo Mensal"
+                android:textColor="#A3A8B5"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="12dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/btnTypeDebtOpen"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_period_unselected"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:text="Dívida Aberta"
+                android:textColor="#A3A8B5"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/btnTypeVariable"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_period_unselected"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:text="Só Deste Mês"
+                android:textColor="#A3A8B5"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Seção 3: Toggle de Frequência (Mensal vs Semanal x4,33) -->
+        <LinearLayout
+            android:id="@+id/layoutFrequencyToggle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/btnFreqMonthly"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_period_selected"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:text="Valor Mensal"
+                android:textColor="#FFFFFF"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/btnFreqWeekly"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1.2"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_period_unselected"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:text="Valor Semanal (x4,33)"
+                android:textColor="#A3A8B5"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Seção 4: Nome / Descrição -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Nome / Descrição"
+            android:textColor="#F5F5F7"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/etObligationTitle"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_input_field"
+            android:paddingHorizontal="14dp"
+            android:hint="Ex: Financiamento Moto, MEI, Aluguel Casa"
+            android:textColorHint="#606B7B"
+            android:textColor="#F5F5F7"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textSize="14sp"
+            android:inputType="textCapWords" />
+
+        <!-- Seção 5: Valor (R$) e Dia de Vencimento (1..31) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.35"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Valor (R$)"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+
+                <EditText
+                    android:id="@+id/etObligationAmount"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="14dp"
+                    android:hint="0,00"
+                    android:textColorHint="#606B7B"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:inputType="numberDecimal"
+                    android:digits="0123456789,." />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.85"
+                android:layout_marginStart="10dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Vencimento (Dia)"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+
+                <EditText
+                    android:id="@+id/etObligationDueDay"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="14dp"
+                    android:gravity="center"
+                    android:hint="Dia 10"
+                    android:textColorHint="#606B7B"
+                    android:textColor="#F5F5F7"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="15sp"
+                    android:inputType="number"
+                    android:maxLength="2" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Seção 6: Bloco Condicional de Parcelamento -->
+        <LinearLayout
+            android:id="@+id/layoutInstallmentFields"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_inner_metric_card"
+            android:padding="12dp"
+            android:orientation="vertical"
+            android:visibility="visible">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Qual parcela hoje?"
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="11sp" />
+
+                    <EditText
+                        android:id="@+id/etCurrentInstallment"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="5dp"
+                        android:background="@drawable/bg_input_field"
+                        android:paddingHorizontal="12dp"
+                        android:gravity="center"
+                        android:hint="Ex: 14"
+                        android:textColorHint="#606B7B"
+                        android:textColor="#F5F5F7"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="14sp"
+                        android:inputType="number"
+                        android:maxLength="3" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="10dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Total de parcelas"
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="11sp" />
+
+                    <EditText
+                        android:id="@+id/etTotalInstallments"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="5dp"
+                        android:background="@drawable/bg_input_field"
+                        android:paddingHorizontal="12dp"
+                        android:gravity="center"
+                        android:hint="Ex: 48"
+                        android:textColorHint="#606B7B"
+                        android:textColor="#F5F5F7"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="14sp"
+                        android:inputType="number"
+                        android:maxLength="3" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvInstallmentEndPreview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Termina automaticamente após a última parcela."
+                android:textColor="#31D477"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Seção 7: CheckBox Já paguei neste mês -->
+        <CheckBox
+            android:id="@+id/cbPaidThisMonth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:buttonTint="#FF6900"
+            android:text="Já paguei a conta deste mês"
+            android:textColor="#F5F5F7"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="13sp" />
+
+        <!-- Botão de Excluir/Arquivar (Visível apenas em modo edição) -->
+        <Button
+            android:id="@+id/btnDeleteObligation"
+            android:layout_width="match_parent"
+            android:layout_height="42dp"
+            android:layout_marginTop="10dp"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_period_unselected"
+            android:textColor="#FF454D"
+            android:fontFamily="@font/plus_jakarta_sans"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:text="Excluir / Arquivar Compromisso"
+            android:visibility="gone" />
+
+        <!-- Botões de Ação (Cancelar e Salvar) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnCancelObligation"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                app:backgroundTint="@null"
+                android:background="@drawable/bg_period_unselected"
+                android:textColor="#A3A8B5"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:text="Cancelar" />
+
+            <Button
+                android:id="@+id/btnSaveObligation"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1.35"
+                android:layout_marginStart="10dp"
+                app:backgroundTint="@null"
+                android:background="@drawable/bg_btn_primary_gradient"
+                android:textColor="#FFFFFF"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:text="Salvar Compromisso" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

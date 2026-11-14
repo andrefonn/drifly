@@ -688,7 +688,901 @@
             </LinearLayout>
         </ScrollView>
 
-        <!-- ABA 2: CONFIGURAÇÕES DE CORRIDA & AUTOMAÇÃO -->
+        <!-- ABA 2 (NOVA): GESTÃO FINANCEIRA COMPLETA & SALÁRIO REAL -->
+        <ScrollView
+            android:id="@+id/viewTabManagement"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:overScrollMode="never"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="18dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="28dp">
+
+                <!-- SEÇÃO A: SELETOR DE COMPETÊNCIA MENSAL -->
+                <LinearLayout
+                    android:id="@+id/layoutMonthSelector"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginBottom="12dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageButton
+                        android:id="@+id/btnPrevMonth"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_btn_circle_glass"
+                        android:padding="10dp"
+                        android:rotation="180"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="#F5F5F7"
+                        android:contentDescription="Mês Anterior" />
+
+                    <LinearLayout
+                        android:id="@+id/btnCurrentMonthChip"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:layout_marginHorizontal="10dp"
+                        android:background="@drawable/bg_card_frosted_glass"
+                        android:paddingHorizontal="12dp"
+                        android:gravity="center"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:src="@drawable/ic_calendar_orange"
+                            android:contentDescription="Competência" />
+
+                        <TextView
+                            android:id="@+id/tvSelectedMonthLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="NOVEMBRO 2026"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.04"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tvMonthStatusPill"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_pill_orange"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="2dp"
+                            android:text="ATUAL"
+                            android:textColor="#FF8A24"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <ImageButton
+                        android:id="@+id/btnNextMonth"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_btn_circle_glass"
+                        android:padding="10dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="#F5F5F7"
+                        android:contentDescription="Próximo Mês" />
+                </LinearLayout>
+
+                <!-- SEÇÃO B: HERO CARD PRINCIPAL (SALÁRIO REAL + MÉDIA + DIA DA ALFORRIA) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_card_frosted_glass"
+                    android:padding="18dp"
+                    android:orientation="vertical">
+
+                    <!-- Cabeçalho Hero + Badge de Tendência -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_metric_profit_up"
+                            android:contentDescription="Salário Real" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="7dp"
+                            android:text="SEU SALÁRIO REAL DO MÊS"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.05"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:id="@+id/tvSalaryTrendBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_pill_green"
+                            android:paddingHorizontal="9dp"
+                            android:paddingVertical="3dp"
+                            android:text="NO RITMO"
+                            android:textColor="#31D477"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <!-- Valor Principal do Salário Mensal Real -->
+                    <TextView
+                        android:id="@+id/tvRealSalaryHero"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="R$ 0,00"
+                        android:textColor="#31D477"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="26sp" />
+
+                    <!-- Subtítulo: Caixa Livre em Mãos Hoje -->
+                    <TextView
+                        android:id="@+id/tvPocketCashSubtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Caixa em mãos hoje: R$ 0,00"
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp" />
+
+                    <!-- Sub-Grid Duplo: Média Salarial Mensal vs Projeção Fim do Mês -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:background="@drawable/bg_inner_metric_card"
+                        android:padding="12dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <!-- Coluna 1: Média Salarial Mensal -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="📊 MÉDIA SALARIAL"
+                                android:textColor="#A3A8B5"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:letterSpacing="0.04"
+                                android:textSize="10sp" />
+
+                            <TextView
+                                android:id="@+id/tvAvgMonthlySalary"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="R$ 0,00 / mês"
+                                android:textColor="#FFFFFF"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="15sp" />
+
+                            <TextView
+                                android:id="@+id/tvAvgSalaryContext"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Estimada (1º mês em curso)"
+                                android:textColor="#8E9AA8"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="42dp"
+                            android:layout_marginHorizontal="10dp"
+                            android:background="#1AFFFFFF" />
+
+                        <!-- Coluna 2: Projeção Fim do Mês -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🚀 PROJEÇÃO DO MÊS"
+                                android:textColor="#FF8A24"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:letterSpacing="0.04"
+                                android:textSize="10sp" />
+
+                            <TextView
+                                android:id="@+id/tvProjectedMonthlySalary"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="R$ 0,00 livres"
+                                android:textColor="#31D477"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="15sp" />
+
+                            <TextView
+                                android:id="@+id/tvProjectedContext"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Mantendo seu ritmo atual"
+                                android:textColor="#8E9AA8"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- Ponto de Equilíbrio Mensal ("Dia da Alforria") -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="🔓 PONTO DE EQUILÍBRIO (DIA DA ALFORRIA)"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.04"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvBreakEvenPercent"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0% coberto"
+                            android:textColor="#FF8A24"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <ProgressBar
+                        android:id="@+id/pbBreakEven"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="14dp"
+                        android:layout_marginTop="8dp"
+                        android:max="100"
+                        android:progress="0"
+                        android:progressDrawable="@drawable/progress_bar_gradient" />
+
+                    <TextView
+                        android:id="@+id/tvFreedomDayStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Cadastre suas contas do mês para descobrir seu Dia da Alforria."
+                        android:textColor="#F5F5F7"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- SEÇÃO C: CASCATA DO DINHEIRO (PISTA -> CONTAS -> SEU BOLSO) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_card_frosted_glass"
+                    android:padding="18dp"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_metric_wallet"
+                            android:contentDescription="Cascata do Dinheiro" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="CASCATA DO DINHEIRO (PISTA ➔ SEU BOLSO)"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.05"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <!-- Linha 1: Faturamento Bruto -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="(+) Faturamento Bruto das Corridas"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tvCascadeGross"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="R$ 0,00"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <!-- Linha 2: Custos Operacionais de Pista -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="(-) Custos de Pista (KM + Despesas Rua)"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tvCascadeStreetCosts"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="- R$ 0,00"
+                            android:textColor="#FF454D"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvCascadeStreetCostsDetail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Desgaste/Combustível KM: R$ 0,00 • Despesas Rápidas: R$ 0,00"
+                        android:textColor="#707684"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="11sp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="10dp"
+                        android:background="#1AFFFFFF" />
+
+                    <!-- Linha 3: Lucro Operacional da Pista -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="(=) Lucro Limpo Trazido da Pista"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tvCascadeOpProfit"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="R$ 0,00"
+                            android:textColor="#60A5FA"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="15sp" />
+                    </LinearLayout>
+
+                    <!-- Linha 4: Compromissos, Parcelas e Contas do Mês -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="(-) Contas, Parcelas e Dívidas do Mês"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tvCascadeObligations"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="- R$ 0,00"
+                            android:textColor="#FFB800"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvCascadeObligationsDetail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Já pagas: R$ 0,00 • Faltam pagar: R$ 0,00"
+                        android:textColor="#707684"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="11sp" />
+
+                    <!-- Linha 5: Resultado Final (Salário Real no Bolso) -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_inner_metric_card"
+                        android:padding="12dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="(=) SALÁRIO REAL LIVRE NO BOLSO"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvCascadeFinalSalary"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="R$ 0,00"
+                            android:textColor="#31D477"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="16sp" />
+                    </LinearLayout>
+
+                    <!-- Diagnóstico ICR -->
+                    <TextView
+                        android:id="@+id/tvIcrDiagnostic"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Comprometimento da Renda (ICR): 0% • Saudável"
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <!-- SEÇÃO D: BOTÃO CTA PRIMÁRIO + CARD RADAR DE 7 DIAS -->
+                <RelativeLayout
+                    android:id="@+id/btnAddObligation"
+                    android:layout_width="match_parent"
+                    android:layout_height="58dp"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_btn_primary_gradient"
+                    android:elevation="12dp"
+                    android:outlineAmbientShadowColor="#80FF6900"
+                    android:outlineSpotShadowColor="#B3FF6900"
+                    android:paddingHorizontal="20dp"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:id="@+id/ivAddObligationPlus"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:src="@drawable/ic_plus_white"
+                        android:contentDescription="Adicionar Compromisso" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_toEndOf="@id/ivAddObligationPlus"
+                        android:layout_centerVertical="true"
+                        android:layout_marginStart="14dp"
+                        android:text="Adicionar Conta, Parcela ou Dívida"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="15sp" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:src="@drawable/ic_chevron_right"
+                        android:contentDescription="Abrir" />
+                </RelativeLayout>
+
+                <!-- Card Radar de Pressão de 7 Dias -->
+                <LinearLayout
+                    android:id="@+id/layoutDueSoonRadar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_inner_metric_card"
+                    android:padding="14dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvDueSoonRadarTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="⚡ Radar de Vencimentos (Próximos 7 Dias)"
+                        android:textColor="#FFB800"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/tvDueSoonRadarSubtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="Nenhuma conta urgente para os próximos 7 dias."
+                        android:textColor="#F5F5F7"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- SEÇÃO E: CHIPS DE FILTRO RÁPIDO + LISTA DE CONTAS/DÍVIDAS + EMPTY STATE -->
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:scrollbars="none"
+                    android:overScrollMode="never">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/chipFilterAll"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:background="@drawable/bg_period_selected"
+                            android:paddingHorizontal="14dp"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:text="Todas"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/chipFilterInstallments"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_period_unselected"
+                            android:paddingHorizontal="14dp"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:text="Parcelamentos"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/chipFilterFixed"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_period_unselected"
+                            android:paddingHorizontal="14dp"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:text="Contas Fixas"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/chipFilterDebts"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_period_unselected"
+                            android:paddingHorizontal="14dp"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:text="Cartão &amp; Dívidas"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/chipFilterVariable"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_period_unselected"
+                            android:paddingHorizontal="14dp"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:text="Gastos do Mês"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </HorizontalScrollView>
+
+                <!-- Container Dinâmico das Contas/Parcelas/Dívidas do Mês -->
+                <LinearLayout
+                    android:id="@+id/layoutObligationsList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical" />
+
+                <!-- Empty State Interativo (Quando não há contas cadastradas) -->
+                <LinearLayout
+                    android:id="@+id/layoutEmptyObligations"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_card_frosted_glass"
+                    android:padding="18dp"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Comece sua Gestão Financeira em 1 Toque"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:gravity="center"
+                        android:text="Adicione a parcela ou aluguel do seu veículo, MEI e contas de casa para o DriFly revelar seu Salário Real Livre e o Dia da Alforria."
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/btnQuickPresetVehicle"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_period_unselected"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:text="🚗 Veículo"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/btnQuickPresetMei"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_period_unselected"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:text="📄 MEI / IPVA"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/btnQuickPresetHome"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_period_unselected"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:text="🏠 Moradia"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- SEÇÃO F: CARD DE INTELIGÊNCIA & SIMULADOR DE LIBERDADE FINANCEIRA -->
+                <LinearLayout
+                    android:id="@+id/cardFinancialInsights"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_card_frosted_glass"
+                    android:padding="18dp"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_trending_chart"
+                            android:contentDescription="Inteligência Financeira" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="INTELIGÊNCIA &amp; SIMULADOR DE LIBERDADE"
+                            android:textColor="#FF8A24"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.05"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvInsightItem1"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="• Seus parcelamentos e contas fixas alimentam automaticamente o simulador de alívio salarial."
+                        android:textColor="#F5F5F7"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/tvInsightItem2"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="• Acompanhe quantos dias de pista cada dívida consome do seu mês."
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tvInsightItem3"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="• Sua média salarial mensal é protegida contra meses atípicos."
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
+
+                    <!-- Botão de Sincronização de Meta Diária com a Aba 1 -->
+                    <LinearLayout
+                        android:id="@+id/btnSyncDailyGoalFromManagement"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="14dp"
+                        android:background="@drawable/bg_period_selected"
+                        android:gravity="center"
+                        android:paddingHorizontal="14dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:src="@drawable/ic_target_orange"
+                            android:contentDescription="Sincronizar Meta" />
+
+                        <TextView
+                            android:id="@+id/tvSyncDailyGoalLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="Sincronizar Meta Diária da Pista"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ABA 3: CONFIGURAÇÕES DE CORRIDA & AUTOMAÇÃO -->
         <ScrollView
             android:id="@+id/viewTabRides"
             android:layout_width="match_parent"
@@ -817,6 +1711,15 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
                         android:text="Modo Moto (Aceite com gesto de arrastar slider)"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textColor="#F5F5F7" />
+
+                    <Switch
+                        android:id="@+id/swTapToAccept"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Aceitar corrida ao tocar no Overlay"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textColor="#F5F5F7" />
 
@@ -1075,6 +1978,111 @@
                         android:textColor="#FBBF24"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="11sp" />
+                </LinearLayout>
+
+                <!-- Lista Negra de Bairros (Bloqueio de Áreas de Risco) -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:text="Lista Negra de Bairros (Bloqueio de Áreas de Risco)"
+                    android:textColor="#FF6900"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="15sp" />
+
+                <LinearLayout
+                    android:id="@+id/cardConfigBlacklist"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_card_frosted_glass"
+                    android:padding="18dp"
+                    android:orientation="vertical">
+
+                    <Switch
+                        android:id="@+id/swBlacklistEnabled"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Ativar Lista Negra de Bairros"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textColor="#F5F5F7" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Corridas com embarque ou destino nestes bairros terão o aceite automático bloqueado e exibirão alerta vermelho de recusa."
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="12dp"
+                        android:background="#1AFFFFFF" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Adicionar Bairro / Região:"
+                        android:textColor="#A3A8B5"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="13sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <EditText
+                            android:id="@+id/etBlacklistTerm"
+                            android:layout_width="0dp"
+                            android:layout_height="48dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_input_field"
+                            android:paddingHorizontal="14dp"
+                            android:hint="Ex: Cidade Jardim Parauapebas"
+                            android:textColor="#F5F5F7"
+                            android:textColorHint="#606B7B"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="14sp"
+                            android:inputType="textCapWords" />
+
+                        <Button
+                            android:id="@+id/btnAddBlacklist"
+                            android:layout_width="wrap_content"
+                            android:layout_height="48dp"
+                            android:layout_marginStart="8dp"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_period_selected"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="13sp"
+                            android:text="Adicionar" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/layoutBlacklistItems"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="vertical" />
+
+                    <TextView
+                        android:id="@+id/tvBlacklistEmpty"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Nenhum bairro cadastrado na lista negra."
+                        android:textColor="#606B7B"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp"
+                        android:gravity="center" />
                 </LinearLayout>
 
                 <Button

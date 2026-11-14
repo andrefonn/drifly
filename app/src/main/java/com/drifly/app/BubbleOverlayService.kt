@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
@@ -90,6 +91,8 @@ class BubbleOverlayService : Service() {
     }
 
     private fun showOrUpdateOverlay(offer: RideOffer) {
+        activeOverlayOffer = offer
+        isAcceptTriggered = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             Log.w(TAG, "Permissão SYSTEM_ALERT_WINDOW não concedida.")
             dismissAndStop()
@@ -155,7 +158,15 @@ class BubbleOverlayService : Service() {
                 animateAndRemove()
             }
 
-            setupDragListener(root, params)
+            setupOverlayTouchHandling(
+                root = root,
+                params = params,
+                wm = windowManager,
+                offer = offer,
+                prefs = prefs,
+                onCloseRequested = { animateAndRemove() },
+                onInteraction = { resetAutoDismissTimer() }
+            )
 
             root.visibility = View.VISIBLE
             root.alpha = 1f
@@ -208,52 +219,6 @@ class BubbleOverlayService : Service() {
     private fun resetAutoDismissTimer(delayMs: Long = AUTO_DISMISS_DELAY_MS) {
         autoDismissHandler.removeCallbacks(autoDismissRunnable)
         autoDismissHandler.postDelayed(autoDismissRunnable, delayMs)
-    }
-
-    private fun setupDragListener(view: View, params: WindowManager.LayoutParams) {
-        var initialX = 0
-        var initialY = 0
-        var initialTouchX = 0f
-        var initialTouchY = 0f
-        var isDragging = false
-
-        view.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    resetAutoDismissTimer()
-                    initialX = params.x
-                    initialY = params.y
-                    initialTouchX = event.rawX
-                    initialTouchY = event.rawY
-                    isDragging = false
-                    false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = (event.rawX - initialTouchX).toInt()
-                    val dy = (event.rawY - initialTouchY).toInt()
-                    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-                        isDragging = true
-                        params.x = initialX + dx
-                        params.y = initialY + dy
-                        try {
-                            if (view.isAttachedToWindow) {
-                                windowManager?.updateViewLayout(view, params)
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
-                MotionEvent.ACTION_UP -> {
-                    resetAutoDismissTimer()
-                    isDragging
-                }
-                else -> false
-            }
-        }
     }
 
     private fun animateAndRemove() {
@@ -330,8 +295,12 @@ class BubbleOverlayService : Service() {
         private var instance: BubbleOverlayService? = null
         private var directBubbleView: View? = null
         private val directHandler = Handler(Looper.getMainLooper())
-        private var activeOverlayOffer: RideOffer? = null
-        private var activeOverlayRideId: Long? = null
+        var activeOverlayOffer: RideOffer? = null
+        var activeOverlayRideId: Long? = null
+        @Volatile
+        var isAcceptTriggered: Boolean = false
+        @Volatile
+        var lastAcceptTapTimestamp: Long = 0L
         private var activeAppContext: Context? = null
 
         private val directAutoDismiss = Runnable {
@@ -374,6 +343,9 @@ class BubbleOverlayService : Service() {
             (System.currentTimeMillis() - lastDismissedTimestamp) < cooldownMs
 
         fun isOfferGood(offer: RideOffer, prefs: PreferencesManager): Boolean {
+            if (offer.isBlacklistBlocked) {
+                return false
+            }
             return if (prefs.isModoCasaActive) {
                 offer.homeDistanceDeltaKm <= 0.0
             } else {
@@ -448,11 +420,137 @@ class BubbleOverlayService : Service() {
             }
         }
 
+        /**
+         * Listener de toque unificado para o Overlay Flutuante (usado tanto no serviço quanto no overlay direto).
+         * Trata:
+         * 1. Arraste e reposicionamento da janela pela tela (deslocamento > touchSlop).
+         * 2. Zona de exclusão circular de 52 dp ao redor do centro do botão fechar X (fecha sem aceitar).
+         * 3. Toque no botão de alternar Street View / Fachada (expande/recolhe).
+         * 4. Aceite manual ao tocar no corpo do card (com proteção contra duplo toque/debounce) se ativado.
+         */
+        fun setupOverlayTouchHandling(
+            root: View,
+            params: WindowManager.LayoutParams,
+            wm: WindowManager?,
+            offer: RideOffer,
+            prefs: PreferencesManager,
+            onCloseRequested: () -> Unit,
+            onInteraction: () -> Unit
+        ) {
+            var initialX = 0
+            var initialY = 0
+            var initialTouchX = 0f
+            var initialTouchY = 0f
+            var isDragging = false
+
+            root.setOnTouchListener { _, event ->
+                val density = root.resources.displayMetrics.density
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        onInteraction()
+                        initialX = params.x
+                        initialY = params.y
+                        initialTouchX = event.rawX
+                        initialTouchY = event.rawY
+                        isDragging = false
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = (event.rawX - initialTouchX).toInt()
+                        val dy = (event.rawY - initialTouchY).toInt()
+                        if (OverlayTouchMath.isDrag(initialTouchX, initialTouchY, event.rawX, event.rawY, density)) {
+                            isDragging = true
+                            params.x = initialX + dx
+                            params.y = initialY + dy
+                            try {
+                                if (root.isAttachedToWindow && wm != null) {
+                                    wm.updateViewLayout(root, params)
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        onInteraction()
+                        if (isDragging) {
+                            true
+                        } else {
+                            val closeBtn = root.findViewById<View>(R.id.btnCloseBubble)
+                            val (centerX, centerY) = if (closeBtn != null && closeBtn.isAttachedToWindow) {
+                                val loc = IntArray(2)
+                                closeBtn.getLocationOnScreen(loc)
+                                Pair(loc[0] + closeBtn.width / 2f, loc[1] + closeBtn.height / 2f)
+                            } else {
+                                Pair(0f, 0f)
+                            }
+
+                            // 1. Zona de exclusão circular do botão fechar X (~52 dp)
+                            if (closeBtn != null && OverlayTouchMath.isTouchInExclusionZone(event.rawX, event.rawY, centerX, centerY, density)) {
+                                Log.i(TAG, "Toque na zona de proteção do botão X (raio <= 52dp). Fechando overlay sem aceitar.")
+                                onCloseRequested()
+                                return@setOnTouchListener true
+                            }
+
+                            // 2. Toque no botão de alternar Street View / Fachada
+                            val btnToggleStreetView = root.findViewById<View>(R.id.btnToggleStreetView)
+                            if (btnToggleStreetView != null && btnToggleStreetView.visibility == View.VISIBLE) {
+                                val svLoc = IntArray(2)
+                                btnToggleStreetView.getLocationOnScreen(svLoc)
+                                if (OverlayTouchMath.isInsideBounds(event.rawX, event.rawY, svLoc[0], svLoc[1], btnToggleStreetView.width, btnToggleStreetView.height)) {
+                                    btnToggleStreetView.performClick()
+                                    return@setOnTouchListener true
+                                }
+                            }
+
+                            // 3. Toque no corpo do overlay flutuante
+                            if (prefs.tapToAcceptEnabled) {
+                                val now = SystemClock.uptimeMillis()
+                                if (OverlayTouchMath.shouldAllowAcceptTap(isAcceptTriggered, lastAcceptTapTimestamp, now)) {
+                                    isAcceptTriggered = true
+                                    lastAcceptTapTimestamp = now
+                                    val currentOffer = activeOverlayOffer ?: offer
+                                    Log.i(TAG, "Aceite manual via toque no overlay acionado para oferta [${currentOffer.platform} R$ ${currentOffer.price}]!")
+                                    RotaAccessibilityService.instance?.triggerManualAccept()
+                                    onRideAcceptedShowStreetViewBriefly(root.context, currentOffer.destinationAddress)
+                                } else {
+                                    Log.d(TAG, "Toque no corpo ignorado: debounce ou aceite já disparado.")
+                                }
+                            } else {
+                                Log.d(TAG, "Toque no corpo ignorado: tapToAcceptEnabled está desativado.")
+                            }
+                            true
+                        }
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        isDragging = false
+                        false
+                    }
+                    else -> false
+                }
+            }
+        }
+
         fun showOffer(context: Context, offer: RideOffer, rideId: Long? = null) {
+            val prefs = PreferencesManager(context.applicationContext)
+            val evaluatedOffer = if (prefs.blacklistEnabled && !offer.isBlacklistBlocked) {
+                val blacklistItems = DatabaseHelper(context.applicationContext).getAllBlacklistItems()
+                BlacklistManager.evaluateOffer(offer, blacklistItems)
+            } else {
+                offer
+            }
+
+            try {
+                RotaAccessibilityService.setPendingOffer(evaluatedOffer, System.currentTimeMillis(), rideId)
+            } catch (_: Throwable) {}
+
             // Publica a oferta na barra (histórico) ANTES de tentar o overlay: assim, mesmo que a
             // permissão de sobreposição esteja bloqueada, os valores continuam acessíveis.
             try {
-                postOfferNotification(context.applicationContext, offer, PreferencesManager(context.applicationContext), rideId)
+                postOfferNotification(context.applicationContext, evaluatedOffer, prefs, rideId)
             } catch (t: Throwable) {
                 try { Log.w(TAG, "Falha ao publicar notificação da oferta", t) } catch (ignored: Throwable) {}
             }
@@ -463,13 +561,14 @@ class BubbleOverlayService : Service() {
             }
 
             directHandler.post {
-                showDirectOverlay(context.applicationContext, offer, rideId)
+                showDirectOverlay(context.applicationContext, evaluatedOffer, rideId)
             }
         }
 
         private fun showDirectOverlay(appContext: Context, offer: RideOffer, rideId: Long? = null) {
             activeOverlayOffer = offer
             activeOverlayRideId = rideId
+            isAcceptTriggered = false
             activeAppContext = appContext
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(appContext)) {
@@ -548,7 +647,7 @@ class BubbleOverlayService : Service() {
             val root = LayoutInflater.from(themedContext).inflate(R.layout.overlay_bubble, null)
             directBubbleView = root
 
-            root.findViewById<View>(R.id.btnCloseBubble)?.setOnClickListener {
+            val closeListener = {
                 val idToDelete = activeOverlayRideId
                 if (idToDelete != null) {
                     CoroutineScope(Dispatchers.IO).launch {
@@ -564,6 +663,23 @@ class BubbleOverlayService : Service() {
                 activeOverlayOffer = null
                 dismissDirectOverlay()
             }
+
+            root.findViewById<View>(R.id.btnCloseBubble)?.setOnClickListener {
+                closeListener()
+            }
+
+            setupOverlayTouchHandling(
+                root = root,
+                params = params,
+                wm = wm,
+                offer = offer,
+                prefs = prefs,
+                onCloseRequested = closeListener,
+                onInteraction = {
+                    directHandler.removeCallbacks(directAutoDismiss)
+                    directHandler.postDelayed(directAutoDismiss, dismissDelayMs)
+                }
+            )
 
             bindOverlayData(root, offer, prefs)
             bindStreetViewPreview(appContext, root, offer.destinationAddress, true) {
@@ -673,56 +789,78 @@ class BubbleOverlayService : Service() {
             tvNetProfit?.text = String.format(ptBr, "R$ %.2f", offer.netProfit)
             tvFuelCost?.text = String.format(ptBr, "- R$ %.2f", offer.estimatedFuelCost)
 
-            // Alerta de Nota Baixa (Oculto conforme solicitado: nota vermelha e veredito Recusar ❌ já indicam claramente)
-            layoutAlert?.visibility = View.GONE
-
-            // Veredito & Modo Casa
+            // Veredito, Lista Negra & Modo Casa
             val isModoCasa = prefs.isModoCasaActive
-            if (!isModoCasa) {
-                layoutModoCasaBadge?.visibility = View.GONE
-                val isProfitable = (offer.ratePerKm >= prefs.minRatePerKm && offer.ratePerHour >= 30.0 && !offer.isLowRating)
-                if (isProfitable) {
-                    root.setBackgroundResource(R.drawable.bg_bubble_glass_good)
-                    tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_good)
-                    tvVerdictBadge?.setTextColor(0xFF31D477.toInt())
-                    tvVerdictBadge?.text = "Aceitar ✅"
-                } else {
-                    root.setBackgroundResource(R.drawable.bg_bubble_glass_bad)
-                    tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_bad)
-                    tvVerdictBadge?.setTextColor(0xFFFF454D.toInt())
-                    tvVerdictBadge?.text = "Recusar ❌"
-                }
-            } else {
-                layoutModoCasaBadge?.visibility = View.VISIBLE
-                val delta = offer.homeDistanceDeltaKm
-                val kmText = if (delta > 0) String.format(ptBr, "+%.1f km", delta) else String.format(ptBr, "%.1f km", delta)
-                tvModoCasaKm?.text = kmText
+            if (offer.isBlacklistBlocked) {
+                // Alerta vermelho de recusa obrigatório para Lista Negra (sobrepõe inclusive Modo Casa)
+                root.setBackgroundResource(R.drawable.bg_bubble_glass_bad)
+                tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_bad)
+                tvVerdictBadge?.setTextColor(0xFFFF454D.toInt())
+                tvVerdictBadge?.text = "Recusar ❌"
 
-                if (delta <= 0) {
-                    // Aproxima de casa
-                    layoutModoCasaBadge?.setBackgroundResource(R.drawable.bg_modo_casa_good)
-                    tvModoCasaKm?.setTextColor(0xFF31D477.toInt())
-                    root.setBackgroundResource(R.drawable.bg_bubble_glass_good)
-                    tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_good)
-                    tvVerdictBadge?.setTextColor(0xFF31D477.toInt())
+                layoutAlert?.visibility = View.VISIBLE
+                tvRatingWarning?.text = offer.blacklistAlert ?: "⛔ Bairro na Lista Negra"
 
-                    when {
-                        delta <= -8.0 -> tvVerdictBadge?.text = "Perfeita Direção ✅"
-                        delta <= -4.0 -> tvVerdictBadge?.text = "Excelente Direção ✅"
-                        else -> tvVerdictBadge?.text = "Boa Direção ✅"
-                    }
-                } else {
-                    // Afasta de casa
+                if (isModoCasa) {
+                    layoutModoCasaBadge?.visibility = View.VISIBLE
+                    val delta = offer.homeDistanceDeltaKm
+                    val kmText = if (delta > 0) String.format(ptBr, "+%.1f km", delta) else String.format(ptBr, "%.1f km", delta)
+                    tvModoCasaKm?.text = kmText
                     layoutModoCasaBadge?.setBackgroundResource(R.drawable.bg_modo_casa_bad)
                     tvModoCasaKm?.setTextColor(0xFFFF6B72.toInt())
-                    root.setBackgroundResource(R.drawable.bg_bubble_glass_bad)
-                    tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_bad)
-                    tvVerdictBadge?.setTextColor(0xFFFF454D.toInt())
+                } else {
+                    layoutModoCasaBadge?.visibility = View.GONE
+                }
+            } else {
+                // Alerta de Nota Baixa (Oculto conforme solicitado: nota vermelha e veredito Recusar ❌ já indicam claramente)
+                layoutAlert?.visibility = View.GONE
 
-                    when {
-                        delta <= 4.0 -> tvVerdictBadge?.text = "Ruim Direção ❌"
-                        delta <= 9.0 -> tvVerdictBadge?.text = "Péssima Direção ❌"
-                        else -> tvVerdictBadge?.text = "Evitar Direção ❌"
+                if (!isModoCasa) {
+                    layoutModoCasaBadge?.visibility = View.GONE
+                    val isProfitable = (offer.ratePerKm >= prefs.minRatePerKm && offer.ratePerHour >= 30.0 && !offer.isLowRating)
+                    if (isProfitable) {
+                        root.setBackgroundResource(R.drawable.bg_bubble_glass_good)
+                        tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_good)
+                        tvVerdictBadge?.setTextColor(0xFF31D477.toInt())
+                        tvVerdictBadge?.text = "Aceitar ✅"
+                    } else {
+                        root.setBackgroundResource(R.drawable.bg_bubble_glass_bad)
+                        tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_bad)
+                        tvVerdictBadge?.setTextColor(0xFFFF454D.toInt())
+                        tvVerdictBadge?.text = "Recusar ❌"
+                    }
+                } else {
+                    layoutModoCasaBadge?.visibility = View.VISIBLE
+                    val delta = offer.homeDistanceDeltaKm
+                    val kmText = if (delta > 0) String.format(ptBr, "+%.1f km", delta) else String.format(ptBr, "%.1f km", delta)
+                    tvModoCasaKm?.text = kmText
+
+                    if (delta <= 0) {
+                        // Aproxima de casa
+                        layoutModoCasaBadge?.setBackgroundResource(R.drawable.bg_modo_casa_good)
+                        tvModoCasaKm?.setTextColor(0xFF31D477.toInt())
+                        root.setBackgroundResource(R.drawable.bg_bubble_glass_good)
+                        tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_good)
+                        tvVerdictBadge?.setTextColor(0xFF31D477.toInt())
+
+                        when {
+                            delta <= -8.0 -> tvVerdictBadge?.text = "Perfeita Direção ✅"
+                            delta <= -4.0 -> tvVerdictBadge?.text = "Excelente Direção ✅"
+                            else -> tvVerdictBadge?.text = "Boa Direção ✅"
+                        }
+                    } else {
+                        // Afasta de casa
+                        layoutModoCasaBadge?.setBackgroundResource(R.drawable.bg_modo_casa_bad)
+                        tvModoCasaKm?.setTextColor(0xFFFF6B72.toInt())
+                        root.setBackgroundResource(R.drawable.bg_bubble_glass_bad)
+                        tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_bad)
+                        tvVerdictBadge?.setTextColor(0xFFFF454D.toInt())
+
+                        when {
+                            delta <= 4.0 -> tvVerdictBadge?.text = "Ruim Direção ❌"
+                            delta <= 9.0 -> tvVerdictBadge?.text = "Péssima Direção ❌"
+                            else -> tvVerdictBadge?.text = "Evitar Direção ❌"
+                        }
                     }
                 }
             }
@@ -844,6 +982,9 @@ class BubbleOverlayService : Service() {
                 }
 
                 val expanded = buildString {
+                    if (offer.isBlacklistBlocked && !offer.blacklistAlert.isNullOrBlank()) {
+                        append("${offer.blacklistAlert}\n")
+                    }
                     append(summaryLine)
                     if (offer.durationMinutes > 0) append(String.format(ptBr, "\n⏱ %d min", offer.durationMinutes))
                     val dest = offer.destinationAddress

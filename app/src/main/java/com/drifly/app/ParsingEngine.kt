@@ -791,6 +791,7 @@ object ParsingEngine {
             val roundedNet = Math.round(net * 100.0) / 100.0
 
             val isLow = rating != null && rating < minRatingThreshold
+            val pickupAddress = extractPickupAddress(cleanTexts)
             val destinationAddress = extractDestinationAddress(cleanTexts)
 
             try {
@@ -808,7 +809,8 @@ object ParsingEngine {
                 netProfit = roundedNet,
                 passengerRating = rating,
                 isLowRating = isLow,
-                destinationAddress = destinationAddress
+                destinationAddress = destinationAddress,
+                pickupAddress = pickupAddress
             )
         }
 
@@ -820,6 +822,39 @@ object ParsingEngine {
     }
 
     /**
+     * Extrai todos os endereços identificados nos textos da oferta.
+     */
+    fun extractAllAddresses(texts: List<String>): List<String> {
+        val addresses = mutableListOf<String>()
+        for (text in texts) {
+            val m = REGEX_ENDERECO.matcher(text)
+            while (m.find()) {
+                val addr = m.group()?.trim()?.trimEnd(',', '-', '.', ' ')
+                if (!addr.isNullOrBlank() && !addr.contains("R$") && !addr.contains("km", ignoreCase = true)) {
+                    addresses.add(addr)
+                }
+            }
+        }
+        return addresses
+    }
+
+    /**
+     * Extrai o endereço de EMBARQUE da oferta.
+     *
+     * Os cards da Uber e da 99 listam o ponto de EMBARQUE primeiro e o destino depois.
+     * Quando 2 ou mais endereços casam com REGEX_ENDERECO, o primeiro é pickupAddress.
+     * Se apenas 1 endereço casar, pickupAddress permanece null.
+     */
+    fun extractPickupAddress(texts: List<String>): String? {
+        val addresses = extractAllAddresses(texts)
+        return if (addresses.size >= 2) {
+            addresses.first()
+        } else {
+            null
+        }
+    }
+
+    /**
      * Extrai o endereço de DESTINO da oferta.
      *
      * Os cards da Uber e da 99 listam o ponto de EMBARQUE primeiro e o destino depois.
@@ -827,17 +862,8 @@ object ParsingEngine {
      * fachada abria no lugar errado).
      */
     fun extractDestinationAddress(texts: List<String>): String? {
-        var lastAddress: String? = null
-        for (text in texts) {
-            val m = REGEX_ENDERECO.matcher(text)
-            while (m.find()) {
-                val addr = m.group()?.trim()?.trimEnd(',', '-', '.', ' ')
-                if (!addr.isNullOrBlank() && !addr.contains("R$") && !addr.contains("km", ignoreCase = true)) {
-                    lastAddress = addr
-                }
-            }
-        }
-        return lastAddress
+        val addresses = extractAllAddresses(texts)
+        return addresses.lastOrNull()
     }
 
     fun parseReceipt(packageName: String, texts: List<String>): ReceiptResult? {
