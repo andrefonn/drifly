@@ -713,6 +713,182 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <!-- ============================================== -->
+            <!-- SEÇÃO 5: DIAGNÓSTICO & LOGS NA NUVEM           -->
+            <!-- ============================================== -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card_frosted_glass"
+                android:orientation="vertical">
+
+                <!-- Header Clicável -->
+                <LinearLayout
+                    android:id="@+id/headerLogsAccordion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="14dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_backup"
+                        app:tint="#31D477"
+                        android:contentDescription="Logs na Nuvem" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Diagnóstico &amp; Logs na Nuvem"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/tvLogsHeaderStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Toque para enviar logs sem cabo USB"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/ivLogsChevron"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_down"
+                        app:tint="#A3A8B5"
+                        android:contentDescription="Expandir" />
+                </LinearLayout>
+
+                <!-- Conteúdo Retrátil -->
+                <LinearLayout
+                    android:id="@+id/contentLogsAccordion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:paddingHorizontal="14dp"
+                    android:paddingBottom="14dp"
+                    android:orientation="vertical">
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginBottom="12dp"
+                        android:background="#14FFFFFF" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="#14FFFFFF"
+                        android:padding="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvLogsLocalSummary"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Log local: 0 KB"
+                            android:textColor="#31D477"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/tvLogsCloudStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Envio direto: não configurado (use Salvar no Drive ou configure o Webhook)"
+                            android:textColor="#A3A8B5"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnUploadLogsCloud"
+                            android:layout_width="0dp"
+                            android:layout_height="42dp"
+                            android:layout_weight="1"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:textColor="#FFFFFF"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp"
+                            android:text="Enviar Nuvem" />
+
+                        <Button
+                            android:id="@+id/btnShareLogsDrive"
+                            android:layout_width="0dp"
+                            android:layout_height="42dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_btn_secondary_glass"
+                            android:textColor="#60A5FA"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp"
+                            android:text="Salvar no Drive" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnConfigCloudLogs"
+                            android:layout_width="0dp"
+                            android:layout_height="38dp"
+                            android:layout_weight="1.3"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_period_unselected"
+                            android:textColor="#F5F5F7"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp"
+                            android:text="Configurar Webhook (Drive)" />
+
+                        <Button
+                            android:id="@+id/btnClearLogs"
+                            android:layout_width="0dp"
+                            android:layout_height="38dp"
+                            android:layout_weight="0.7"
+                            android:layout_marginStart="8dp"
+                            app:backgroundTint="@null"
+                            android:background="@drawable/bg_period_unselected"
+                            android:textColor="#FF6B6B"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp"
+                            android:text="Limpar Log" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </LinearLayout>
+
         </LinearLayout>
     </ScrollView>
 

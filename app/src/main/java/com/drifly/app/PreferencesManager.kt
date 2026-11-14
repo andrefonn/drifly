@@ -107,6 +107,23 @@ class PreferencesManager(context: Context) {
         get() = prefs.getFloat("home_longitude", 0f)
         set(value) = prefs.edit().putFloat("home_longitude", value).apply()
 
+    // Diagnóstico & Logs na Nuvem (Webhook / Google Apps Script para Drive)
+    var cloudLogWebhookUrl: String
+        get() = prefs.getString("cloud_log_webhook_url", "") ?: ""
+        set(value) = prefs.edit().putString("cloud_log_webhook_url", value.trim()).apply()
+
+    var cloudLogToken: String
+        get() = prefs.getString("cloud_log_token", "") ?: ""
+        set(value) = prefs.edit().putString("cloud_log_token", value.trim()).apply()
+
+    var autoUploadCrashLogs: Boolean
+        get() = prefs.getBoolean("auto_upload_crash_logs", true)
+        set(value) = prefs.edit().putBoolean("auto_upload_crash_logs", value).apply()
+
+    var lastCloudLogUploadTimestamp: Long
+        get() = prefs.getLong("last_cloud_log_upload_timestamp", 0L)
+        set(value) = prefs.edit().putLong("last_cloud_log_upload_timestamp", value).apply()
+
     // Custo Total por KM = (Preço do Combustível / Consumo) + Custo Manutenção
     val costPerKm: Double
         get() {
