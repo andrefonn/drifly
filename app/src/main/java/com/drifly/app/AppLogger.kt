@@ -206,6 +206,18 @@ object AppLogger {
         sb.appendLine("MonitoringActive: ${prefs.isMonitoringActive}")
         sb.appendLine("PendingCrashFlag: ${hasPendingCrash(appCtx)}")
         sb.appendLine("Permissions: overlay=$hasOverlay, a11y=$hasA11y, notif=$hasNotif, batteryUnrestricted=$hasBattery")
+        sb.appendLine(
+            "Settings: tapToAccept=${prefs.tapToAcceptEnabled}, motoMode=${prefs.isMotorcycleMode}, " +
+                "autoAccept=${prefs.autoAcceptEnabled}, autoDecline=${prefs.autoDeclineEnabled}, " +
+                "blacklist=${prefs.blacklistEnabled}, modoCasa=${prefs.isModoCasaActive}, " +
+                "minRate=${prefs.minRatePerKm}, maxDist=${prefs.maxDistanceKm}, " +
+                "minRating=${prefs.minPassengerRating}, overlayPos=${prefs.overlayPosition}"
+        )
+        sb.appendLine(
+            "ActiveState: rideActive=${RotaAccessibilityService.isRideCurrentlyActive}, " +
+                "hasPending=${RotaAccessibilityService.pendingOffer != null}, " +
+                "overlayRunning=${BubbleOverlayService.isRunning()}"
+        )
         sb.appendLine("==========================================")
         sb.appendLine()
 

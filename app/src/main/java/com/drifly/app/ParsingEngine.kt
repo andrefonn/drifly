@@ -101,7 +101,18 @@ object ParsingEngine {
         "interromper novas solicitações",
         "interromper novas solicitacoes",
         "aconteceu alguma coisa?",
-        "quer cancelar a viagem"
+        "quer cancelar a viagem",
+        "o passageiro pode gravar",
+        "passageiro pode gravar",
+        "pagamento no aplicativo",
+        "pagamento em dinheiro",
+        "ponto de embarque",
+        "local de embarque",
+        "destino final",
+        "corrida aceita",
+        "viagem aceita",
+        "passageiro aguardando",
+        "a caminho do local"
     )
 
     // Sinais genéricos de navegação GPS passo-a-passo (podem aparecer também ao navegar
@@ -293,12 +304,15 @@ object ParsingEngine {
         if (lower.isEmpty()) return false
         // Evita falso positivo com nosso próprio badge "Aceitar ✅"
         if (lower.contains("✅") || lower.contains("❌")) return false
+        val stripped = lower.trim { !it.isLetterOrDigit() }
         return lower == "aceitar" ||
+                stripped == "aceitar" ||
                 lower.contains("toque para aceitar") ||
                 lower.contains("corresponder") ||
                 lower.contains("aceitar corrida") ||
                 lower.contains("aceitar viagem") ||
                 lower == "pegar" ||
+                stripped == "pegar" ||
                 lower.contains("deal_gesture") ||
                 lower.contains("broad_order") ||
                 lower.contains("btn_accept") ||
@@ -342,9 +356,11 @@ object ParsingEngine {
         } || joined.contains("est. de r$")
         if (hasExplicitOfferCard) return false
 
-        // Se o motorista está na tela ociosa ("Procurando viagens" / "Você está online"),
-        // avisos de mapa como "A caminho de uma região movimentada" não são corrida ativa.
-        if (isIdleDriverScreen(texts)) return false
+        // Se o motorista está na tela ociosa ("Procurando viagens" / "Você está online") ou no histórico/configurações,
+        // nunca marca como corrida ativa. (Não usar EARNINGS_PANEL_MARKERS amplo aqui porque pílulas como
+        // "Recompensas" ou "Interromper novas solicitações" aparecem durante corridas ativas.)
+        val isHistoryOrConfig = HISTORY_OR_SETTINGS_MARKERS.any { joined.contains(it) }
+        if (isIdleDriverScreen(texts) || isHistoryOrConfig) return false
 
         val hasExactActiveButton = texts.any {
             val t = it.trim().lowercase()
@@ -504,17 +520,60 @@ object ParsingEngine {
         return false
     }
 
+    private val HISTORY_OR_SETTINGS_MARKERS = listOf(
+        "histórico de corridas", "historico de corridas",
+        "histórico de solicitações", "historico de solicitacoes",
+        "central de ganhos", "ganhos desta semana", "painel de ganhos",
+        "detalhamento de ganhos", "demonstrativo de ganhos",
+        "configurar solicitações", "configurar solicitacoes", "teste de status"
+    )
+
     private val EARNINGS_PANEL_MARKERS = listOf(
         "solicitações", "solicitacoes", "solicitação", "solicitacao", "central de ganhos", "ganhos desta semana",
         "ganhos de hoje", "ganhos do dia", "recompensas", "painel de ganhos", "meta do dia",
         "ganhe até", "ganhe ate", "último r$", "ultimo r$", "saldo de hoje", "ganhos hoje",
-        "total de hoje", "meu saldo", "entrega moto, entrega moto"
+        "total de hoje", "meu saldo", "entrega moto, entrega moto",
+        "histórico de corridas", "historico de corridas", "histórico de solicitações", "historico de solicitacoes",
+        "seus ganhos", "detalhamento de ganhos", "demonstrativo de ganhos",
+        "configurar solicitações", "configurar solicitacoes", "teste de status"
     )
 
     /** Tela com o painel de ganhos acumulados (pílula do topo / painel da 99). */
     fun isEarningsPanelScreen(texts: List<String>): Boolean {
+        val sanitized = texts.joinToString(" ").lowercase()
+            .replace("interromper novas solicitações", "")
+            .replace("interromper novas solicitacoes", "")
+        return EARNINGS_PANEL_MARKERS.any { sanitized.contains(it) }
+    }
+
+    /** Card de zona de demanda do mapa da 99 ("Demanda alta | Navegar | Como funciona o mapa"). */
+    fun isDemandHotspotScreen(texts: List<String>): Boolean {
+        if (texts.isEmpty()) return false
         val joined = texts.joinToString(" ").lowercase()
-        return EARNINGS_PANEL_MARKERS.any { joined.contains(it) }
+        return joined.contains("demanda alta") ||
+            joined.contains("demanda média") ||
+            joined.contains("demanda media") ||
+            joined.contains("como funciona o mapa")
+    }
+
+    /**
+     * A 99 combina barras nativas de acessibilidade (GPS top bar / km/h / velocidade) com uma camada
+     * Flutter canvas embaixo onde ficam oferta ("Aceitar"), botões de viagem ("Cheguei", "Iniciar viagem")
+     * ou "Buscando". Quando a árvore nativa traz só GPS/HUD e retorna Unknown, precisamos de OCR para ler
+     * a camada Flutter em vez de cegar o OCR achando que a árvore "já resolve".
+     */
+    fun shouldVerifyFlutterLayerViaOcr(
+        packageName: String,
+        texts: List<String>,
+        hasPendingOffer: Boolean
+    ): Boolean {
+        if (texts.isEmpty()) return false
+        val pkg = packageName.lowercase()
+        val is99 = pkg.contains("app99") || pkg.contains("taxis99") || pkg.contains("didi") || pkg.contains("99")
+        if (!is99) return false
+        if (containsSelfOverlayMarkers(texts)) return false
+        if (isIdleDriverScreen(texts) || isEarningsPanelScreen(texts) || isDemandHotspotScreen(texts)) return false
+        return hasPendingOffer || texts.size <= 12
     }
 
     /**
@@ -976,11 +1035,24 @@ object ParsingEngine {
                 joined.contains("viagem finalizada") ||
                 joined.contains("viagem concluída") ||
                 joined.contains("viagem concluida") ||
+                joined.contains("corrida concluída") ||
+                joined.contains("corrida concluida") ||
                 joined.contains("detalhes da viagem") ||
                 joined.contains("ganhos da viagem") ||
                 joined.contains("total da viagem") ||
                 joined.contains("ganhos líquidos") ||
                 joined.contains("ganhos liquidos")
+
+        val hasRatingCompletionKeyword = joined.contains("como foi sua corrida") ||
+                joined.contains("seu feedback sincero pode ajudar") ||
+                joined.contains("avaliar como anônimo") ||
+                joined.contains("avaliar como anonimo") ||
+                joined.contains("você se sentiu seguro(a) nesta corrida") ||
+                joined.contains("voce se sentiu seguro(a) nesta corrida") ||
+                joined.contains("você se sentiu seguro nesta corrida") ||
+                joined.contains("voce se sentiu seguro nesta corrida") ||
+                joined.contains("avalie o passageiro") ||
+                joined.contains("avaliar passageiro")
 
         if (!hasExplicitCompletionKeyword &&
             (isPromoBannerText(joined) || isIdleDriverScreen(texts) || isEarningsPanelScreen(texts))
@@ -988,53 +1060,61 @@ object ParsingEngine {
             return null
         }
 
-        val isCompleted = joined.contains("você ganhou") ||
+        val hasFareCompletionPhrase = joined.contains("você ganhou") ||
                 joined.contains("voce ganhou") ||
                 joined.contains("total recebido") ||
                 hasExplicitCompletionKeyword
+
+        val isCompleted = hasFareCompletionPhrase || hasRatingCompletionKeyword
 
         if (isCompleted) {
             val keyWords = listOf("você ganhou", "voce ganhou", "valor final", "total recebido", "ganhos da viagem", "total da viagem")
             var finalPrice: Double? = null
 
-            // Prioridade 1: Preço na mesma linha ou linha imediatamente seguinte a uma palavra-chave de total
-            for (i in texts.indices) {
-                val lineLower = texts[i].lowercase()
-                if (NON_FARE_PRICE_MARKERS.any { lineLower.contains(it) }) continue
-                if (keyWords.any { lineLower.contains(it) }) {
-                    val mPreco = REGEX_PRECO_EXPLICITO.matcher(texts[i])
-                    if (mPreco.find()) {
-                        val p = mPreco.group(1)?.let { parseMoneyValue(it) }
-                        if (p != null && p > 0.0) {
-                            finalPrice = p
-                            break
-                        }
-                    } else if (i + 1 < texts.size) {
-                        val mPrecoNext = REGEX_PRECO_EXPLICITO.matcher(texts[i + 1])
-                        if (mPrecoNext.find()) {
-                            val p = mPrecoNext.group(1)?.let { parseMoneyValue(it) }
+            // Na tela de avaliação/segurança pós-corrida da 99 (sem valor explícito), mantém o preço original
+            // sem tentar capturar textos numéricos aleatórios da tela.
+            if (hasFareCompletionPhrase) {
+                // Prioridade 1: Preço na mesma linha ou linha imediatamente seguinte a uma palavra-chave de total
+                for (i in texts.indices) {
+                    val lineLower = texts[i].lowercase()
+                    if (NON_FARE_PRICE_MARKERS.any { lineLower.contains(it) }) continue
+                    if (keyWords.any { lineLower.contains(it) }) {
+                        val mPreco = REGEX_PRECO_EXPLICITO.matcher(texts[i])
+                        if (mPreco.find()) {
+                            val p = mPreco.group(1)?.let { parseMoneyValue(it) }
                             if (p != null && p > 0.0) {
                                 finalPrice = p
                                 break
                             }
+                        } else if (i + 1 < texts.size) {
+                            val mPrecoNext = REGEX_PRECO_EXPLICITO.matcher(texts[i + 1])
+                            if (mPrecoNext.find()) {
+                                val p = mPrecoNext.group(1)?.let { parseMoneyValue(it) }
+                                if (p != null && p > 0.0) {
+                                    finalPrice = p
+                                    break
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            // Prioridade 2: Se não encontrou pelo fluxo acima, extrai o maior valor monetário encontrado na tela
-            if (finalPrice == null) {
-                val allPrices = mutableListOf<Double>()
-                for (text in texts) {
-                    val mPreco = REGEX_PRECO_EXPLICITO.matcher(text)
-                    if (mPreco.find()) {
-                        val p = mPreco.group(1)?.let { parseMoneyValue(it) }
-                        if (p != null && p > 0.0) {
-                            allPrices.add(p)
+                // Prioridade 2: Se não encontrou pelo fluxo acima, extrai o maior valor monetário válido encontrado na tela
+                if (finalPrice == null) {
+                    val allPrices = mutableListOf<Double>()
+                    for (text in texts) {
+                        val lineLower = text.lowercase()
+                        if (NON_FARE_PRICE_MARKERS.any { lineLower.contains(it) }) continue
+                        val mPreco = REGEX_PRECO_EXPLICITO.matcher(text)
+                        if (mPreco.find()) {
+                            val p = mPreco.group(1)?.let { parseMoneyValue(it) }
+                            if (p != null && p > 0.0) {
+                                allPrices.add(p)
+                            }
                         }
                     }
+                    finalPrice = allPrices.maxOrNull()
                 }
-                finalPrice = allPrices.maxOrNull()
             }
 
             return ReceiptResult(

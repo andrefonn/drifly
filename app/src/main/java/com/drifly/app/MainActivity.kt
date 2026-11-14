@@ -209,6 +209,7 @@ class MainActivity : AppCompatActivity() {
 
     private var hasShownInitialPerms = false
     private var activePeriod = "DAILY"
+    private var isLoadingPreferences = false
 
     // Launcher do Seletor de Arquivos para Restauração de Backup
     private val importBackupLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -700,43 +701,48 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadPreferences() {
-        val ptBr = Locale("pt", "BR")
+        isLoadingPreferences = true
+        try {
+            val ptBr = Locale("pt", "BR")
 
-        // Aba 1
-        etGoalTarget.setText(String.format(ptBr, "%.2f", prefs.goalTargetAmount))
-        when (prefs.goalType) {
-            "WEEKLY" -> rgGoalType.check(R.id.rbWeekly)
-            "MONTHLY" -> rgGoalType.check(R.id.rbMonthly)
-            else -> rgGoalType.check(R.id.rbDaily)
+            // Aba 1
+            etGoalTarget.setText(String.format(ptBr, "%.2f", prefs.goalTargetAmount))
+            when (prefs.goalType) {
+                "WEEKLY" -> rgGoalType.check(R.id.rbWeekly)
+                "MONTHLY" -> rgGoalType.check(R.id.rbMonthly)
+                else -> rgGoalType.check(R.id.rbDaily)
+            }
+
+            // Aba 2
+            when (prefs.overlayPosition) {
+                "BOTTOM" -> rgOverlayPosition.check(R.id.rbPosBottom)
+                "CENTER" -> rgOverlayPosition.check(R.id.rbPosCenter)
+                else -> rgOverlayPosition.check(R.id.rbPosTop)
+            }
+
+            swAutoAccept.isChecked = prefs.autoAcceptEnabled
+            swAutoDecline.isChecked = prefs.autoDeclineEnabled
+            swMotoMode.isChecked = prefs.isMotorcycleMode
+            swTapToAccept.isChecked = prefs.tapToAcceptEnabled
+
+            etMinRate.setText(String.format(ptBr, "%.2f", prefs.minRatePerKm))
+            etMaxDist.setText(String.format(ptBr, "%.1f", prefs.maxDistanceKm))
+            etMinRating.setText(String.format(ptBr, "%.2f", prefs.minPassengerRating))
+
+            etFuelPrice.setText(String.format(ptBr, "%.2f", prefs.fuelPrice))
+            etFuelConsumption.setText(String.format(ptBr, "%.1f", prefs.fuelConsumption))
+            etMaintenance.setText(String.format(ptBr, "%.2f", prefs.maintenanceCostPerKm))
+
+            // Modo Casa
+            etHomeAddress.setText(prefs.homeAddress)
+            updateHomeConfigStatus()
+
+            // Lista Negra de Bairros
+            swBlacklistEnabled.isChecked = prefs.blacklistEnabled
+            renderBlacklistItems()
+        } finally {
+            isLoadingPreferences = false
         }
-
-        // Aba 2
-        when (prefs.overlayPosition) {
-            "BOTTOM" -> rgOverlayPosition.check(R.id.rbPosBottom)
-            "CENTER" -> rgOverlayPosition.check(R.id.rbPosCenter)
-            else -> rgOverlayPosition.check(R.id.rbPosTop)
-        }
-
-        swAutoAccept.isChecked = prefs.autoAcceptEnabled
-        swAutoDecline.isChecked = prefs.autoDeclineEnabled
-        swMotoMode.isChecked = prefs.isMotorcycleMode
-        swTapToAccept.isChecked = prefs.tapToAcceptEnabled
-
-        etMinRate.setText(String.format(ptBr, "%.2f", prefs.minRatePerKm))
-        etMaxDist.setText(String.format(ptBr, "%.1f", prefs.maxDistanceKm))
-        etMinRating.setText(String.format(ptBr, "%.2f", prefs.minPassengerRating))
-
-        etFuelPrice.setText(String.format(ptBr, "%.2f", prefs.fuelPrice))
-        etFuelConsumption.setText(String.format(ptBr, "%.1f", prefs.fuelConsumption))
-        etMaintenance.setText(String.format(ptBr, "%.2f", prefs.maintenanceCostPerKm))
-
-        // Modo Casa
-        etHomeAddress.setText(prefs.homeAddress)
-        updateHomeConfigStatus()
-
-        // Lista Negra de Bairros
-        swBlacklistEnabled.isChecked = prefs.blacklistEnabled
-        renderBlacklistItems()
     }
 
     private fun enableCommaAndDotDecimalInput(vararg fields: EditText) {
@@ -920,7 +926,47 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        swAutoAccept.setOnCheckedChangeListener { _, isChecked ->
+            if (isLoadingPreferences) return@setOnCheckedChangeListener
+            prefs.autoAcceptEnabled = isChecked
+            AppLogger.i("DriFlyDiag", "PREF_CHANGED autoAcceptEnabled=$isChecked")
+            val msg = if (isChecked) "Aceite automático ativado e salvo!" else "Aceite automático desativado."
+            showNotificationBanner(msg, if (isChecked) BannerType.SUCCESS else BannerType.INFO)
+        }
+
+        swAutoDecline.setOnCheckedChangeListener { _, isChecked ->
+            if (isLoadingPreferences) return@setOnCheckedChangeListener
+            prefs.autoDeclineEnabled = isChecked
+            AppLogger.i("DriFlyDiag", "PREF_CHANGED autoDeclineEnabled=$isChecked")
+            val msg = if (isChecked) "Recusa automática ativada e salva!" else "Recusa automática desativada."
+            showNotificationBanner(msg, if (isChecked) BannerType.SUCCESS else BannerType.INFO)
+        }
+
+        swMotoMode.setOnCheckedChangeListener { _, isChecked ->
+            if (isLoadingPreferences) return@setOnCheckedChangeListener
+            prefs.isMotorcycleMode = isChecked
+            AppLogger.i("DriFlyDiag", "PREF_CHANGED isMotorcycleMode=$isChecked")
+            val msg = if (isChecked) "Modo Moto / Slider ativado e salvo!" else "Modo Moto / Slider desativado."
+            showNotificationBanner(msg, BannerType.INFO)
+        }
+
+        swTapToAccept.setOnCheckedChangeListener { _, isChecked ->
+            if (isLoadingPreferences) return@setOnCheckedChangeListener
+            prefs.tapToAcceptEnabled = isChecked
+            AppLogger.i("DriFlyDiag", "PREF_CHANGED tapToAcceptEnabled=$isChecked")
+            if (isChecked && !isAccessibilityServiceEnabled(this, RotaAccessibilityService::class.java)) {
+                showNotificationBanner(
+                    "Toque no Overlay ativado! Falta ativar a Acessibilidade do DriFly para clicar na corrida.",
+                    BannerType.WARNING
+                )
+            } else {
+                val msg = if (isChecked) "Aceitar ao tocar no Overlay ativado e salvo!" else "Aceitar ao tocar no Overlay desativado."
+                showNotificationBanner(msg, if (isChecked) BannerType.SUCCESS else BannerType.INFO)
+            }
+        }
+
         swBlacklistEnabled.setOnCheckedChangeListener { _, isChecked ->
+            if (isLoadingPreferences) return@setOnCheckedChangeListener
             prefs.blacklistEnabled = isChecked
             val msg = if (isChecked) "Lista Negra de Bairros ativada" else "Lista Negra de Bairros desativada"
             showNotificationBanner(msg, BannerType.INFO)

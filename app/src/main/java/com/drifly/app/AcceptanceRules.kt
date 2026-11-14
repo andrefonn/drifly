@@ -36,4 +36,156 @@ object AcceptanceRules {
         offerArrivedDuringRide: Boolean
     ): Boolean =
         hasPending && !offerArrivedDuringRide && isPendingStillValid(pendingTimestamp, now)
+
+    enum class PostTapOutcome {
+        CONFIRMED,
+        FAILED,
+        RETRY
+    }
+
+    private val POST_TAP_FAILURE_MARKERS = listOf(
+        "indisponível",
+        "indisponivel",
+        "outro motorista",
+        "expirou",
+        "expirada",
+        "já foi aceita",
+        "ja foi aceita",
+        "não está mais disponível",
+        "nao esta mais disponivel",
+        "algo deu errado",
+        "solicitação cancelada",
+        "solicitacao cancelada",
+        "oferta encerrada",
+        "corrida cancelada"
+    )
+
+    private val POST_TAP_LOADING_MARKERS = listOf(
+        "carregando",
+        "aguarde",
+        "processando"
+    )
+
+    private val ADDRESS_STOPWORDS = setOf(
+        "rua", "avenida", "alameda", "travessa", "estrada", "rodovia", "praca",
+        "loteamento", "condominio", "residencial", "jardim", "vila", "parque",
+        "bairro", "centro", "zona", "norte", "leste", "oeste", "brasil",
+        "joinville", "proximo", "perto", "cidade", "estado", "sao", "santa", "santo"
+    )
+
+    /**
+     * Classifica a tela capturada logo após tocar/deslizar em "Aceitar".
+     * Nunca promove para CONFIRMED se o card continuar na tela, se o app voltou para tela
+     * ociosa ("Buscando" / "Conectar") / ganhos, se exibiu aviso de corrida indisponível ou
+     * se o OCR não trouxe nenhuma evidência até a última tentativa.
+     */
+    fun classifyPostTapVerification(
+        texts: List<String>?,
+        offerPrice: Double,
+        isIdleScreen: Boolean,
+        isEarningsPanel: Boolean,
+        isActiveRide: Boolean,
+        isDemandHotspot: Boolean = false,
+        stillSameOffer: Boolean = false,
+        attempt: Int,
+        maxAttempts: Int = 2,
+        emptyThreshold: Int = 3
+    ): PostTapOutcome {
+        if (texts == null || texts.size <= emptyThreshold) {
+            return if (attempt < maxAttempts) PostTapOutcome.RETRY else PostTapOutcome.FAILED
+        }
+
+        val joined = texts.joinToString(" ").lowercase()
+
+        if (POST_TAP_FAILURE_MARKERS.any { joined.contains(it) }) {
+            return PostTapOutcome.FAILED
+        }
+
+        if (stillSameOffer) {
+            return PostTapOutcome.FAILED
+        }
+
+        if (isIdleScreen || isEarningsPanel || isDemandHotspot) {
+            return PostTapOutcome.FAILED
+        }
+
+        if (texts.any { ParsingEngine.isAcceptActionText(it) }) {
+            return PostTapOutcome.FAILED
+        }
+
+        if (isActiveRide) {
+            return PostTapOutcome.CONFIRMED
+        }
+
+        if (texts.size <= 6 && POST_TAP_LOADING_MARKERS.any { joined.contains(it) }) {
+            return if (attempt < maxAttempts) PostTapOutcome.RETRY else PostTapOutcome.FAILED
+        }
+
+        val hasGpsTripTransition = joined.contains("km/h") ||
+            joined.contains("chegada prevista") ||
+            joined.contains("em viagem") ||
+            joined.contains("ir buscar")
+
+        if (hasGpsTripTransition) {
+            return PostTapOutcome.CONFIRMED
+        }
+
+        return if (attempt < maxAttempts) PostTapOutcome.RETRY else PostTapOutcome.FAILED
+    }
+
+    private fun normalizeText(raw: String): String {
+        val decomposed = java.text.Normalizer.normalize(raw.lowercase(), java.text.Normalizer.Form.NFD)
+        return decomposed
+            .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+            .replace(Regex("[^a-z0-9\\s]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+
+    /**
+     * Verifica se o HUD nativo de GPS da 99 (sem texto Flutter de "Aceitar"/"Cheguei") bate com os
+     * endereços de embarque/destino da oferta pendente, confirmando transição para corrida ativa
+     * desde que não seja navegação livre recente para zona de demanda.
+     */
+    fun doesGpsHudMatchPendingOffer(
+        texts: List<String>,
+        pendingOffer: RideOffer?,
+        hasRecentDemandNavigation: Boolean
+    ): Boolean {
+        if (pendingOffer == null || hasRecentDemandNavigation || texts.isEmpty()) return false
+        if (ParsingEngine.isIdleDriverScreen(texts) ||
+            ParsingEngine.isEarningsPanelScreen(texts) ||
+            ParsingEngine.isDemandHotspotScreen(texts)
+        ) {
+            return false
+        }
+
+        val joinedNorm = normalizeText(texts.joinToString(" "))
+        if (!joinedNorm.contains("km h") && !joinedNorm.contains("chegada prevista")) {
+            return false
+        }
+
+        val addresses = listOfNotNull(pendingOffer.pickupAddress, pendingOffer.destinationAddress)
+            .filter { it.isNotBlank() }
+        if (addresses.isEmpty()) return false
+
+        val hudWords = joinedNorm.split(' ').filter { it.isNotEmpty() }.toSet()
+
+        for (addr in addresses) {
+            val tokens = normalizeText(addr)
+                .split(' ')
+                .filter { it.length >= 3 && it !in ADDRESS_STOPWORDS }
+                .distinct()
+            if (tokens.isEmpty()) continue
+
+            val matched = tokens.filter { it in hudWords }
+            val hasDistinctiveWord = matched.any { token ->
+                token.length >= 5 && token.any { it.isLetter() }
+            }
+            if (hasDistinctiveWord || matched.size >= 2) {
+                return true
+            }
+        }
+        return false
+    }
 }

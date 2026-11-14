@@ -864,4 +864,127 @@ class ParsingEngineTest {
             ParsingEngine.parseNodes("com.app99.driver", freeGpsNavTexts + listOf("R$ 47,40"), 0.2148, 4.75f)
         )
     }
+
+    @Test
+    fun test99ActiveRideSafetyBannerAndDropOffFromRealLog() {
+        // Log real 14:21:42: aviso de segurança nativo durante corrida ativa da 99
+        val safetyHudTexts = listOf(
+            "O passageiro pode gravar por segurança",
+            "Compartilhar rota?",
+            "Ajustes",
+            "0",
+            "km/h",
+            "Ir"
+        )
+        assertTrue(
+            "Aviso de segurança durante viagem da 99 deve indicar corrida ativa",
+            ParsingEngine.isActiveRideOrNavigationScreen(safetyHudTexts)
+        )
+        assertEquals(
+            ScreenReading.ActiveRide,
+            ScreenRouter.read("com.app99.driver", safetyHudTexts, 0.2148, 4.75f, isRideCurrentlyActive = false)
+        )
+
+        // Log real 14:27:43: tela de desembarque com "Pagamento no aplicativo"
+        val dropOffTexts = listOf("Chegada prevista: 14:28", "Pagamento no aplicativo", "R$ 5,20")
+        assertTrue(ParsingEngine.isActiveRideOrNavigationScreen(dropOffTexts))
+        assertEquals(
+            ScreenReading.ActiveRide,
+            ScreenRouter.read("com.app99.driver", dropOffTexts, 0.2148, 4.75f, isRideCurrentlyActive = false)
+        )
+
+        // Painel de histórico de corridas nunca deve marcar corrida ativa nem recibo
+        val historyPanelTexts = listOf("Histórico de corridas", "Ganhos", "R$ 21,00", "Pagamento no aplicativo")
+        assertFalse(ParsingEngine.isActiveRideOrNavigationScreen(historyPanelTexts))
+        assertEquals(
+            ScreenReading.Unknown,
+            ScreenRouter.read("com.app99.driver", historyPanelTexts, 0.2148, 4.75f, isRideCurrentlyActive = true)
+        )
+    }
+
+    @Test
+    fun test99PostRideRatingAndSafetyReceiptRequiresActiveRide() {
+        // Log real 14:27:45 e 14:27:50: telas pós-corrida da 99 sem tela prévia de "Você ganhou R$"
+        val ratingScreenTexts = listOf(
+            "Como foi sua corrida com João?",
+            "Seu feedback sincero pode ajudar",
+            "Avaliar como anônimo",
+            "Enviar"
+        )
+        val safetyCheckTexts = listOf(
+            "Você se sentiu seguro(a) nesta corrida?",
+            "Sim",
+            "Não"
+        )
+
+        val ratingReadingActive = ScreenRouter.read(
+            "com.app99.driver", ratingScreenTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(ratingReadingActive is ScreenReading.Receipt)
+        val ratingReceipt = (ratingReadingActive as ScreenReading.Receipt).receipt
+        assertTrue(ratingReceipt.isCompleted)
+        assertNull(ratingReceipt.finalPrice)
+        assertEquals(RideRecord.STATUS_CONCLUIDO, ratingReceipt.status)
+
+        val safetyReadingActive = ScreenRouter.read(
+            "com.app99.driver", safetyCheckTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(safetyReadingActive is ScreenReading.Receipt)
+        assertTrue((safetyReadingActive as ScreenReading.Receipt).receipt.isCompleted)
+
+        // Sem corrida ativa, telas de avaliação não devem disparar recibo falso
+        assertEquals(
+            ScreenReading.Unknown,
+            ScreenRouter.read("com.app99.driver", ratingScreenTexts, 0.2148, 4.75f, isRideCurrentlyActive = false)
+        )
+        assertEquals(
+            ScreenReading.Unknown,
+            ScreenRouter.read("com.app99.driver", safetyCheckTexts, 0.2148, 4.75f, isRideCurrentlyActive = false)
+        )
+    }
+
+    @Test
+    fun testShouldVerifyFlutterLayerViaOcrFor99HybridScreens() {
+        val nativeGpsHud = listOf("109", "m", "R. Jacob Richlin", "Rua Corupá, 386", "12", "km/h")
+        assertTrue(ParsingEngine.shouldVerifyFlutterLayerViaOcr("com.app99.driver", nativeGpsHud, hasPendingOffer = false))
+        assertTrue(ParsingEngine.shouldVerifyFlutterLayerViaOcr("com.app99.driver", nativeGpsHud, hasPendingOffer = true))
+
+        assertFalse(
+            ParsingEngine.shouldVerifyFlutterLayerViaOcr(
+                "com.app99.driver",
+                listOf("Buscando", "Recompensas", "R$ 15,80"),
+                hasPendingOffer = true
+            )
+        )
+        assertFalse(
+            ParsingEngine.shouldVerifyFlutterLayerViaOcr(
+                "com.app99.driver",
+                listOf("Histórico de corridas", "Ganhos"),
+                hasPendingOffer = false
+            )
+        )
+        assertFalse(
+            ParsingEngine.shouldVerifyFlutterLayerViaOcr(
+                "com.app99.driver",
+                listOf("Rua São Leopoldo, 129", "Demanda alta", "Navegar", "Como funciona o mapa"),
+                hasPendingOffer = false
+            )
+        )
+        assertFalse(
+            ParsingEngine.shouldVerifyFlutterLayerViaOcr(
+                "com.ubercab.driver",
+                nativeGpsHud,
+                hasPendingOffer = true
+            )
+        )
+    }
+
+    @Test
+    fun testAcceptActionTextHandlesOcrArtifactsAndAvoidsRateText() {
+        assertTrue(ParsingEngine.isAcceptActionText("Aceitar >"))
+        assertTrue(ParsingEngine.isAcceptActionText("Aceitar"))
+        assertTrue(ParsingEngine.isAcceptActionText("Pegar!"))
+        assertFalse(ParsingEngine.isAcceptActionText("Taxa de Aceitação"))
+        assertFalse(ParsingEngine.isAcceptActionText("Aceitar ✅"))
+    }
 }

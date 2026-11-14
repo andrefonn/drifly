@@ -39,13 +39,17 @@ class BubbleOverlayService : Service() {
     private lateinit var prefs: PreferencesManager
 
     private val autoDismissHandler = Handler(Looper.getMainLooper())
-    private val autoDismissRunnable = Runnable { animateAndRemove() }
+    private val autoDismissRunnable = Runnable {
+        diag("OVERLAY_SERVICE auto-dismiss disparado")
+        animateAndRemove()
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         instance = this
+        AppLogger.init(this)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         prefs = PreferencesManager(this)
     }
@@ -197,6 +201,7 @@ class BubbleOverlayService : Service() {
             root?.let {
                 it.visibility = View.VISIBLE
                 it.alpha = 1f
+                it.translationY = 0f
                 try {
                     windowManager?.updateViewLayout(it, params)
                 } catch (e: Exception) {
@@ -213,6 +218,11 @@ class BubbleOverlayService : Service() {
             }
             resetAutoDismissTimer(durationMs)
             startVisualTimerBar(view, durationMs)
+            diag(
+                "OVERLAY_SERVICE ${if (isFirstLaunch) "created" else "reused"} " +
+                    "[${offer.platform} R$ ${offer.price}] timer=${durationMs}ms " +
+                    "tapToAccept=${prefs.tapToAcceptEnabled} motoMode=${prefs.isMotorcycleMode} autoAccept=${prefs.autoAcceptEnabled}"
+            )
         }
     }
 
@@ -303,10 +313,17 @@ class BubbleOverlayService : Service() {
         var lastAcceptTapTimestamp: Long = 0L
         private var activeAppContext: Context? = null
 
+        private fun diag(message: String) {
+            try {
+                AppLogger.i("DriFlyDiag", message)
+            } catch (_: Throwable) {}
+        }
+
         private val directAutoDismiss = Runnable {
             val offer = activeOverlayOffer
             val rideId = activeOverlayRideId
             val ctx = activeAppContext
+            diag("OVERLAY_DIRECT auto-dismiss [${offer?.platform ?: "?"} R$ ${offer?.price ?: 0.0}] rideId=$rideId")
             if (offer != null && rideId != null && ctx != null) {
                 val prefs = PreferencesManager(ctx)
                 if (!isOfferGood(offer, prefs)) {
@@ -393,6 +410,34 @@ class BubbleOverlayService : Service() {
         }
 
         /**
+         * Protege o overlay contra fechamento automático durante o fluxo assíncrono de
+         * aceite manual + verificação na tela (até ~5s).
+         */
+        fun extendAutoDismissForManualAccept(extraMs: Long = 10_000L) {
+            directHandler.post {
+                directHandler.removeCallbacks(directAutoDismiss)
+                directHandler.postDelayed(directAutoDismiss, extraMs)
+                instance?.let { current ->
+                    current.resetAutoDismissTimer(extraMs)
+                }
+            }
+        }
+
+        /**
+         * Restaura um prazo curto de fechamento caso a verificação pós-toque falhe e o card
+         * volte a ficar visível.
+         */
+        fun restoreAutoDismissAfterFailedAccept(delayMs: Long = 6_000L) {
+            directHandler.post {
+                val view = directBubbleView ?: instance?.bubbleView ?: return@post
+                directHandler.removeCallbacks(directAutoDismiss)
+                directHandler.postDelayed(directAutoDismiss, delayMs)
+                instance?.resetAutoDismissTimer(delayMs)
+                startVisualTimerBar(view, delayMs)
+            }
+        }
+
+        /**
          * Modo "transparente": esconde o overlay e deixa os toques passarem por ele. Usado enquanto o
          * DriFly clica/desliza no app da plataforma e tira print, para o card não tapar o botão nem
          * aparecer no OCR.
@@ -406,11 +451,16 @@ class BubbleOverlayService : Service() {
                 } else {
                     lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
                 }
+                view.visibility = if (enabled) View.INVISIBLE else View.VISIBLE
                 view.alpha = if (enabled) 0f else 1f
+                if (!enabled) {
+                    view.translationY = 0f
+                }
                 try {
                     if (view.isAttachedToWindow) {
                         (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).updateViewLayout(view, lp)
                     }
+                    diag("OVERLAY passThrough=$enabled")
                 } catch (e: Exception) {
                     Log.w(TAG, "Falha ao alternar modo transparente do overlay", e)
                 }
@@ -430,6 +480,8 @@ class BubbleOverlayService : Service() {
                     stop(context)
                     return@post
                 }
+                view.visibility = View.VISIBLE
+                view.alpha = 1f
                 val frameContainer = view.findViewById<View>(R.id.frameStreetViewContainer)
                 val tvIcon = view.findViewById<TextView>(R.id.tvStreetViewActionIcon)
                 if (frameContainer != null && frameContainer.visibility != View.VISIBLE) {
@@ -515,7 +567,7 @@ class BubbleOverlayService : Service() {
 
                             // 1. Zona de exclusão circular do botão fechar X (~52 dp)
                             if (closeBtn != null && OverlayTouchMath.isTouchInExclusionZone(event.rawX, event.rawY, centerX, centerY, density)) {
-                                Log.i(TAG, "Toque na zona de proteção do botão X (raio <= 52dp). Fechando overlay sem aceitar.")
+                                diag("OVERLAY_TOUCH X_ZONE fechar sem aceitar")
                                 onCloseRequested()
                                 return@setOnTouchListener true
                             }
@@ -526,6 +578,7 @@ class BubbleOverlayService : Service() {
                                 val svLoc = IntArray(2)
                                 btnToggleStreetView.getLocationOnScreen(svLoc)
                                 if (OverlayTouchMath.isInsideBounds(event.rawX, event.rawY, svLoc[0], svLoc[1], btnToggleStreetView.width, btnToggleStreetView.height)) {
+                                    diag("OVERLAY_TOUCH STREETVIEW_TOGGLE")
                                     btnToggleStreetView.performClick()
                                     return@setOnTouchListener true
                                 }
@@ -538,13 +591,14 @@ class BubbleOverlayService : Service() {
                                     isAcceptTriggered = true
                                     lastAcceptTapTimestamp = now
                                     val currentOffer = activeOverlayOffer ?: offer
-                                    Log.i(TAG, "Aceite manual via toque no overlay acionado para oferta [${currentOffer.platform} R$ ${currentOffer.price}]!")
+                                    diag("OVERLAY_TOUCH MANUAL_ACCEPT [${currentOffer.platform} R$ ${currentOffer.price}] motoMode=${prefs.isMotorcycleMode}")
                                     // O serviço de acessibilidade executa o clique/gesto, confere a tela e só então
                                     // salva a corrida e mostra a fachada (onRideAcceptedShowStreetViewBriefly).
                                     val service = RotaAccessibilityService.instance
                                     if (service != null) {
                                         service.triggerManualAccept()
                                     } else {
+                                        diag("OVERLAY_TOUCH ERRO RotaAccessibilityService.instance == null")
                                         isAcceptTriggered = false
                                         android.widget.Toast.makeText(
                                             root.context,
@@ -553,10 +607,10 @@ class BubbleOverlayService : Service() {
                                         ).show()
                                     }
                                 } else {
-                                    Log.d(TAG, "Toque no corpo ignorado: debounce ou aceite já disparado.")
+                                    diag("OVERLAY_TOUCH IGNORED debounce/alreadyTriggered triggered=$isAcceptTriggered deltaMs=${now - lastAcceptTapTimestamp}")
                                 }
                             } else {
-                                Log.d(TAG, "Toque no corpo ignorado: tapToAcceptEnabled está desativado.")
+                                diag("OVERLAY_TOUCH IGNORED tapToAcceptEnabled=false")
                             }
                             true
                         }
@@ -592,7 +646,7 @@ class BubbleOverlayService : Service() {
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
-                Log.w(TAG, "Permissão SYSTEM_ALERT_WINDOW não concedida.")
+                diag("OVERLAY BLOQUEADO: canDrawOverlays=false")
                 return
             }
 
@@ -619,11 +673,21 @@ class BubbleOverlayService : Service() {
 
             val prefs = PreferencesManager(appContext)
             val dismissDelayMs = getDismissDelayForOffer(offer, prefs)
-            val goodOffer = isOfferGood(offer, prefs)
 
             // Reutiliza a view existente se já estiver anexada na tela (evita criar dezenas de janelas no WindowManager)
             val existingView = directBubbleView
             if (existingView != null && existingView.isAttachedToWindow) {
+                existingView.visibility = View.VISIBLE
+                existingView.alpha = 1f
+                existingView.translationY = 0f
+                (existingView.layoutParams as? WindowManager.LayoutParams)?.let { lp ->
+                    if ((lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE) != 0) {
+                        lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                        try {
+                            (appContext.getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(existingView, lp)
+                        } catch (_: Exception) {}
+                    }
+                }
                 bindOverlayData(existingView, offer, prefs)
                 bindStreetViewPreview(appContext, existingView, offer.destinationAddress, true) {
                     pauseAutoDismiss(existingView)
@@ -631,6 +695,10 @@ class BubbleOverlayService : Service() {
                 directHandler.removeCallbacks(directAutoDismiss)
                 directHandler.postDelayed(directAutoDismiss, dismissDelayMs)
                 startVisualTimerBar(existingView, dismissDelayMs)
+                diag(
+                    "OVERLAY_DIRECT reused [${offer.platform} R$ ${offer.price}] rideId=$rideId " +
+                        "timer=${dismissDelayMs}ms tapToAccept=${prefs.tapToAcceptEnabled} motoMode=${prefs.isMotorcycleMode}"
+                )
                 return
             }
 
@@ -728,11 +796,15 @@ class BubbleOverlayService : Service() {
 
             try {
                 wm.addView(root, params)
-                Log.i(TAG, "showDirectOverlay: OVERLAY DRIFLY RENDERIZADO COM SUCESSO! [${offer.platform} R$ ${offer.price}] timer=${dismissDelayMs}ms")
+                diag(
+                    "OVERLAY_DIRECT shown [${offer.platform} R$ ${offer.price}] rideId=$rideId " +
+                        "timer=${dismissDelayMs}ms tapToAccept=${prefs.tapToAcceptEnabled} motoMode=${prefs.isMotorcycleMode}"
+                )
                 directHandler.removeCallbacks(directAutoDismiss)
                 directHandler.postDelayed(directAutoDismiss, dismissDelayMs)
                 startVisualTimerBar(root, dismissDelayMs)
             } catch (e: Exception) {
+                diag("OVERLAY_DIRECT addView FAIL ${e.javaClass.simpleName}: ${e.message}")
                 Log.e(TAG, "Falha ao adicionar overlay direto", e)
                 directBubbleView = null
             }
