@@ -11,8 +11,8 @@ android {
         applicationId = "com.drifly.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.1.5"
+        versionCode = 9
+        versionName = "1.1.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

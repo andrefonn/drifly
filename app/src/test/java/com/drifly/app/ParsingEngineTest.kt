@@ -820,4 +820,48 @@ class ParsingEngineTest {
             ParsingEngine.parseNodes("com.app99.driver", mapWithTopPillAndKmOnly, 0.2148, 4.75f)
         )
     }
+
+    @Test
+    fun test99OfferWithPickupInMetersAndTripInKmIsParsedCorrectly() {
+        // Captura REAL do drifly_diag_20261114_125407.txt (11:41:30.348):
+        // Embarque "2 min (113 m)" + viagem "9 20 min (11,8 km)" antes descartava a corrida como R$ 14,10 / 0,11 km!
+        val realOfferTexts = listOf(
+            "11:41", "101", "99", "Moto", "ZONA INDUSTRIAL", "NORTE", "MORRO DO MEIO",
+            "R$14,10", "0% de Taxa99 semanal", "9 R$1,12 Tarifa base dinâmica incl.",
+            "* Passageiro novo CPF verif.", "2 min (113 m)", "9 20 min (11,8 km)", "9A 65%",
+            "Brasil Atacadista, Rua Albano Schmidt, 1200 - Boa", "Vista",
+            "Rua José Gorges Filho, 59, Vila Nova", "Aceitar", "X", "+", "Topo", "Joinville- Laurc", "COMA"
+        )
+
+        val offer = ParsingEngine.parseNodes("com.app99.driver", realOfferTexts, 0.2148, 4.75f)
+        assertNotNull("Oferta real da 99 com embarque em metros deve ser detectada", offer)
+        assertEquals(14.10, offer!!.price, 0.001)
+        assertEquals(11.91, offer.distanceKm, 0.02)
+        assertEquals(22, offer.durationMinutes)
+        assertEquals("Rua José Gorges Filho, 59, Vila Nova", offer.destinationAddress)
+    }
+
+    @Test
+    fun test99FreeGpsNavigationToDemandZoneIsNotActiveRideAndNotOffer() {
+        // Captura REAL do drifly_diag_20261114_125407.txt (10:49:56.398):
+        // Motorista clicou em "Navegar" no mapa de demanda da 99 (sem nenhuma corrida aceita).
+        val freeGpsNavTexts = listOf(
+            "58", "m", "Vire à esquerda", "Rua São Leopoldo, 129", "0", "km/h",
+            "15 min", "9,2 km", "Chegada prevista:", "11:04"
+        )
+
+        assertFalse(
+            "Navegação livre até zona de demanda NÃO pode ser classificada como corrida ativa",
+            ParsingEngine.isActiveRideOrNavigationScreen(freeGpsNavTexts)
+        )
+        assertEquals(
+            "ScreenRouter deve retornar Unknown para navegação livre sem corrida",
+            ScreenReading.Unknown,
+            ScreenRouter.read("com.app99.driver", freeGpsNavTexts, 0.2148, 4.75f, isRideCurrentlyActive = false)
+        )
+        assertNull(
+            "Navegação GPS sem card de oferta nunca deve gerar oferta mesmo se houver saldo na tela",
+            ParsingEngine.parseNodes("com.app99.driver", freeGpsNavTexts + listOf("R$ 47,40"), 0.2148, 4.75f)
+        )
+    }
 }

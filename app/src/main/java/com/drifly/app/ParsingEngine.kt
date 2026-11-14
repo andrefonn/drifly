@@ -101,7 +101,13 @@ object ParsingEngine {
         "interromper novas solicitações",
         "interromper novas solicitacoes",
         "aconteceu alguma coisa?",
-        "quer cancelar a viagem",
+        "quer cancelar a viagem"
+    )
+
+    // Sinais genéricos de navegação GPS passo-a-passo (podem aparecer também ao navegar
+    // até uma área de demanda sem corrida aceita). Por si só NÃO provam corrida ativa,
+    // mas bloqueiam falsa detecção de oferta caso não haja card explícito.
+    private val TURN_BY_TURN_GPS_MARKERS = listOf(
         "vire à esquerda",
         "vire a esquerda",
         "vire à direita",
@@ -191,11 +197,18 @@ object ParsingEngine {
     // Regex de Duração
     private val REGEX_MIN = Pattern.compile("""(?i)(\d{1,3})\s*min""")
 
-    // Trecho no formato "7 min (1,8 km)" — usado pelos cards da 99 e da Uber para
+    // Trecho no formato "7 min (1,8 km)" ou "2 min (113 m)" — usado pelos cards da 99 e da Uber para
     // distância/tempo até o passageiro e de viagem. A Uber escreve tanto "6 min" quanto "6 minutos".
     private val REGEX_TRECHO_MIN_KM = Pattern.compile(
-        """(?i)(\d{1,3})\s*(?:minutos|minuto|min)\s*\(\s*(\d{1,3}(?:[.,]\d{1,2})?)\s*km\s*\)"""
+        """(?i)(\d{1,3})\s*(?:minutos|minuto|min)\s*\(\s*(\d{1,4}(?:[.,]\d{1,2})?)\s*(km|m)\s*\)"""
     )
+
+    private fun extractLegKm(matcher: java.util.regex.Matcher): Double? {
+        val raw = matcher.group(2)?.replace(",", ".")?.toDoubleOrNull() ?: return null
+        val unit = matcher.group(3)?.lowercase() ?: "km"
+        val km = if (unit == "m") raw / 1000.0 else raw
+        return if (km > 0.0) km else null
+    }
 
     // Regex de Nota do passageiro (3.00 a 5.00)
     private val REGEX_NOTA = Pattern.compile("""(?:★|\*|\b)?\s*([345][.,]\d{1,2})\b""")
@@ -533,8 +546,15 @@ object ParsingEngine {
             return null
         }
 
-        // Proteção 2: Se a tela atual é de corrida em andamento / navegação GPS, NUNCA interpreta como nova oferta!
+        // Proteção 2: Se a tela atual é de corrida em andamento, NUNCA interpreta como nova oferta!
         if (isActiveRideOrNavigationScreen(cleanTexts)) {
+            return null
+        }
+
+        // Proteção 2b: Navegação GPS passo-a-passo livre (ex.: indo para zona de demanda)
+        // sem card de oferta explícito não gera oferta falsa nem marca corrida ativa.
+        val joinedCleanLower = cleanTexts.joinToString(" ").lowercase()
+        if (TURN_BY_TURN_GPS_MARKERS.any { joinedCleanLower.contains(it) } && !hasOfferCardSignal(cleanTexts)) {
             return null
         }
 
@@ -697,8 +717,8 @@ object ParsingEngine {
             val matcher = REGEX_TRECHO_MIN_KM.matcher(text)
             while (matcher.find()) {
                 val mins = matcher.group(1)?.toIntOrNull()
-                val km = matcher.group(2)?.replace(",", ".")?.toDoubleOrNull()
-                if (mins != null && km != null && km > 0.0) {
+                val km = extractLegKm(matcher)
+                if (mins != null && km != null) {
                     legDistanceAccum += km
                     legMinutesAccum += mins
                     legCount++
@@ -716,7 +736,7 @@ object ParsingEngine {
         if (totalDistKm != null && totalDistKm > 0.0) {
             distance = totalDistKm
         } else if (legsSum != null && legsSum > 0.0) {
-            // Embarque + viagem identificados pelo formato "X min (Y km)"
+            // Embarque + viagem identificados pelo formato "X min (Y km)" / "X min (Y m)"
             distance = legsSum
         } else if (pickupDistKm != null && tripDistKm != null) {
             // Se identificou trecho até o passageiro E trecho de viagem, a distância total é a soma
@@ -724,8 +744,8 @@ object ParsingEngine {
         } else if (tripDistKm != null) {
             distance = tripDistKm
         } else if (allDistancesFound.isNotEmpty()) {
-            // Se achou distâncias na tela sem labels específicos, prioriza a maior se for viagem + embarque
-            distance = allDistancesFound.first()
+            // Se achou distâncias na tela sem labels específicos, prioriza a maior (evita pegar embarque curto em metros)
+            distance = allDistancesFound.max()
         }
 
         // 3. Extração de Duração (minutos)
