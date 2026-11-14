@@ -279,6 +279,7 @@ class BubbleOverlayService : Service() {
         autoDismissHandler.removeCallbacks(autoDismissRunnable)
         val view = bubbleView
         if (view != null) {
+            lastDismissedTimestamp = System.currentTimeMillis()
             try {
                 if (view.isAttachedToWindow) {
                     windowManager?.removeView(view)
@@ -364,7 +365,13 @@ class BubbleOverlayService : Service() {
         private const val OFFER_NOTIFICATION_BASE_ID = 2200
         private val offerNotificationSeq = AtomicInteger(0)
 
+        @Volatile
+        private var lastDismissedTimestamp: Long = 0L
+
         fun isRunning(): Boolean = instance != null || directBubbleView != null
+
+        fun wasRecentlyDismissed(cooldownMs: Long = 1_200L): Boolean =
+            (System.currentTimeMillis() - lastDismissedTimestamp) < cooldownMs
 
         fun isOfferGood(offer: RideOffer, prefs: PreferencesManager): Boolean {
             return if (prefs.isModoCasaActive) {
@@ -594,6 +601,7 @@ class BubbleOverlayService : Service() {
             val view = directBubbleView
             directBubbleView = null
             if (view != null) {
+                lastDismissedTimestamp = System.currentTimeMillis()
                 try {
                     val wm = view.context.getSystemService(WINDOW_SERVICE) as WindowManager
                     wm.removeViewImmediate(view)

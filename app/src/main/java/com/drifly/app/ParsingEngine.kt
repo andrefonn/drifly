@@ -22,7 +22,7 @@ object ParsingEngine {
         """^([0-9]{1,4}(?:[.,][0-9]{3})*[.,][0-9]{2}|[0-9]{1,4}[.,][0-9]{2}|[0-9]{1,4})$"""
     )
 
-    // Palavras exclusivas do próprio overlay do DriFly (para blindar contra auto-leitura via OCR ou janelas sobrepostas)
+    // Palavras exclusivas do próprio overlay e da tela principal do DriFly (para blindar contra auto-leitura via OCR ou janelas sobrepostas)
     private val SELF_OVERLAY_MARKERS = listOf(
         "lucro real",
         "lucro:",
@@ -30,6 +30,8 @@ object ParsingEngine {
         "combust.:",
         "r$ / km",
         "r$ / hora",
+        "rstkvm",
+        "trsthora",
         "★ nota",
         "aceitar ✅",
         "recusar ❌",
@@ -40,8 +42,24 @@ object ParsingEngine {
         "péssima direção ❌",
         "evitar direção ❌",
         "ver fachada",
-        "ocultar fachada"
+        "ocultar fachada",
+        "aceite bloqueado",
+        // Tela principal (MainActivity) do próprio DriFly
+        "drifly",
+        "painel de resultados",
+        "progresso da sua meta",
+        "progresso dasua meta",
+        "ajustar meta de ganhos",
+        "lançar despesa",
+        "histórico de corridas",
+        "historico de corridas",
+        "monitoramento ativo",
+        "atualizar meta",
+        "km rodados"
     )
+
+    // Captura variantes de OCR para o cabeçalho do overlay ("R$ / KM", "RS / HORA", etc.) sem casar com "Est. de R$1,35/km"
+    private val REGEX_SELF_RATE_HEADER = Pattern.compile("""(?i)\br[\x24s]\s*/\s*(?:km|h(?:ora)?)\b""")
 
     // Indicadores inequívocos de que o motorista JÁ ESTÁ em uma corrida ativa ou tela de navegação GPS
     private val ACTIVE_RIDE_OR_NAVIGATION_MARKERS = listOf(
@@ -98,14 +116,70 @@ object ParsingEngine {
         "recalculando rota"
     )
 
-    // Rótulos do cabeçalho do mapa da Uber onde fica a pílula de saldo acumulado do dia ("Página inicial | R$ 22,13 | HOJE | Pesquisar locais")
+    // Rótulos do cabeçalho do mapa da Uber e da 99 onde fica a pílula de saldo acumulado do dia
     private val MAP_HEADER_NEIGHBOR_LABELS = setOf(
         "página inicial",
         "pagina inicial",
         "hoje",
         "pesquisar locais",
-        "saldo"
+        "saldo",
+        "ganhos",
+        "recompensas"
     )
+
+    private val TOP_PILL_AFTER_LABELS = setOf(
+        "moto",
+        "pop",
+        "99pop",
+        "99moto",
+        "99",
+        "9 99",
+        "m 99",
+        "o 99",
+        "ver",
+        "recompensas",
+        "solicitações",
+        "solicitacoes",
+        "solicitação",
+        "solicitacao",
+        "ganhos",
+        "hoje"
+    )
+
+    private val NON_FARE_PRICE_MARKERS = listOf(
+        "pacote 0%",
+        "com o pacote",
+        "como pacote",
+        "ganhe até",
+        "ganhe ate",
+        "ganhe r$",
+        "ganhers",
+        "último",
+        "ultimo",
+        "tarifa base",
+        "dinâmica incl",
+        "dinamica incl",
+        "ganhos desta semana",
+        "ganhos de hoje",
+        "ganhos do dia",
+        "saldo",
+        "faturamento",
+        "atingido",
+        "meta:",
+        "entrega moto, entrega moto"
+    )
+
+    private val OFFER_VEHICLE_LABELS = listOf(
+        "moto", "99pop", "99moto", "99negocia", "99entrega",
+        "uberx", "uber comfort", "uber black", "uber moto",
+        "exclusivo", "prioridade", "vip"
+    )
+
+    private val OFFER_AFTER_PRICE_LABELS = listOf(
+        "0% de taxa99", "taxa99", "est. de r$", "/km", "tarifa base"
+    )
+
+    private val REGEX_CLOCK_TOKEN = Pattern.compile("""^\d{1,2}:\d{2}\b.*""")
 
     // Regex de Distância em KM e Metros
     private val REGEX_KM = Pattern.compile("""(?i)(\d{1,3}(?:[.,]\d{1,2})?)\s*km""")
@@ -126,9 +200,10 @@ object ParsingEngine {
     // Regex de Nota do passageiro (3.00 a 5.00)
     private val REGEX_NOTA = Pattern.compile("""(?:★|\*|\b)?\s*([345][.,]\d{1,2})\b""")
 
-    // Regex de Endereço de Destino (para visualização no Street View)
+    // Regex de Endereço de Destino (para visualização no Street View). Exige \b antes do prefixo
+    // para impedir que verbos terminados em 'r' (ex: "Ajustar Meta", "Atualizar Meta") casem como "R Meta".
     private val REGEX_ENDERECO = Pattern.compile(
-        """(?i)(?:Av\.?|Avenida|Rua|R\.?|Travessa|Alameda|Estrada|Rodovia|Praça)\s+[^\n]{4,80}"""
+        """(?i)\b(?:Av\.?|Avenida|Rua|R\.?|Travessa|Alameda|Estrada|Rodovia|Praça)\s+[^\n]{4,80}"""
     )
 
     fun resolvePlatform(packageName: String, texts: List<String> = emptyList()): String {
@@ -267,22 +342,84 @@ object ParsingEngine {
         return ACTIVE_RIDE_OR_NAVIGATION_MARKERS.any { joined.contains(it) }
     }
 
+    private fun isPromoBannerText(joinedLower: String): Boolean {
+        return joinedLower.contains("pacote 0%") ||
+                joinedLower.contains("com o pacote") ||
+                joinedLower.contains("como pacote") ||
+                joinedLower.contains("ganhers") ||
+                joinedLower.contains("ganhe r$")
+    }
+
     /**
-     * Identifica se o token na posição [index] faz parte da pílula de ganhos acumulados no topo do mapa
-     * da Uber ("Página inicial | R$ 22,13 | HOJE | Pesquisar locais"), que nunca deve ser lida como preço de oferta.
+     * Identifica se o(s) token(s) em [index]..[index + span - 1] pertencem à pílula de ganhos acumulados
+     * no topo da Uber ("Página inicial | R$ 22,13 | HOJE"), da 99 ("18:13 | R$12 | Moto | 99"),
+     * a banners promocionais ("Você ganhou R$78,95 com o pacote 0%") ou a sub-itens de tarifa.
      */
-    private fun isMapHeaderPriceToken(cleanTexts: List<String>, index: Int): Boolean {
+    private fun isMapHeaderPriceToken(cleanTexts: List<String>, index: Int, span: Int = 1): Boolean {
         if (index !in cleanTexts.indices) return false
+        val endIdx = (index + span - 1).coerceAtMost(cleanTexts.lastIndex)
+        val combinedToken = (index..endIdx).joinToString(" ") { cleanTexts[it].trim().lowercase() }
+        if (NON_FARE_PRICE_MARKERS.any { combinedToken.contains(it) }) return true
+
         val prev1 = if (index - 1 >= 0) cleanTexts[index - 1].trim().lowercase() else ""
         val prev2 = if (index - 2 >= 0) cleanTexts[index - 2].trim().lowercase() else ""
-        val next1 = if (index + 1 < cleanTexts.size) cleanTexts[index + 1].trim().lowercase() else ""
-        val next2 = if (index + 2 < cleanTexts.size) cleanTexts[index + 2].trim().lowercase() else ""
+        val next1 = if (endIdx + 1 < cleanTexts.size) cleanTexts[endIdx + 1].trim().lowercase() else ""
+        val next2 = if (endIdx + 2 < cleanTexts.size) cleanTexts[endIdx + 2].trim().lowercase() else ""
 
         if (prev1 == "página inicial" || prev1 == "pagina inicial") return true
-        if ((prev1 == "r$" && (prev2 == "página inicial" || prev2 == "pagina inicial"))) return true
+        if (prev1 == "r$" && (prev2 == "página inicial" || prev2 == "pagina inicial")) return true
         if (next1 in MAP_HEADER_NEIGHBOR_LABELS) return true
-        if (cleanTexts[index].equals("R$", ignoreCase = true) && next2 in MAP_HEADER_NEIGHBOR_LABELS) return true
+        if (NON_FARE_PRICE_MARKERS.any { prev1.contains(it) || next1.contains(it) }) return true
+
+        // Pílula de ganho acumulado no topo da 99 ao lado do relógio ("18:13 O | R$12 | Moto | 9 99")
+        val hasClockShortlyBefore = (index <= 3) && (
+            REGEX_CLOCK_TOKEN.matcher(prev1).matches() ||
+                REGEX_CLOCK_TOKEN.matcher(prev2).matches()
+            )
+        if (hasClockShortlyBefore && (next1 in TOP_PILL_AFTER_LABELS || next1.startsWith("recompensas") || next1.startsWith("solicita"))) {
+            return true
+        }
         return false
+    }
+
+    private data class PriceCandidate(val index: Int, val value: Double, val score: Int)
+
+    private fun scoreOfferPriceCandidate(cleanTexts: List<String>, index: Int, span: Int): Int {
+        var score = 0
+        val prevRangeStart = (index - 3).coerceAtLeast(0)
+        for (k in prevRangeStart until index) {
+            val prevLower = cleanTexts[k].trim().lowercase()
+            if (OFFER_VEHICLE_LABELS.any { prevLower == it || prevLower.startsWith("$it ") }) {
+                score += 10
+                break
+            }
+        }
+        val nextRangeStart = index + span
+        val nextRangeEnd = (nextRangeStart + 1).coerceAtMost(cleanTexts.lastIndex)
+        for (k in nextRangeStart..nextRangeEnd) {
+            val nextLower = cleanTexts[k].trim().lowercase()
+            if (OFFER_AFTER_PRICE_LABELS.any { nextLower.contains(it) } ||
+                REGEX_TRECHO_MIN_KM.matcher(cleanTexts[k]).find() ||
+                REGEX_KM.matcher(cleanTexts[k]).find() ||
+                REGEX_MIN.matcher(cleanTexts[k]).find()
+            ) {
+                score += 10
+                break
+            }
+        }
+        val next1Lower = if (nextRangeStart < cleanTexts.size) cleanTexts[nextRangeStart].trim().lowercase() else ""
+        if (next1Lower in TOP_PILL_AFTER_LABELS || OFFER_VEHICLE_LABELS.any { next1Lower == it }) {
+            score -= 15
+        }
+        val hasClockBefore = index <= 3 && (0 until index).any { REGEX_CLOCK_TOKEN.matcher(cleanTexts[it].trim()).matches() }
+        val hasStrongOfferAfter = (nextRangeStart..nextRangeEnd).any { k ->
+            val nl = cleanTexts[k].trim().lowercase()
+            nl.contains("0% de taxa99") || nl.contains("est. de r$")
+        }
+        if (hasClockBefore && !hasStrongOfferAfter) {
+            score -= 20
+        }
+        return score
     }
 
     private val IDLE_DRIVER_MARKERS = listOf(
@@ -307,10 +444,16 @@ object ParsingEngine {
     fun isIdleDriverScreen(texts: List<String>): Boolean {
         val joined = texts.joinToString(" ").lowercase()
         if (IDLE_DRIVER_MARKERS.any { joined.contains(it) }) return true
-        return texts.any {
+        val hasIdleButton = texts.any {
             val t = it.trim().lowercase()
-            t == "conectar" || t == "começar" || t == "comecar"
+            t == "conectar" || t == "começar" || t == "comecar" ||
+                t == "buscando" || t == "buscando..." || t == "buscando corridas" || t == "buscando viagens"
         }
+        if (hasIdleButton) return true
+        val hasActiveTripCue = joined.contains("em viagem") ||
+            joined.contains("encontro com") ||
+            joined.contains("passageiro a bordo")
+        return !hasActiveTripCue && isPromoBannerText(joined)
     }
 
     /**
@@ -349,8 +492,10 @@ object ParsingEngine {
     }
 
     private val EARNINGS_PANEL_MARKERS = listOf(
-        "solicitações", "solicitacoes", "solicitação", "central de ganhos", "ganhos desta semana",
-        "ganhos de hoje", "ganhos do dia", "recompensas", "painel de ganhos", "meta do dia"
+        "solicitações", "solicitacoes", "solicitação", "solicitacao", "central de ganhos", "ganhos desta semana",
+        "ganhos de hoje", "ganhos do dia", "recompensas", "painel de ganhos", "meta do dia",
+        "ganhe até", "ganhe ate", "último r$", "ultimo r$", "saldo de hoje", "ganhos hoje",
+        "total de hoje", "meu saldo", "entrega moto, entrega moto"
     )
 
     /** Tela com o painel de ganhos acumulados (pílula do topo / painel da 99). */
@@ -360,11 +505,12 @@ object ParsingEngine {
     }
 
     /**
-     * Verifica se os textos capturados contêm elementos do próprio overlay do DriFly.
+     * Verifica se os textos capturados contêm elementos do próprio overlay ou da UI do DriFly.
      */
     fun containsSelfOverlayMarkers(texts: List<String>): Boolean {
         val joined = texts.joinToString(" ").lowercase()
-        return SELF_OVERLAY_MARKERS.any { joined.contains(it) }
+        if (SELF_OVERLAY_MARKERS.any { joined.contains(it) }) return true
+        return REGEX_SELF_RATE_HEADER.matcher(joined).find()
     }
 
     fun parseNodes(
@@ -409,11 +555,10 @@ object ParsingEngine {
         var duration: Int? = null
         var rating: Float? = null
 
-        // 1. Extração de Preço (Individual, Janela Deslizante de 2 Tokens e Texto Completo)
-        // Ignora tokens que sejam tarifas por km (ex: "R$ 1,59/km" ou "R$ 1,59" seguido de "/km" ou "(por km)")
-        // e ignora a pílula de ganhos acumulados do topo do mapa ("Página inicial | R$ 22,13 | HOJE")
+        // 1. Extração de Preço (coleta candidatos fora de cabeçalhos/banners/tarifas por km e escolhe o mais aderente ao card)
+        val priceCandidates = mutableListOf<PriceCandidate>()
         for (i in cleanTexts.indices) {
-            if (isMapHeaderPriceToken(cleanTexts, i)) continue
+            if (isMapHeaderPriceToken(cleanTexts, i, span = 1)) continue
 
             val current = cleanTexts[i]
             val nextToken = if (i + 1 < cleanTexts.size) cleanTexts[i + 1].lowercase() else ""
@@ -437,15 +582,17 @@ object ParsingEngine {
                 if (groupVal != null) {
                     val p = parseMoneyValue(groupVal)
                     if (p != null && p >= MIN_VALID_RIDE_PRICE) {
-                        price = p
-                        break
+                        priceCandidates.add(
+                            PriceCandidate(i, p, scoreOfferPriceCandidate(cleanTexts, i, span = 1))
+                        )
+                        continue
                     }
                 }
             }
 
             // Caso "R$" esteja em um token e o valor numérico no token imediatamente seguinte
             if (current.equals("R$", ignoreCase = true) && i + 1 < cleanTexts.size) {
-                if (isMapHeaderPriceToken(cleanTexts, i + 1)) continue
+                if (isMapHeaderPriceToken(cleanTexts, i, span = 2)) continue
                 val next = cleanTexts[i + 1]
                 val afterNext = if (i + 2 < cleanTexts.size) cleanTexts[i + 2].lowercase() else ""
                 if (afterNext.startsWith("/km") || afterNext.startsWith("por km") || afterNext.startsWith("(por km")) {
@@ -457,17 +604,20 @@ object ParsingEngine {
                     if (groupVal != null) {
                         val p = parseMoneyValue(groupVal)
                         if (p != null && p >= MIN_VALID_RIDE_PRICE) {
-                            price = p
-                            break
+                            priceCandidates.add(
+                                PriceCandidate(i, p, scoreOfferPriceCandidate(cleanTexts, i, span = 2))
+                            )
                         }
                     }
                 }
             }
         }
 
-        // Passo 1b: Se ainda não achou preço, busca no texto completo concatenado (excluindo tokens do cabeçalho do mapa)
+        price = priceCandidates.maxByOrNull { it.score }?.value
+
+        // Passo 1b: Se ainda não achou preço, busca no texto completo concatenado (excluindo tokens do cabeçalho/banners)
         if (price == null) {
-            val nonHeaderTexts = cleanTexts.filterIndexed { idx, _ -> !isMapHeaderPriceToken(cleanTexts, idx) }
+            val nonHeaderTexts = cleanTexts.filterIndexed { idx, _ -> !isMapHeaderPriceToken(cleanTexts, idx, span = 1) }
             val fullText = nonHeaderTexts.joinToString(" ")
             val mPrecoFull = REGEX_PRECO_EXPLICITO.matcher(fullText)
             while (mPrecoFull.find()) {
@@ -773,18 +923,29 @@ object ParsingEngine {
         }
 
         // 2. Verifica Conclusão / Recibo em Tela
-        val isCompleted = joined.contains("você ganhou") ||
-                joined.contains("voce ganhou") ||
-                joined.contains("valor final") ||
+        // Nunca confunde banners promocionais ("Você ganhou R$78,95 com o pacote 0% de Taxa"),
+        // tela ociosa ("Buscando") ou painéis de ganhos com recibo de conclusão de corrida.
+        val hasExplicitCompletionKeyword = joined.contains("valor final") ||
                 joined.contains("corrida finalizada") ||
                 joined.contains("viagem finalizada") ||
                 joined.contains("viagem concluída") ||
                 joined.contains("viagem concluida") ||
-                joined.contains("total recebido") ||
+                joined.contains("detalhes da viagem") ||
                 joined.contains("ganhos da viagem") ||
                 joined.contains("total da viagem") ||
                 joined.contains("ganhos líquidos") ||
                 joined.contains("ganhos liquidos")
+
+        if (!hasExplicitCompletionKeyword &&
+            (isPromoBannerText(joined) || isIdleDriverScreen(texts) || isEarningsPanelScreen(texts))
+        ) {
+            return null
+        }
+
+        val isCompleted = joined.contains("você ganhou") ||
+                joined.contains("voce ganhou") ||
+                joined.contains("total recebido") ||
+                hasExplicitCompletionKeyword
 
         if (isCompleted) {
             val keyWords = listOf("você ganhou", "voce ganhou", "valor final", "total recebido", "ganhos da viagem", "total da viagem")
@@ -793,6 +954,7 @@ object ParsingEngine {
             // Prioridade 1: Preço na mesma linha ou linha imediatamente seguinte a uma palavra-chave de total
             for (i in texts.indices) {
                 val lineLower = texts[i].lowercase()
+                if (NON_FARE_PRICE_MARKERS.any { lineLower.contains(it) }) continue
                 if (keyWords.any { lineLower.contains(it) }) {
                     val mPreco = REGEX_PRECO_EXPLICITO.matcher(texts[i])
                     if (mPreco.find()) {

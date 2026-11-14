@@ -628,4 +628,196 @@ class ParsingEngineTest {
         val offer = ParsingEngine.parseNodes("com.app99.driver", texts, 0.78, 4.75f)
         assertNull("Painel/pílula de ganhos não é oferta", offer)
     }
+
+    @Test
+    fun testDriflyMainActivityOcrNeverTriggersSelfCaptureOffer() {
+        // Captura REAL do diag.log (18:53:49.792) quando o usuário abriu o DriFly sobre a 99:
+        // antes, gerava oferta falsa de R$ 150,00 / 236,5 km com destino "r Meta".
+        val driflyMainTexts = listOf(
+            "18:53 M 99",
+            "DriFly",
+            "Painel de Resultados",
+            "PROGRESSO DASUA META",
+            "Meta: R$ 150,00 (Atingido: R$ 368,1| - 100%)",
+            "G FATURAMENTO",
+            "R$ 377,40",
+            "+ Lançar Despesa",
+            "G Histórico de Corridas",
+            "Diária",
+            "w Ajustar Meta de Ganhos",
+            "Valor Alvo (R$):",
+            "150,00",
+            "R$ O,00",
+            "DESPESAS",
+            "Semanal",
+            "Resultados",
+            "Mensal",
+            "C Atualizar Meta",
+            "MONITORAMENTO ATIVO",
+            "Turno: 236,5 km rodados",
+            "9A68%",
+            "Corridas",
+            "LUCRo LÍQ"
+        )
+
+        assertTrue(
+            "Tela principal do DriFly precisa ser reconhecida como auto-leitura",
+            ParsingEngine.containsSelfOverlayMarkers(driflyMainTexts)
+        )
+        assertNull(
+            "Palavra 'Ajustar Meta' / 'Atualizar Meta' NÃO pode casar REGEX_ENDERECO como destino 'r Meta'",
+            ParsingEngine.extractDestinationAddress(driflyMainTexts)
+        )
+        assertNull(
+            "Tela do próprio DriFly NUNCA pode gerar oferta falsa",
+            ParsingEngine.parseNodes("com.app99.driver", driflyMainTexts, 0.2148, 4.75f)
+        )
+        assertEquals(
+            "ScreenRouter deve retornar Unknown para a própria tela do DriFly",
+            ScreenReading.Unknown,
+            ScreenRouter.read("com.app99.driver", driflyMainTexts, 0.2148, 4.75f, isRideCurrentlyActive = true)
+        )
+    }
+
+    @Test
+    fun testFadingSelfOverlayMixedWith99OfferCardIsRejected() {
+        // Captura REAL do diag.log (18:11:08.359): OCR leu restos do overlay DriFly ("RSTKVM", "TRSTHORA", "R$ 33")
+        // junto com a oferta da 99 (R$ 21,40) e sobrescreveu a corrida #95 para R$ 33,00.
+        val fadingOverlayTexts = listOf(
+            "18:11",
+            "O 99",
+            "202 m",
+            "Moto",
+            "R. Antônio Ramos Alvim",
+            "RSTKVM",
+            "oo RS 16 63",
+            "Vire à esquerda R$ 33",
+            "Rua Florianópoll, 2710 Guanab",
+            "TRSTHORA",
+            "R$21,40",
+            "0% de Taxa99 semanal",
+            "BR-280",
+            "9 R$1,25 Tarifa base dinâmica incl.",
+            "7 min (2,3 km)",
+            "t 5,00 56 corridas CPF verif.",
+            "Rua Joāo Luiz Filho, 1500, Centro",
+            "32 min (19,9 km)",
+            "Aceitar",
+            "Rua Florianópolis, 2710, Guanabara",
+            "♡ e75atarina",
+            "NOTA",
+            "5,"
+        )
+
+        assertNull(
+            "Captura contaminada pelo próprio overlay do DriFly deve ser descartada",
+            ParsingEngine.parseNodes("com.app99.driver", fadingOverlayTexts, 0.2148, 4.75f)
+        )
+    }
+
+    @Test
+    fun test99IdleBuscandoAndPromoBannerNeverBecomesReceiptOrOffer() {
+        // Capturas REAIS do diag.log (18:12:55.291 e 18:53:54.618):
+        // após finalizar a corrida #95, a 99 voltou para "Buscando" com banner "Você ganhou R$78,95 com o pacote 0% de Taxa",
+        // e o recibo sobrescreveu a corrida #95 com R$ 78,95!
+        val buscandoPromo = listOf(
+            "18:12", ")", "ámirim", "Rio Parati", "99", "Ver",
+            "% 0% de Taxa 14:49:46",
+            "Você ganhou R$78,95 com o pacote 0%",
+            "de Taxa", "CENTRO", "GANHERS500", "Buscando", "%"
+        )
+        val buscandoPromoWithKm = listOf(
+            "18:53", "SC-301", "M 99", "Ver",
+            "% 0% de Taxa 14:08:50",
+            "Você ganhou R$108,95 com o pacote 0%",
+            "de Taxa", "GANHERS500", "2,4 km", "Buscando"
+        )
+
+        assertTrue(
+            "Tela 'Buscando' da 99 precisa ser reconhecida como ociosa",
+            ParsingEngine.isIdleDriverScreen(buscandoPromo)
+        )
+        assertNull(
+            "Banner 'Você ganhou R$... com o pacote 0% de Taxa' NÃO pode virar recibo de corrida",
+            ParsingEngine.parseReceipt("com.app99.driver", buscandoPromo)
+        )
+        assertEquals(
+            ScreenReading.Unknown,
+            ScreenRouter.read("com.app99.driver", buscandoPromo, 0.2148, 4.75f, isRideCurrentlyActive = true)
+        )
+        assertNull(
+            "Tela ociosa 'Buscando' com banner promocional e km no mapa NÃO pode virar oferta",
+            ParsingEngine.parseNodes("com.app99.driver", buscandoPromoWithKm, 0.2148, 4.75f)
+        )
+    }
+
+    @Test
+    fun test99TopEarningsPillAndPromoOverOfferCardNeverStealRidePrice() {
+        // Quando a pílula de ganhos acumulados no topo da 99 (ou banner promocional) aparece junto com o card da corrida,
+        // o parser NUNCA pode usar o valor acumulado do topo em vez do valor real da corrida abaixo.
+        val offerWithPromoAndTopPill = listOf(
+            "18:13 O",
+            "R$108,95",
+            "Moto",
+            "9 99",
+            "Você ganhou R$78,95 com o pacote 0%",
+            "de Taxa",
+            "Moto",
+            "R$7,30",
+            "0% de Taxa99 semanal",
+            "R$1,25 Tarifa base dinâmica incl.",
+            "t 5,00 12 corridas",
+            "4 min (1,4 km)",
+            "Mundo do Caiaque, BR-280",
+            "8 min (4,3 km)",
+            "Rua Rosa Amélia Pereira Braga, 492, Areias Pequenas",
+            "Aceitar"
+        )
+        val offer1 = ParsingEngine.parseNodes("com.app99.driver", offerWithPromoAndTopPill, 0.2148, 4.75f)
+        assertNotNull("Oferta real abaixo da pílula do topo deve ser extraída", offer1)
+        assertEquals(7.30, offer1!!.price, 0.001)
+
+        val offerWithTopClockPill = listOf(
+            "18:13",
+            "R$ 108,95",
+            "Moto",
+            "99",
+            "R$ 12,30",
+            "0% de Taxa99 semanal",
+            "4 min (1,2 km)",
+            "5 min (2,8 km)",
+            "Aceitar"
+        )
+        val offer2 = ParsingEngine.parseNodes("com.app99.driver", offerWithTopClockPill, 0.2148, 4.75f)
+        assertNotNull("Oferta real com pílula de saldo ao lado do relógio deve usar preço da corrida", offer2)
+        assertEquals(12.30, offer2!!.price, 0.001)
+
+        val offer3WithoutClock = listOf(
+            "99",
+            "R$ 108,95",
+            "Moto",
+            "R$ 7,30",
+            "0% de Taxa99 semanal",
+            "4 min (1,4 km)",
+            "8 min (4,3 km)",
+            "Aceitar"
+        )
+        val offer3 = ParsingEngine.parseNodes("com.app99.driver", offer3WithoutClock, 0.2148, 4.75f)
+        assertNotNull("Oferta sem relógio visível ainda deve ignorar pílula acumulada acima do card", offer3)
+        assertEquals(7.30, offer3!!.price, 0.001)
+
+        val mapWithTopPillAndKmOnly = listOf(
+            "18:13 O",
+            "R$108,95",
+            "Moto",
+            "9 99",
+            "Recompensas (3)",
+            "1,4 km",
+            "Ganhe até R$104 >"
+        )
+        assertNull(
+            "Pílula do topo + Recompensas com km no mapa NÃO pode gerar oferta falsa",
+            ParsingEngine.parseNodes("com.app99.driver", mapWithTopPillAndKmOnly, 0.2148, 4.75f)
+        )
+    }
 }

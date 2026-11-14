@@ -12,6 +12,7 @@ import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import androidx.annotation.RequiresApi
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -101,7 +102,7 @@ class RotaAccessibilityService : AccessibilityService() {
     /** @return true se disparou uma captura de tela + OCR nesta passagem. */
     private fun runOcrWatchdogTick(): Boolean {
         if (!prefs.isMonitoringActive) return false
-        if (BubbleOverlayService.isRunning()) return false
+        if (isScreenUnsafeForCapture()) return false
         if (System.currentTimeMillis() < declineCooldownUntil) return false
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
 
@@ -132,9 +133,10 @@ class RotaAccessibilityService : AccessibilityService() {
         if (!prefs.isMonitoringActive) return
 
         val packageName = event.packageName?.toString() ?: return
-        // Ignora completamente qualquer evento vindo do próprio DriFly
+        // Ignora completamente qualquer evento vindo do próprio DriFly ou enquanto o DriFly está na frente
         if (packageName.contains("com.drifly.app", ignoreCase = true)) return
         if (!isSupportedPackageName(packageName)) return
+        if (isOwnAppForeground()) return
 
         val now = System.currentTimeMillis()
 
@@ -317,7 +319,7 @@ class RotaAccessibilityService : AccessibilityService() {
                             eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) &&
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
                     (now - lastScreenshotTimestamp > OCR_MIN_INTERVAL_MS) &&
-                    !BubbleOverlayService.isRunning()
+                    !isScreenUnsafeForCapture()
                 ) {
                     // OCR fallback quando a árvore veio sem NENHUM texto (caso da 99, que desenha a oferta em canvas Flutter).
                     // Precisa cobrir TANTO abertura de janela quanto mudança de conteúdo: o card de oferta da 99
@@ -436,6 +438,29 @@ class RotaAccessibilityService : AccessibilityService() {
         BubbleOverlayService.stop(this)
         diag("Corrida recusada pelo motorista. Oferta descartada do banco e overlay fechado.")
     }
+
+    private fun isOwnAppForeground(): Boolean {
+        val activePkg = try { rootInActiveWindow?.packageName?.toString() ?: "" } catch (_: Exception) { "" }
+        if (activePkg.contains("com.drifly.app", ignoreCase = true)) return true
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            try {
+                val ownAppVisible = windows?.any { win ->
+                    val isAppWindow = win.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
+                            (win.isActive || win.isFocused)
+                    val pkg = win.root?.packageName?.toString() ?: ""
+                    isAppWindow && pkg.contains("com.drifly.app", ignoreCase = true)
+                } == true
+                if (ownAppVisible) return true
+            } catch (_: Exception) {}
+        }
+        return false
+    }
+
+    private fun isScreenUnsafeForCapture(): Boolean =
+        BubbleOverlayService.isRunning() ||
+            BubbleOverlayService.wasRecentlyDismissed() ||
+            isOwnAppForeground()
 
     private fun isSupportedPackageName(pkg: String): Boolean {
         val lower = pkg.lowercase()
@@ -623,7 +648,7 @@ class RotaAccessibilityService : AccessibilityService() {
 
     @RequiresApi(Build.VERSION_CODES.R)
     private fun performOcrFallback(packageName: String, clickableNodes: List<AccessibilityNodeInfo>) {
-        if (BubbleOverlayService.isRunning()) return
+        if (isScreenUnsafeForCapture()) return
         lastScreenshotTimestamp = System.currentTimeMillis()
         diag("OCR_START pkg=$packageName")
         try {
@@ -655,7 +680,7 @@ class RotaAccessibilityService : AccessibilityService() {
                                                     }
                                                 }
                                             }
-                                            if (ocrTexts.isNotEmpty() && !BubbleOverlayService.isRunning()) {
+                                            if (ocrTexts.isNotEmpty() && !isScreenUnsafeForCapture()) {
                                                 diag("OCR_TEXTS n=${ocrTexts.size} :: ${ocrTexts.joinToString(" | ").take(400)}")
                                                 val ocrNow = System.currentTimeMillis()
                                                 if (isRideCurrentlyActive && ParsingEngine.isIdleDriverScreen(ocrTexts)) {
