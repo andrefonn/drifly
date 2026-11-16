@@ -188,4 +188,33 @@ object AcceptanceRules {
         }
         return false
     }
+
+    /**
+     * Quando uma oferta chega com o motorista ocioso ("Buscando", fora de corrida ativa e fora de
+     * navegação livre para zona de demanda) e logo em seguida a tela da 99 muda para o HUD de rota
+     * ("km/h" + "Chegada prevista"), confirma que o motorista aceitou a corrida mesmo que o banner
+     * superior mostre uma rua intermediária da manobra em vez do endereço final.
+     */
+    fun isGpsHudTransitionFromFreshOffer(
+        texts: List<String>,
+        pendingOffer: RideOffer?,
+        offerArrivedDuringRide: Boolean,
+        offerArrivedDuringFreeGps: Boolean,
+        hasRecentDemandNavigation: Boolean
+    ): Boolean {
+        if (pendingOffer == null || offerArrivedDuringRide || offerArrivedDuringFreeGps || hasRecentDemandNavigation) {
+            return false
+        }
+        if (texts.isEmpty()) return false
+        if (ParsingEngine.isIdleDriverScreen(texts) ||
+            ParsingEngine.isEarningsPanelScreen(texts) ||
+            ParsingEngine.isDemandHotspotScreen(texts) ||
+            texts.any { ParsingEngine.isAcceptActionText(it) }
+        ) {
+            return false
+        }
+        val joinedNorm = normalizeText(texts.joinToString(" "))
+        return joinedNorm.contains("chegada prevista") &&
+            (joinedNorm.contains("km h") || joinedNorm.contains(" min "))
+    }
 }

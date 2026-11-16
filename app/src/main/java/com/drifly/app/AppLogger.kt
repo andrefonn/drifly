@@ -21,7 +21,7 @@ import java.util.Locale
  */
 object AppLogger {
     private const val TAG = "DriFlyDiag"
-    private const val MAX_LOG_SIZE_BYTES = 1024 * 1024 // 1 MB
+    private const val MAX_LOG_SIZE_BYTES = 2 * 1024 * 1024 // 2 MB
     private const val CRASH_PREFS = "drifly_diag_meta"
     private const val KEY_PENDING_CRASH = "has_pending_crash"
     private const val KEY_LAST_CRASH_TIME = "last_crash_time"
@@ -170,7 +170,7 @@ object AppLogger {
 
     /**
      * Monta o relatório completo de diagnóstico (cabeçalho do aparelho, status
-     * das permissões/serviços e logs recentes) pronto para envio à nuvem.
+     * das permissões/serviços, corridas do dia no SQLite e logs recentes) pronto para envio à nuvem.
      */
     fun buildDiagnosticReport(context: Context): String {
         val appCtx = context.applicationContext
@@ -218,17 +218,31 @@ object AppLogger {
                 "hasPending=${RotaAccessibilityService.pendingOffer != null}, " +
                 "overlayRunning=${BubbleOverlayService.isRunning()}"
         )
+        try {
+            val db = DatabaseHelper(appCtx)
+            val todayRides = db.getTodayAllRidesForDiagnostic()
+            val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.US)
+            sb.appendLine("--- TODAY'S RIDES IN SQLITE (${todayRides.size}) ---")
+            for (r in todayRides) {
+                val t = timeFmt.format(Date(r.timestamp))
+                sb.appendLine(
+                    "  #${r.id} [$t] [${r.platform}] status=${r.status} gross=R$${String.format(Locale.US, "%.2f", r.grossPrice)} " +
+                        "orig=R$${String.format(Locale.US, "%.2f", r.originalPrice)} dist=${r.distanceKm}km " +
+                        "net=R$${String.format(Locale.US, "%.2f", r.netProfit)} cancFee=R$${String.format(Locale.US, "%.2f", r.cancellationFee)}"
+                )
+            }
+        } catch (_: Exception) {}
         sb.appendLine("==========================================")
         sb.appendLine()
 
-        val oldText = synchronized(this) { readTail(oldLogFile, 150 * 1024) }
+        val oldText = synchronized(this) { readTail(oldLogFile, 300 * 1024) }
         if (oldText.isNotEmpty()) {
             sb.appendLine("--- PREVIOUS LOG (drifly_diag.log.old) ---")
             sb.appendLine(oldText)
             sb.appendLine()
         }
 
-        val curText = synchronized(this) { readTail(logFile, 450 * 1024) }
+        val curText = synchronized(this) { readTail(logFile, 700 * 1024) }
         sb.appendLine("--- CURRENT LOG (drifly_diag.log) ---")
         if (curText.isNotEmpty()) {
             sb.appendLine(curText)

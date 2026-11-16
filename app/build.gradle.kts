@@ -11,8 +11,8 @@ android {
         applicationId = "com.drifly.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.1.8"
+        versionCode = 11
+        versionName = "1.1.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -25,11 +25,13 @@ android {
 
     signingConfigs {
         create("release") {
-            val ksFile = file("drifly-release.jks")
+            val ksFile = System.getenv("DRIFLY_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }?.let { file(it) }
+                ?: file("drifly-release.jks")
             if (ksFile.exists()) {
                 // Segredos nunca ficam no codigo (repo publico): vem de variaveis de ambiente
                 // ou do arquivo local signing.env (ignorado pelo Git). Ver SIGNING.md.
-                val envFile = rootProject.file("signing.env")
+                val envFile = System.getenv("DRIFLY_SIGNING_ENV_FILE")?.takeIf { it.isNotBlank() }?.let { file(it) }
+                    ?: rootProject.file("signing.env")
                 val fileVars = if (envFile.exists()) {
                     envFile.readLines()
                         .map { it.trim() }
@@ -60,7 +62,8 @@ android {
         }
         debug {
             isMinifyEnabled = false
-            val ksFile = file("drifly-release.jks")
+            val ksFile = System.getenv("DRIFLY_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }?.let { file(it) }
+                ?: file("drifly-release.jks")
             if (ksFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }

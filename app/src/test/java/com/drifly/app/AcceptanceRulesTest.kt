@@ -205,4 +205,64 @@ class AcceptanceRulesTest {
             )
         )
     }
+
+    @Test
+    fun isGpsHudTransitionFromFreshOfferConfirmsIntermediateStreetOnlyWhenOfferWasIdle() {
+        val pendingOffer = RideOffer(
+            platform = "99",
+            price = 6.00,
+            distanceKm = 2.4,
+            durationMinutes = 7,
+            ratePerKm = 2.50,
+            pickupAddress = "Rua Corupá, 386",
+            destinationAddress = "Rua Guanabara, 910"
+        )
+        // HUD da 99 mostrando rua intermediária da manobra ("R. Iririú") logo após aceitar oferta no "Buscando"
+        val intermediateStreetHud = listOf(
+            "11:26 9 99", "28", "km/h", "450 m", "R. Iririú", "4 min 1,8 km", "• Chegada prevista: 11:30"
+        )
+
+        assertTrue(
+            AcceptanceRules.isGpsHudTransitionFromFreshOffer(
+                texts = intermediateStreetHud,
+                pendingOffer = pendingOffer,
+                offerArrivedDuringRide = false,
+                offerArrivedDuringFreeGps = false,
+                hasRecentDemandNavigation = false
+            )
+        )
+
+        // Nunca confirma se a oferta chegou durante outra corrida em andamento
+        assertFalse(
+            AcceptanceRules.isGpsHudTransitionFromFreshOffer(
+                texts = intermediateStreetHud,
+                pendingOffer = pendingOffer,
+                offerArrivedDuringRide = true,
+                offerArrivedDuringFreeGps = false,
+                hasRecentDemandNavigation = false
+            )
+        )
+
+        // Nunca confirma se o motorista já estava em navegação GPS livre antes da oferta
+        assertFalse(
+            AcceptanceRules.isGpsHudTransitionFromFreshOffer(
+                texts = intermediateStreetHud,
+                pendingOffer = pendingOffer,
+                offerArrivedDuringRide = false,
+                offerArrivedDuringFreeGps = true,
+                hasRecentDemandNavigation = false
+            )
+        )
+
+        // Nunca confirma se havia navegação recente para zona de demanda
+        assertFalse(
+            AcceptanceRules.isGpsHudTransitionFromFreshOffer(
+                texts = intermediateStreetHud,
+                pendingOffer = pendingOffer,
+                offerArrivedDuringRide = false,
+                offerArrivedDuringFreeGps = false,
+                hasRecentDemandNavigation = true
+            )
+        )
+    }
 }

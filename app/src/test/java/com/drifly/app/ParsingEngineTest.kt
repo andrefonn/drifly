@@ -987,4 +987,114 @@ class ParsingEngineTest {
         assertFalse(ParsingEngine.isAcceptActionText("Taxa de Aceitação"))
         assertFalse(ParsingEngine.isAcceptActionText("Aceitar ✅"))
     }
+
+    @Test
+    fun testNov16CashRideDropOffScreenIsActiveRideAndNotPickupPhase() {
+        // Log real 16/11 13:13:57: aproximação final de corrida em dinheiro na 99
+        val cashDropOffTexts = listOf(
+            "13:13 9 99", "0", "km/h", "60", "m", "Av. Paulo...",
+            "1 min 60 m", "• Chegada prevista: 13:14",
+            "$ Corrida em dinheiro", "Cobrar pagamento"
+        )
+        assertTrue(ParsingEngine.isActiveRideOrNavigationScreen(cashDropOffTexts))
+        assertFalse(
+            "Tela de desembarque/cobrança não pode ser confundida com início de fase de embarque",
+            ParsingEngine.isPickupPhaseScreen(cashDropOffTexts)
+        )
+        assertTrue(
+            ParsingEngine.isPickupPhaseScreen(
+                listOf("13:16 9 99", "18 km/h", "A caminho do passageiro", "Cheguei ao local")
+            )
+        )
+    }
+
+    @Test
+    fun testNov16CashCollectionAndRatingScreensCompleteRideWithCorrectPrice() {
+        // 1. Log real 16/11 13:14:40: "Seus ganhos | Cobrar do passageiro | R$16,64 | Detalhes da tarifa | ... | R$17,80"
+        val cashCollectionTexts = listOf(
+            "13:14 | 99", "Seus ganhos", "1$1 Cobrar do passageiro", "R$16,64",
+            "Detalhes da tarifa", "Valor devolvido após o pagamento (prÓximo seg)",
+            "Receba em dinheiro ou Pix", "O passageiro pagou", "R$17,80"
+        )
+        val cashReading = ScreenRouter.read(
+            "com.app99.driver", cashCollectionTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue("Tela 'Cobrar do passageiro' deve gerar recibo de conclusão", cashReading is ScreenReading.Receipt)
+        val cashReceipt = (cashReading as ScreenReading.Receipt).receipt
+        assertTrue(cashReceipt.isCompleted)
+        assertTrue(cashReceipt.isCashCollectionScreen)
+        assertEquals(17.80, cashReceipt.finalPrice ?: 0.0, 0.001)
+
+        // 2. Log real 16/11 13:15:00: "R$16,64 | Pagamento recebido! | Confirmar | Verificar pagamento >"
+        // Deve concluir mantendo finalPrice = null para nunca sobrescrever originalPrice (R$17,80) com troco/parcial (R$16,64)
+        val paymentReceivedTexts = listOf(
+            "13:14 9 | 99", "R$16,64", "Pagamento recebido!", "Confirmar", "♡A N42%", "Verificar pagamento >"
+        )
+        val paymentReading = ScreenRouter.read(
+            "com.app99.driver", paymentReceivedTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(paymentReading is ScreenReading.Receipt)
+        val paymentReceipt = (paymentReading as ScreenReading.Receipt).receipt
+        assertTrue(paymentReceipt.isCompleted)
+        assertNull("Pagamento recebido! não deve sobrescrever o valor da corrida com o valor parcial em dinheiro", paymentReceipt.finalPrice)
+
+        // 3. Log real 16/11 13:15:05: modal "Como foi sua corrida com Carla Cristina?" sobreposto a "Seus ganhos"
+        val ratingOverCashTexts = listOf(
+            "13:15 90 99", "Seus ganhos", "1$1 Cobrar do passageiro", "R$16,64",
+            "Avaliar como anônimo", "Ajuda", "R$17,80",
+            "Como foi sua corrida com Carla Cristina?",
+            "Seu feedback sincero pode ajudar outros motoristas"
+        )
+        val ratingReading = ScreenRouter.read(
+            "com.app99.driver", ratingOverCashTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(ratingReading is ScreenReading.Receipt)
+        assertTrue((ratingReading as ScreenReading.Receipt).receipt.isCompleted)
+
+        // 4. Log real 16/11 13:15:15: modal "Você gostou do local de desembarque?" sobreposto a "Seus ganhos"
+        val dropoffFeedbackTexts = listOf(
+            "13:15 9 99", "Seus ganhos", "1$1 Cobrar do passageiro", "R$16,64",
+            "Você gostou do local de desembarque?", "Ajuda", "R$17,80", "Sim", "X"
+        )
+        val dropoffReading = ScreenRouter.read(
+            "com.app99.driver", dropoffFeedbackTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(dropoffReading is ScreenReading.Receipt)
+        assertTrue((dropoffReading as ScreenReading.Receipt).receipt.isCompleted)
+
+        // 5. Log real 16/11 13:15:20 e 14/11 14:40:14: "Valor da corrida | +R$17,80 | ... | Buscando"
+        val postRideSummaryToast = listOf(
+            "13:15 9 99", "Valor da corrida", "+R$17,80",
+            "Você ganhou R$84,1 com o pacote 0% de", "Taxa", "GANHERS500", "Buscando", "X", "%"
+        )
+        val summaryReading = ScreenRouter.read(
+            "com.app99.driver", postRideSummaryToast, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(summaryReading is ScreenReading.Receipt)
+        val summaryReceipt = (summaryReading as ScreenReading.Receipt).receipt
+        assertTrue(summaryReceipt.isCompleted)
+        assertFalse(summaryReceipt.isCashCollectionScreen)
+        assertEquals(17.80, summaryReceipt.finalPrice ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun testNov16TopBalancePillAndNov14TruncatedPromoBannerNeverBecomeOffers() {
+        // Log real 16/11 13:15:25: pílula do topo "Taxa | R$88,95 | Ver" com escala do mapa "200 m"
+        val topBalancePillTexts = listOf(
+            "13:15 0 99", ")", "On:", "ha Frd", "Taxa", "R$88,95", "Ver", "200 m", "500 ft"
+        )
+        assertNull(
+            "Pílula de saldo acumulado R$88,95 no topo do mapa nunca pode virar oferta",
+            ParsingEngine.parseNodes("com.app99.driver", topBalancePillTexts, 0.2148, 4.75f)
+        )
+
+        // Log real 14/11 14:40:21: banner promocional truncado pelo OCR "...ou R$68,4 com" + escala "200 m"
+        val truncatedPromoTexts = listOf(
+            "14:40 M 99", "Taxa", "Ver", "ou R$68,4 com", "GANHERS500", "200 m", "500 ft"
+        )
+        assertNull(
+            "Banner promocional truncado 'ou R$68,4 com' nunca pode virar oferta",
+            ParsingEngine.parseNodes("com.app99.driver", truncatedPromoTexts, 0.2148, 4.75f)
+        )
+    }
 }

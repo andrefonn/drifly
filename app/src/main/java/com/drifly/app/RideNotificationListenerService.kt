@@ -138,14 +138,21 @@ class RideNotificationListenerService : NotificationListenerService() {
     }
 
     private fun handleCancellationEvent(event: CancellationEvent) {
-        // Busca a corrida estimada estritamente da mesma plataforma da notificação
-        val latestEstimated = db.getLatestEstimatedRide(event.platform)
+        // Busca a corrida estimada ativa (máx 30 min) estritamente da mesma plataforma da notificação.
+        // Se a corrida acabou de ser auto-concluída nos últimos 20s ao voltar para a tela ociosa,
+        // também permite reclassificá-la como cancelada.
+        val latestEstimated = db.getLatestEstimatedRide(event.platform, maxAgeMs = MAX_CANCELLATION_RIDE_AGE_MS)
+        val targetRide = latestEstimated
+            ?: RotaAccessibilityService.consumeRecentlyAutoCompletedIdleRideId()?.let { recentId ->
+                val r = db.getRideById(recentId)
+                if (r != null && r.platform.equals(event.platform, ignoreCase = true)) r else null
+            }
 
-        if (latestEstimated != null) {
-            db.updateRideStatus(latestEstimated.id, event.status, event.fee)
+        if (targetRide != null) {
+            db.updateRideStatus(targetRide.id, event.status, event.fee)
 
             val intent = Intent(ACTION_RIDE_CANCELLED_DETECTED).apply {
-                putExtra("EXTRA_RIDE_ID", latestEstimated.id)
+                putExtra("EXTRA_RIDE_ID", targetRide.id)
                 putExtra("EXTRA_PLATFORM", event.platform)
                 putExtra("EXTRA_STATUS", event.status)
                 putExtra("EXTRA_FEE", event.fee)
@@ -158,15 +165,39 @@ class RideNotificationListenerService : NotificationListenerService() {
     companion object {
         private const val TAG = "RideNotificationListener"
         const val ACTION_RIDE_CANCELLED_DETECTED = "com.drifly.app.ACTION_RIDE_CANCELLED"
+        private const val MAX_CANCELLATION_RIDE_AGE_MS = 30 * 60 * 1000L
+
+        // Avisos de expiração/cancelamento de OFERTA antes do aceite (não devem cancelar corrida anterior)
+        private val NON_RIDE_CANCEL_MARKERS = listOf(
+            "solicitação cancelada",
+            "solicitacao cancelada",
+            "cancelou a solicitação",
+            "cancelou a solicitacao",
+            "oferta cancelada",
+            "oferta encerrada",
+            "pedido de corrida cancelado",
+            "pedido cancelado",
+            "cancelou o pedido"
+        )
 
         private val CANCEL_KEYWORDS = listOf(
-            "cancelad",
-            "cancelou",
             "viagem cancelada",
             "corrida cancelada",
+            "viagem foi cancelada",
+            "corrida foi cancelada",
+            "cancelada pelo passageiro",
             "cancelado pelo passageiro",
             "cancelado pelo usuário",
+            "cancelado pelo usuario",
+            "cancelada pelo usuário",
+            "cancelada pelo usuario",
+            "passageiro cancelou",
+            "usuário cancelou",
+            "usuario cancelou",
+            "cancelou a corrida",
+            "cancelou a viagem",
             "corrida finalizada pelo passageiro",
+            "taxa de cancelamento",
             "trip cancelled",
             "ride cancelled"
         )
@@ -207,6 +238,8 @@ class RideNotificationListenerService : NotificationListenerService() {
                 isIfoodPkg -> "IFOOD"
                 else -> return null
             }
+
+            if (NON_RIDE_CANCEL_MARKERS.any { lower.contains(it) }) return null
 
             val hasCancelKeyword = CANCEL_KEYWORDS.any { lower.contains(it) }
             if (!hasCancelKeyword) return null

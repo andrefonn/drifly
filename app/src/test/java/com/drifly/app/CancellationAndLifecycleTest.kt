@@ -394,6 +394,59 @@ class CancellationAndLifecycleTest {
         assertEquals("EXTRA_DISCARD_RIDE_ID", OfferActionReceiver.EXTRA_DISCARD_RIDE_ID)
         assertEquals("EXTRA_DISCARD_NOTIF_ID", OfferActionReceiver.EXTRA_DISCARD_NOTIF_ID)
     }
+
+    @Test
+    fun testOfferExpirationNotificationsAndHistoryScreensNeverCancelCompletedOrEstimatedRides() {
+        // Notificação de oferta expirada/retirada antes do aceite NÃO pode cancelar corrida anterior
+        assertNull(
+            RideNotificationListenerService.parseCancellationNotification(
+                packageName = "com.app99.driver",
+                content = "Solicitação cancelada pelo passageiro."
+            )
+        )
+        assertNull(
+            RideNotificationListenerService.parseCancellationNotification(
+                packageName = "com.app99.driver",
+                content = "Oferta encerrada. O passageiro cancelou a solicitação."
+            )
+        )
+        assertNull(
+            RideNotificationListenerService.parseCancellationNotification(
+                packageName = "com.app99.driver",
+                content = "Pedido cancelado pelo passageiro."
+            )
+        )
+        assertNull(
+            ParsingEngine.parseReceipt(
+                "com.app99.driver",
+                listOf("Pedido cancelado pelo passageiro")
+            )
+        )
+
+        // Fase de embarque vs. fase de viagem/desembarque
+        assertTrue(ParsingEngine.isPickupPhaseScreen(listOf("40 km/h", "A caminho do passageiro", "Cheguei ao local")))
+        assertFalse(ParsingEngine.isInTripOrDropoffPhaseScreen(listOf("40 km/h", "A caminho do passageiro", "Cheguei ao local")))
+        assertTrue(ParsingEngine.isInTripOrDropoffPhaseScreen(listOf("19:45 99", "Corrida em dinheiro", "O passageiro pode gravar")))
+        assertFalse(ParsingEngine.isPickupPhaseScreen(listOf("19:45 99", "Corrida em dinheiro", "O passageiro pode gravar")))
+
+        // Tela de "Histórico de corridas" contendo uma corrida antiga cancelada NÃO pode gerar ReceiptResult de cancelamento
+        val historyWithCancelledRide = listOf(
+            "Histórico de corridas",
+            "11:36 - R$ 9,45 - Concluída",
+            "10:15 - Corrida cancelada pelo passageiro"
+        )
+        assertNull(ParsingEngine.parseReceipt("com.app99.driver", historyWithCancelledRide))
+
+        // Popup de cancelamento sobreposto ao mapa não deve capturar a pílula de saldo R$88,95 como taxa de cancelamento
+        val cancelOverMapHeader = listOf(
+            "13:15 0 99", "Taxa", "R$88,95", "Ver",
+            "Corrida cancelada pelo passageiro"
+        )
+        val cancelReceipt = ParsingEngine.parseReceipt("com.app99.driver", cancelOverMapHeader)
+        assertNotNull(cancelReceipt)
+        assertTrue(cancelReceipt!!.isCancelled)
+        assertEquals(3.00, cancelReceipt.cancellationFee ?: 0.0, 0.001)
+    }
 }
 
 

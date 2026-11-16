@@ -106,6 +106,8 @@ object ParsingEngine {
         "passageiro pode gravar",
         "pagamento no aplicativo",
         "pagamento em dinheiro",
+        "corrida em dinheiro",
+        "cobrar pagamento",
         "ponto de embarque",
         "local de embarque",
         "destino final",
@@ -113,6 +115,61 @@ object ParsingEngine {
         "viagem aceita",
         "passageiro aguardando",
         "a caminho do local"
+    )
+
+    // Indicadores exclusivos da FASE DE EMBARQUE (a caminho do passageiro / aguardando embarque).
+    // Usado para distinguir o início de uma corrida consecutiva (fase de buscar o próximo passageiro)
+    // do final da corrida anterior (fase de desembarque / cobrança).
+    private val PICKUP_PHASE_MARKERS = listOf(
+        "cheguei ao local",
+        "chegou ao local",
+        "aguardando passageiro",
+        "esperando passageiro",
+        "encontro com ",
+        "embarque de ",
+        "embarque em ",
+        "local de partida",
+        "ponto de encontro",
+        "a caminho do passageiro",
+        "a caminho do embarque",
+        "buscar passageiro",
+        "ponto de embarque",
+        "local de embarque",
+        "corrida aceita",
+        "viagem aceita",
+        "passageiro aguardando"
+    )
+
+    // Indicadores exclusivos da FASE DE VIAGEM COM PASSAGEIRO / DESEMBARQUE (após o embarque).
+    // Usado para garantir que uma oferta consecutiva só seja promovida por transição de embarque
+    // quando a corrida anterior já havia entrado na fase de viagem/desembarque.
+    private val IN_TRIP_OR_DROPOFF_MARKERS = listOf(
+        "iniciar corrida",
+        "iniciar viagem",
+        "finalizar corrida",
+        "finalizar viagem",
+        "encerrar corrida",
+        "encerrar viagem",
+        "desembarque de ",
+        "desembarque em ",
+        "chegou ao destino",
+        "cheguei ao destino",
+        "local de desembarque",
+        "ponto de desembarque",
+        "indo para ",
+        "em direção a ",
+        "em direcao a ",
+        "deixar ",
+        "deixar passageiro",
+        "viagem em andamento",
+        "corrida em andamento",
+        "o passageiro pode gravar",
+        "passageiro pode gravar",
+        "pagamento no aplicativo",
+        "pagamento em dinheiro",
+        "corrida em dinheiro",
+        "cobrar pagamento",
+        "destino final"
     )
 
     // Sinais genéricos de navegação GPS passo-a-passo (podem aparecer também ao navegar
@@ -141,7 +198,8 @@ object ParsingEngine {
         "pesquisar locais",
         "saldo",
         "ganhos",
-        "recompensas"
+        "recompensas",
+        "ver"
     )
 
     private val TOP_PILL_AFTER_LABELS = setOf(
@@ -184,6 +242,11 @@ object ParsingEngine {
         "atingido",
         "meta:",
         "entrega moto, entrega moto"
+    )
+
+    // Captura banner promocional da 99 mesmo quando truncado pelo OCR ("...ou R$68,4 com" de "Você ganhou R$68,4 com o pacote 0% de")
+    private val REGEX_TRUNCATED_PROMO_BANNER = Pattern.compile(
+        """(?i)\b(?:voc[eê]\s+ganhou|ganhou|ou)\s+r\$\s*[0-9.,]+\s+com\b"""
     )
 
     private val OFFER_VEHICLE_LABELS = listOf(
@@ -371,24 +434,55 @@ object ParsingEngine {
         return ACTIVE_RIDE_OR_NAVIGATION_MARKERS.any { joined.contains(it) }
     }
 
+    /**
+     * Verifica se a tela atual pertence especificamente à FASE DE EMBARQUE (a caminho do passageiro
+     * ou aguardando o passageiro no ponto de encontro). Usado para confirmar o início de uma corrida
+     * consecutiva após o término da corrida anterior.
+     */
+    fun isPickupPhaseScreen(texts: List<String>): Boolean {
+        if (texts.isEmpty()) return false
+        val joined = texts.joinToString(" ").lowercase()
+        if (isIdleDriverScreen(texts) || HISTORY_OR_SETTINGS_MARKERS.any { joined.contains(it) }) return false
+        if (IN_TRIP_OR_DROPOFF_MARKERS.any { joined.contains(it) }) return false
+        val hasExactPickupButton = texts.any {
+            val t = it.trim().lowercase()
+            t == "cheguei" || t == "ir buscar"
+        }
+        if (hasExactPickupButton) return true
+        return PICKUP_PHASE_MARKERS.any { joined.contains(it) }
+    }
+
+    /**
+     * Verifica se a tela atual pertence à FASE DE VIAGEM COM PASSAGEIRO ou DESEMBARQUE.
+     */
+    fun isInTripOrDropoffPhaseScreen(texts: List<String>): Boolean {
+        if (texts.isEmpty()) return false
+        val joined = texts.joinToString(" ").lowercase()
+        if (isIdleDriverScreen(texts) || HISTORY_OR_SETTINGS_MARKERS.any { joined.contains(it) }) return false
+        return IN_TRIP_OR_DROPOFF_MARKERS.any { joined.contains(it) }
+    }
+
     private fun isPromoBannerText(joinedLower: String): Boolean {
         return joinedLower.contains("pacote 0%") ||
                 joinedLower.contains("com o pacote") ||
                 joinedLower.contains("como pacote") ||
                 joinedLower.contains("ganhers") ||
-                joinedLower.contains("ganhe r$")
+                joinedLower.contains("ganhe r$") ||
+                REGEX_TRUNCATED_PROMO_BANNER.matcher(joinedLower).find()
     }
 
     /**
      * Identifica se o(s) token(s) em [index]..[index + span - 1] pertencem à pílula de ganhos acumulados
-     * no topo da Uber ("Página inicial | R$ 22,13 | HOJE"), da 99 ("18:13 | R$12 | Moto | 99"),
-     * a banners promocionais ("Você ganhou R$78,95 com o pacote 0%") ou a sub-itens de tarifa.
+     * no topo da Uber ("Página inicial | R$ 22,13 | HOJE"), da 99 ("18:13 | R$12 | Moto | 99" ou
+     * "13:15 0 99 | ) | On: | ha Frd | Taxa | R$88,95 | Ver"), a banners promocionais
+     * ("Você ganhou R$78,95 com o pacote 0%" / "...ou R$68,4 com") ou a sub-itens de tarifa.
      */
     private fun isMapHeaderPriceToken(cleanTexts: List<String>, index: Int, span: Int = 1): Boolean {
         if (index !in cleanTexts.indices) return false
         val endIdx = (index + span - 1).coerceAtMost(cleanTexts.lastIndex)
         val combinedToken = (index..endIdx).joinToString(" ") { cleanTexts[it].trim().lowercase() }
         if (NON_FARE_PRICE_MARKERS.any { combinedToken.contains(it) }) return true
+        if (REGEX_TRUNCATED_PROMO_BANNER.matcher(combinedToken).find()) return true
 
         val prev1 = if (index - 1 >= 0) cleanTexts[index - 1].trim().lowercase() else ""
         val prev2 = if (index - 2 >= 0) cleanTexts[index - 2].trim().lowercase() else ""
@@ -398,13 +492,23 @@ object ParsingEngine {
         if (prev1 == "página inicial" || prev1 == "pagina inicial") return true
         if (prev1 == "r$" && (prev2 == "página inicial" || prev2 == "pagina inicial")) return true
         if (next1 in MAP_HEADER_NEIGHBOR_LABELS) return true
-        if (NON_FARE_PRICE_MARKERS.any { prev1.contains(it) || next1.contains(it) }) return true
+        val prev1HasOwnPrice = REGEX_PRECO_EXPLICITO.matcher(prev1).find()
+        val next1HasOwnPrice = REGEX_PRECO_EXPLICITO.matcher(next1).find()
+        if ((!prev1HasOwnPrice && NON_FARE_PRICE_MARKERS.any { prev1.contains(it) }) ||
+            (!next1HasOwnPrice && NON_FARE_PRICE_MARKERS.any { next1.contains(it) })
+        ) {
+            return true
+        }
+
+        // Pílula de pacote/saldo no topo da 99 onde "Taxa" precede o saldo acumulado ("Taxa | R$88,95 | Ver")
+        if (prev1 == "taxa" && (index <= 7 || next1 in TOP_PILL_AFTER_LABELS || next2 in TOP_PILL_AFTER_LABELS)) {
+            return true
+        }
 
         // Pílula de ganho acumulado no topo da 99 ao lado do relógio ("18:13 O | R$12 | Moto | 9 99")
-        val hasClockShortlyBefore = (index <= 3) && (
-            REGEX_CLOCK_TOKEN.matcher(prev1).matches() ||
-                REGEX_CLOCK_TOKEN.matcher(prev2).matches()
-            )
+        val hasClockShortlyBefore = (index <= 6) && (0 until index).any {
+            REGEX_CLOCK_TOKEN.matcher(cleanTexts[it].trim()).matches()
+        }
         if (hasClockShortlyBefore && (next1 in TOP_PILL_AFTER_LABELS || next1.startsWith("recompensas") || next1.startsWith("solicita"))) {
             return true
         }
@@ -440,10 +544,10 @@ object ParsingEngine {
         if (next1Lower in TOP_PILL_AFTER_LABELS || OFFER_VEHICLE_LABELS.any { next1Lower == it }) {
             score -= 15
         }
-        val hasClockBefore = index <= 3 && (0 until index).any { REGEX_CLOCK_TOKEN.matcher(cleanTexts[it].trim()).matches() }
+        val hasClockBefore = index <= 6 && (0 until index).any { REGEX_CLOCK_TOKEN.matcher(cleanTexts[it].trim()).matches() }
         val hasStrongOfferAfter = (nextRangeStart..nextRangeEnd).any { k ->
             val nl = cleanTexts[k].trim().lowercase()
-            nl.contains("0% de taxa99") || nl.contains("est. de r$")
+            nl.contains("0% de taxa99") || nl.contains("est. de r$") || REGEX_TRECHO_MIN_KM.matcher(cleanTexts[k]).find()
         }
         if (hasClockBefore && !hasStrongOfferAfter) {
             score -= 20
@@ -610,10 +714,13 @@ object ParsingEngine {
             return null
         }
 
-        // Proteção 2b: Navegação GPS passo-a-passo livre (ex.: indo para zona de demanda)
+        // Proteção 2b: Navegação GPS passo-a-passo livre ou HUD de rota ("km/h" / "Chegada prevista")
         // sem card de oferta explícito não gera oferta falsa nem marca corrida ativa.
         val joinedCleanLower = cleanTexts.joinToString(" ").lowercase()
-        if (TURN_BY_TURN_GPS_MARKERS.any { joinedCleanLower.contains(it) } && !hasOfferCardSignal(cleanTexts)) {
+        val hasGenericGpsHud = TURN_BY_TURN_GPS_MARKERS.any { joinedCleanLower.contains(it) } ||
+            joinedCleanLower.contains("chegada prevista") ||
+            joinedCleanLower.contains("km/h")
+        if (hasGenericGpsHud && !hasOfferCardSignal(cleanTexts)) {
             return null
         }
 
@@ -946,11 +1053,34 @@ object ParsingEngine {
     }
 
     fun parseReceipt(packageName: String, texts: List<String>): ReceiptResult? {
-        val platform = resolvePlatform(packageName, texts)
-        val joined = texts.joinToString(" ").lowercase()
+        if (texts.isEmpty()) return null
+        if (packageName.contains("com.drifly.app", ignoreCase = true)) return null
+        if (containsSelfOverlayMarkers(texts)) return null
 
-        // 1. Verifica Cancelamento em Tela
-        val isCancelled = joined.contains("cancelada pelo passageiro") ||
+        val cleanTexts = texts.map { it.trim() }.filter { it.isNotEmpty() }
+        if (cleanTexts.isEmpty()) return null
+
+        val platform = resolvePlatform(packageName, cleanTexts)
+        val joined = cleanTexts.joinToString(" ").lowercase()
+
+        // Nunca interpreta telas de histórico de corridas, central de ganhos ou configurações como recibo/cancelamento ao vivo
+        if (HISTORY_OR_SETTINGS_MARKERS.any { joined.contains(it) }) {
+            return null
+        }
+
+        // 1. Verifica Cancelamento em Tela (ignorando avisos de oferta/solicitação expirada antes do aceite)
+        val isOfferOnlyCancellation = joined.contains("solicitação cancelada") ||
+                joined.contains("solicitacao cancelada") ||
+                joined.contains("cancelou a solicitação") ||
+                joined.contains("cancelou a solicitacao") ||
+                joined.contains("oferta cancelada") ||
+                joined.contains("oferta encerrada") ||
+                joined.contains("pedido de corrida cancelado") ||
+                joined.contains("pedido cancelado") ||
+                joined.contains("cancelou o pedido")
+
+        val isCancelled = !isOfferOnlyCancellation && (
+                joined.contains("cancelada pelo passageiro") ||
                 joined.contains("corrida cancelada") ||
                 joined.contains("viagem cancelada") ||
                 joined.contains("cancelado pelo usuário") ||
@@ -960,6 +1090,7 @@ object ParsingEngine {
                 joined.contains("cancelou a viagem") ||
                 joined.contains("trip cancelled") ||
                 joined.contains("ride cancelled")
+        )
 
         if (isCancelled) {
             val hasNoFee = joined.contains("sem taxa") ||
@@ -985,7 +1116,11 @@ object ParsingEngine {
             }
 
             var detectedFee: Double? = null
-            for (text in texts) {
+            for (i in cleanTexts.indices) {
+                if (isMapHeaderPriceToken(cleanTexts, i, span = 1)) continue
+                val text = cleanTexts[i]
+                val lineLower = text.lowercase()
+                if (NON_FARE_PRICE_MARKERS.any { lineLower.contains(it) } || isPromoBannerText(lineLower)) continue
                 val mPreco = REGEX_PRECO_EXPLICITO.matcher(text)
                 if (mPreco.find()) {
                     val raw = mPreco.group(1)
@@ -1000,7 +1135,7 @@ object ParsingEngine {
                                 cancellationFee = 0.0,
                                 status = RideRecord.STATUS_CANCELADO
                             )
-                        } else if (parsed > 0.0) {
+                        } else if (parsed in 0.01..25.0) {
                             detectedFee = parsed
                             break
                         }
@@ -1030,7 +1165,8 @@ object ParsingEngine {
         // 2. Verifica Conclusão / Recibo em Tela
         // Nunca confunde banners promocionais ("Você ganhou R$78,95 com o pacote 0% de Taxa"),
         // tela ociosa ("Buscando") ou painéis de ganhos com recibo de conclusão de corrida.
-        val hasExplicitCompletionKeyword = joined.contains("valor final") ||
+        val hasExplicitCompletionKeyword = joined.contains("valor da corrida") ||
+                joined.contains("valor final") ||
                 joined.contains("corrida finalizada") ||
                 joined.contains("viagem finalizada") ||
                 joined.contains("viagem concluída") ||
@@ -1043,6 +1179,14 @@ object ParsingEngine {
                 joined.contains("ganhos líquidos") ||
                 joined.contains("ganhos liquidos")
 
+        // Tela de cobrança em dinheiro ao encerrar corrida na 99 ("Seus ganhos | Cobrar do passageiro | Detalhes da tarifa | O passageiro pagou")
+        val hasCashCollectionCompletionKeyword = joined.contains("cobrar do passageiro") && (
+                joined.contains("detalhes da tarifa") ||
+                joined.contains("o passageiro pagou") ||
+                joined.contains("receba em dinheiro") ||
+                joined.contains("valor devolvido")
+        )
+
         val hasRatingCompletionKeyword = joined.contains("como foi sua corrida") ||
                 joined.contains("seu feedback sincero pode ajudar") ||
                 joined.contains("avaliar como anônimo") ||
@@ -1051,48 +1195,78 @@ object ParsingEngine {
                 joined.contains("voce se sentiu seguro(a) nesta corrida") ||
                 joined.contains("você se sentiu seguro nesta corrida") ||
                 joined.contains("voce se sentiu seguro nesta corrida") ||
+                joined.contains("você gostou do local de desembarque") ||
+                joined.contains("voce gostou do local de desembarque") ||
+                joined.contains("pagamento recebido") ||
+                joined.contains("solução da 99 para a corrida não paga") ||
+                joined.contains("solucao da 99 para a corrida nao paga") ||
+                joined.contains("contestar o valor de uma corrida 99") ||
                 joined.contains("avalie o passageiro") ||
                 joined.contains("avaliar passageiro")
 
         if (!hasExplicitCompletionKeyword &&
-            (isPromoBannerText(joined) || isIdleDriverScreen(texts) || isEarningsPanelScreen(texts))
+            (isPromoBannerText(joined) || isIdleDriverScreen(cleanTexts))
         ) {
             return null
         }
 
-        val hasFareCompletionPhrase = joined.contains("você ganhou") ||
-                joined.contains("voce ganhou") ||
+        // Nas telas de encerramento da 99 em dinheiro ("Seus ganhos | Cobrar do passageiro" ou modal "Como foi sua corrida"
+        // sobreposto a "Seus ganhos"), "seus ganhos" aparece no topo da tela mas a corrida acabou de ser concluída.
+        if (!hasExplicitCompletionKeyword &&
+            !hasRatingCompletionKeyword &&
+            !hasCashCollectionCompletionKeyword &&
+            isEarningsPanelScreen(cleanTexts)
+        ) {
+            return null
+        }
+
+        val hasFareCompletionPhrase = (!isPromoBannerText(joined) && (joined.contains("você ganhou") || joined.contains("voce ganhou"))) ||
                 joined.contains("total recebido") ||
                 hasExplicitCompletionKeyword
 
-        val isCompleted = hasFareCompletionPhrase || hasRatingCompletionKeyword
+        val isCompleted = hasFareCompletionPhrase || hasCashCollectionCompletionKeyword || hasRatingCompletionKeyword
 
         if (isCompleted) {
-            val keyWords = listOf("você ganhou", "voce ganhou", "valor final", "total recebido", "ganhos da viagem", "total da viagem")
+            val keyWords = listOf(
+                "valor da corrida",
+                "valor final",
+                "total recebido",
+                "ganhos da viagem",
+                "total da viagem",
+                "ganhos líquidos",
+                "ganhos liquidos",
+                "você ganhou",
+                "voce ganhou"
+            )
             var finalPrice: Double? = null
 
-            // Na tela de avaliação/segurança pós-corrida da 99 (sem valor explícito), mantém o preço original
-            // sem tentar capturar textos numéricos aleatórios da tela.
+            // Na tela de avaliação/segurança/"Pagamento recebido!" pós-corrida da 99 (sem frase explícita de tarifa final),
+            // mantém finalPrice = null para preservar o preço original da corrida (evitando capturar R$ 16,64 de troco/voucher
+            // ou R$ 0,00 de "pagar na próxima").
             if (hasFareCompletionPhrase) {
                 // Prioridade 1: Preço na mesma linha ou linha imediatamente seguinte a uma palavra-chave de total
-                for (i in texts.indices) {
-                    val lineLower = texts[i].lowercase()
-                    if (NON_FARE_PRICE_MARKERS.any { lineLower.contains(it) }) continue
+                for (i in cleanTexts.indices) {
+                    if (isMapHeaderPriceToken(cleanTexts, i, span = 1)) continue
+                    val lineLower = cleanTexts[i].lowercase()
+                    if (NON_FARE_PRICE_MARKERS.any { lineLower.contains(it) } || isPromoBannerText(lineLower)) continue
                     if (keyWords.any { lineLower.contains(it) }) {
-                        val mPreco = REGEX_PRECO_EXPLICITO.matcher(texts[i])
+                        val mPreco = REGEX_PRECO_EXPLICITO.matcher(cleanTexts[i])
                         if (mPreco.find()) {
                             val p = mPreco.group(1)?.let { parseMoneyValue(it) }
-                            if (p != null && p > 0.0) {
+                            if (p != null && p >= MIN_VALID_RIDE_PRICE) {
                                 finalPrice = p
                                 break
                             }
-                        } else if (i + 1 < texts.size) {
-                            val mPrecoNext = REGEX_PRECO_EXPLICITO.matcher(texts[i + 1])
-                            if (mPrecoNext.find()) {
-                                val p = mPrecoNext.group(1)?.let { parseMoneyValue(it) }
-                                if (p != null && p > 0.0) {
-                                    finalPrice = p
-                                    break
+                        } else if (i + 1 < cleanTexts.size && !isMapHeaderPriceToken(cleanTexts, i + 1, span = 1)) {
+                            val nextLower = cleanTexts[i + 1].lowercase()
+                            if (NON_FARE_PRICE_MARKERS.none { nextLower.contains(it) } && !isPromoBannerText(nextLower)) {
+                                val mPrecoNext = REGEX_PRECO_EXPLICITO.matcher(cleanTexts[i + 1])
+                                if (mPrecoNext.find()) {
+                                    val p = mPrecoNext.group(1)?.let { parseMoneyValue(it) }
+                                    if (p != null && p >= MIN_VALID_RIDE_PRICE) {
+                                        finalPrice = p
+                                        break
+                                    }
                                 }
                             }
                         }
@@ -1102,19 +1276,40 @@ object ParsingEngine {
                 // Prioridade 2: Se não encontrou pelo fluxo acima, extrai o maior valor monetário válido encontrado na tela
                 if (finalPrice == null) {
                     val allPrices = mutableListOf<Double>()
-                    for (text in texts) {
+                    for (i in cleanTexts.indices) {
+                        if (isMapHeaderPriceToken(cleanTexts, i, span = 1)) continue
+                        val text = cleanTexts[i]
                         val lineLower = text.lowercase()
-                        if (NON_FARE_PRICE_MARKERS.any { lineLower.contains(it) }) continue
+                        if (NON_FARE_PRICE_MARKERS.any { lineLower.contains(it) } || isPromoBannerText(lineLower)) continue
                         val mPreco = REGEX_PRECO_EXPLICITO.matcher(text)
                         if (mPreco.find()) {
                             val p = mPreco.group(1)?.let { parseMoneyValue(it) }
-                            if (p != null && p > 0.0) {
+                            if (p != null && p >= MIN_VALID_RIDE_PRICE) {
                                 allPrices.add(p)
                             }
                         }
                     }
                     finalPrice = allPrices.maxOrNull()
                 }
+            } else if (hasCashCollectionCompletionKeyword && !hasRatingCompletionKeyword) {
+                // Na tela "Seus ganhos | Cobrar do passageiro" (onde o topo pode exibir R$ 16,64 a cobrar em dinheiro após
+                // voucher e o rodapé exibe R$ 17,80 de ganho total da corrida), extrai o maior valor válido e sinaliza
+                // isCashCollectionScreen = true para nunca reduzir abaixo do originalPrice (ex: "pagar na próxima").
+                val allPrices = mutableListOf<Double>()
+                for (i in cleanTexts.indices) {
+                    if (isMapHeaderPriceToken(cleanTexts, i, span = 1)) continue
+                    val text = cleanTexts[i]
+                    val lineLower = text.lowercase()
+                    if (NON_FARE_PRICE_MARKERS.any { lineLower.contains(it) } || isPromoBannerText(lineLower)) continue
+                    val mPreco = REGEX_PRECO_EXPLICITO.matcher(text)
+                    if (mPreco.find()) {
+                        val p = mPreco.group(1)?.let { parseMoneyValue(it) }
+                        if (p != null && p >= MIN_VALID_RIDE_PRICE) {
+                            allPrices.add(p)
+                        }
+                    }
+                }
+                finalPrice = allPrices.maxOrNull()
             }
 
             return ReceiptResult(
@@ -1123,7 +1318,8 @@ object ParsingEngine {
                 isCancelled = false,
                 finalPrice = finalPrice,
                 cancellationFee = 0.0,
-                status = RideRecord.STATUS_CONCLUIDO
+                status = RideRecord.STATUS_CONCLUIDO,
+                isCashCollectionScreen = hasCashCollectionCompletionKeyword && !hasFareCompletionPhrase
             )
         }
 
@@ -1137,5 +1333,6 @@ data class ReceiptResult(
     val isCancelled: Boolean,
     val finalPrice: Double?,
     val cancellationFee: Double?,
-    val status: String
+    val status: String,
+    val isCashCollectionScreen: Boolean = false
 )

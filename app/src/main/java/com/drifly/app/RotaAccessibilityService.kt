@@ -39,11 +39,30 @@ class RotaAccessibilityService : AccessibilityService() {
     private var lastScreenshotTimestamp: Long = 0L
     private var declineCooldownUntil: Long = 0L
     private var lastDiagEventTimestamp: Long = 0L
+    private var lastActiveNavTreeDiagTimestamp: Long = 0L
     private var activeRideStartTime: Long = 0L
     private var lastAcceptedTimestamp: Long = 0L
 
     @Volatile
     private var lastDemandNavigationTimestamp: Long = 0L
+
+    @Volatile
+    private var lastFreeGpsSeenTimestamp: Long = 0L
+
+    @Volatile
+    private var offerArrivedDuringFreeGps: Boolean = false
+
+    @Volatile
+    private var previousConsecutiveRideId: Long = -1L
+
+    @Volatile
+    private var lastConsecutiveAcceptTimestamp: Long = 0L
+
+    @Volatile
+    private var lastAutoCompletedIdleRideId: Long = -1L
+
+    @Volatile
+    private var lastAutoCompletedIdleTimestamp: Long = 0L
 
     @Volatile
     private var isAcceptGestureInFlight: Boolean = false
@@ -56,6 +75,9 @@ class RotaAccessibilityService : AccessibilityService() {
     // navegação que continua visível NÃO prova que o motorista aceitou a nova oferta.
     @Volatile
     private var offerArrivedDuringRide: Boolean = false
+
+    @Volatile
+    private var activeRideSeenDropoffPhase: Boolean = false
 
     @Volatile
     private var idleSeenSince: Long = 0L
@@ -96,6 +118,16 @@ class RotaAccessibilityService : AccessibilityService() {
 
     private fun hasRecentDemandNavigation(now: Long): Boolean =
         lastDemandNavigationTimestamp != 0L && (now - lastDemandNavigationTimestamp) in 0..DEMAND_NAV_GRACE_MS
+
+    /**
+     * Mantém a janela de elegibilidade para recibos de conclusão ativa tanto durante a corrida
+     * quanto nos segundos seguintes a um modal intermediário pós-corrida (ex: "Pagamento recebido!"
+     * ou "Como foi sua corrida" seguido do toast "Valor da corrida | +R$17,80").
+     */
+    private fun isEffectiveRideActiveForReceipt(now: Long): Boolean =
+        isRideCurrentlyActive ||
+            (lastHandledRideId != -1L && (now - lastReceiptProcessedTimestamp) in 0..90_000L) ||
+            (lastAutoCompletedIdleRideId != -1L && (now - lastAutoCompletedIdleTimestamp) in 0..30_000L)
 
     /**
      * Vigia periódico de OCR.
@@ -151,7 +183,7 @@ class RotaAccessibilityService : AccessibilityService() {
         if (texts.isNotEmpty()) {
             if (ParsingEngine.isDemandHotspotScreen(texts)) {
                 lastDemandNavigationTimestamp = now
-            } else if (ParsingEngine.isIdleDriverScreen(texts)) {
+            } else if (ParsingEngine.isIdleDriverScreen(texts) && !isRideCurrentlyActive) {
                 lastDemandNavigationTimestamp = 0L
             }
 
@@ -160,7 +192,7 @@ class RotaAccessibilityService : AccessibilityService() {
                 texts = texts,
                 costPerKm = prefs.costPerKm,
                 minRatingThreshold = prefs.minPassengerRating,
-                isRideCurrentlyActive = isRideCurrentlyActive
+                isRideCurrentlyActive = isEffectiveRideActiveForReceipt(now)
             )
             if (reading !is ScreenReading.Unknown ||
                 !ParsingEngine.shouldVerifyFlutterLayerViaOcr(activePkg, texts, hasFreshPending)
@@ -196,8 +228,9 @@ class RotaAccessibilityService : AccessibilityService() {
         val now = System.currentTimeMillis()
         lastSupportedPackage = packageName
 
-        // DIAGNÓSTICO: registra cada evento recebido dos apps monitorados (limitado a 1 por segundo)
-        if (now - lastDiagEventTimestamp > 1000L) {
+        // DIAGNÓSTICO: registra eventos recebidos dos apps monitorados (reduz ruído durante navegação ativa)
+        val diagEvtInterval = if (isRideCurrentlyActive && pendingOffer == null) 10_000L else 1_000L
+        if (now - lastDiagEventTimestamp > diagEvtInterval) {
             lastDiagEventTimestamp = now
             diag("EVT pkg=$packageName type=${AccessibilityEvent.eventTypeToString(event.eventType)} className=${event.className}")
         }
@@ -318,23 +351,22 @@ class RotaAccessibilityService : AccessibilityService() {
                     traverseNodes(topRoot, extractedTexts, clickableNodes, 0)
                 }
 
-                diag("TREE pkg=$packageName roots=${topRoots.size} texts=${extractedTexts.size} click=${clickableNodes.size} rideActive=$isRideCurrentlyActive")
-                if (extractedTexts.isNotEmpty()) {
-                    diag("TEXTS pkg=$packageName :: ${extractedTexts.joinToString(" | ").take(400)}")
+                val shouldLogTreeNow = !isRideCurrentlyActive ||
+                    pendingOffer != null ||
+                    (now - lastActiveNavTreeDiagTimestamp > 15_000L)
+                if (shouldLogTreeNow) {
+                    lastActiveNavTreeDiagTimestamp = now
+                    diag("TREE pkg=$packageName roots=${topRoots.size} texts=${extractedTexts.size} click=${clickableNodes.size} rideActive=$isRideCurrentlyActive")
+                    if (extractedTexts.isNotEmpty()) {
+                        diag("TEXTS pkg=$packageName :: ${extractedTexts.joinToString(" | ").take(400)}")
+                    }
                 }
 
                 if (extractedTexts.isNotEmpty()) {
                     if (ParsingEngine.isDemandHotspotScreen(extractedTexts)) {
                         lastDemandNavigationTimestamp = now
-                    }
-
-                    // Reseta corrida ativa se o motorista voltou para tela ociosa (online procurando corridas)
-                    if (ParsingEngine.isIdleDriverScreen(extractedTexts)) {
+                    } else if (ParsingEngine.isIdleDriverScreen(extractedTexts) && !isRideCurrentlyActive) {
                         lastDemandNavigationTimestamp = 0L
-                        if (isRideCurrentlyActive) {
-                            diag("BRANCH IDLE_SCREEN -> motorista online aguardando chamadas, limpa status de corrida ativa")
-                            isRideCurrentlyActive = false
-                        }
                     }
 
                     // Se a corrida ativa ficou sem eventos de navegação por mais de 45 min, expira o bloqueio
@@ -346,18 +378,20 @@ class RotaAccessibilityService : AccessibilityService() {
                     // Classificação em ordem segura:
                     // recibo/cancelamento -> nova oferta -> tela de corrida ativa.
                     // (O recibo precisa vir primeiro: ver comentário em ScreenRouter.)
+                    // IMPORTANTE: não limpar isRideCurrentlyActive antes de ScreenRouter.read, pois o resumo
+                    // pós-corrida da 99 ("Valor da corrida | +R$17,80 | ... | Buscando") traz "Buscando" na mesma tela!
                     when (val reading = ScreenRouter.read(
                         packageName = packageName,
                         texts = extractedTexts,
                         costPerKm = prefs.costPerKm,
                         minRatingThreshold = prefs.minPassengerRating,
-                        isRideCurrentlyActive = isRideCurrentlyActive
+                        isRideCurrentlyActive = isEffectiveRideActiveForReceipt(now)
                     )) {
                         is ScreenReading.Receipt -> {
                             val receipt = reading.receipt
-                            diag("BRANCH RECEIPT ${receipt.platform} completed=${receipt.isCompleted} cancelled=${receipt.isCancelled}")
+                            diag("BRANCH RECEIPT ${receipt.platform} completed=${receipt.isCompleted} cancelled=${receipt.isCancelled} price=${receipt.finalPrice}")
                             val currentReceiptHash = receipt.hashCode()
-                            if (currentReceiptHash != lastReceiptHash && (now - lastReceiptProcessedTimestamp) > 8_000L) {
+                            if (currentReceiptHash != lastReceiptHash || (now - lastReceiptProcessedTimestamp) > 8_000L) {
                                 lastReceiptHash = currentReceiptHash
                                 lastReceiptTimestamp = now
                                 handleReceipt(receipt)
@@ -371,8 +405,10 @@ class RotaAccessibilityService : AccessibilityService() {
                         }
 
                         is ScreenReading.ActiveRide -> {
-                            diag("BRANCH ACTIVE_RIDE_SCREEN -> motorista em navegação/viagem")
-                            handleTransitionToActiveRide(now)
+                            if (shouldLogTreeNow) {
+                                diag("BRANCH ACTIVE_RIDE_SCREEN -> motorista em navegação/viagem")
+                            }
+                            handleTransitionToActiveRide(now, extractedTexts, packageName)
                         }
 
                         is ScreenReading.Unknown -> onUnknownReading(
@@ -433,16 +469,44 @@ class RotaAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun handleTransitionToActiveRide(now: Long) {
+    private fun handleTransitionToActiveRide(
+        now: Long,
+        texts: List<String> = emptyList(),
+        packageName: String = lastSupportedPackage
+    ) {
+        if (ParsingEngine.isInTripOrDropoffPhaseScreen(texts)) {
+            activeRideSeenDropoffPhase = true
+        }
+        val currentPending = pendingOffer
+        val resolvedPlatform = ParsingEngine.resolvePlatform(packageName, texts)
+        val samePlatformAsPending = currentPending != null &&
+            (resolvedPlatform == "CORRIDA" || resolvedPlatform.equals(currentPending.platform, ignoreCase = true))
+
         // A tela de corrida ativa só prova o aceite quando a oferta pendente é recente E não chegou
         // durante outra corrida (senão a navegação anterior continua na tela mesmo sem aceitar).
         if (AcceptanceRules.canCommitOnActiveRideScreen(
-                hasPending = pendingOffer != null,
+                hasPending = currentPending != null,
                 pendingTimestamp = pendingOfferTimestamp,
                 now = now,
                 offerArrivedDuringRide = offerArrivedDuringRide
             )
         ) {
+            commitPendingOfferAsAccepted(now)
+        } else if (
+            currentPending != null &&
+            offerArrivedDuringRide &&
+            activeRideSeenDropoffPhase &&
+            samePlatformAsPending &&
+            (now - pendingOfferTimestamp) in 0..120_000L &&
+            (now - lastAcceptedTimestamp) >= 60_000L &&
+            ParsingEngine.isPickupPhaseScreen(texts)
+        ) {
+            // Caso o motorista tenha aceitado uma corrida consecutiva diretamente no canvas da 99 durante a viagem
+            // anterior (já na fase de viagem/desembarque) e fechado o recibo rapidamente, a transição para a FASE DE
+            // EMBARQUE ("Cheguei", "Ir buscar", "A caminho do passageiro", "Embarque de") confirma o término da corrida
+            // anterior e o início da consecutiva.
+            diag("BRANCH CONSECUTIVE_PICKUP_TRANSITION -> corrida anterior concluída e corrida consecutiva iniciada")
+            offerArrivedDuringRide = false
             commitPendingOfferAsAccepted(now)
         } else if (BubbleOverlayService.isRunning() && (now - lastAcceptedTimestamp) > ACCEPTED_STREET_VIEW_GRACE_MS) {
             BubbleOverlayService.stop(this)
@@ -453,9 +517,9 @@ class RotaAccessibilityService : AccessibilityService() {
 
     /**
      * Trata leituras desconhecidas:
-     * 1. Se o motorista voltou para tela ociosa por >= 2s, descarta oferta pendente.
-     * 2. Se o HUD nativo de GPS (km/h) bate com a rua da oferta pendente (fora de zona de demanda),
-     *    confirma transição para corrida ativa.
+     * 1. Se o motorista voltou para tela ociosa por >= 2s, descarta oferta pendente (e conclui corrida ativa encerrada).
+     * 2. Se o HUD nativo de GPS (km/h / Chegada prevista) confirma transição de oferta recente fora de corrida/demanda,
+     *    promove a oferta para corrida ativa.
      * 3. Em apps híbridos (99), dispara OCR throttled para ler a camada Flutter subjacente.
      */
     private fun onUnknownReading(
@@ -472,25 +536,56 @@ class RotaAccessibilityService : AccessibilityService() {
             if (idleSeenSince == 0L) {
                 idleSeenSince = now
             } else if (now - idleSeenSince >= 2_000L) {
-                discardPendingOfferOnIdleScreen()
+                discardPendingOfferOnIdleScreen(now, packageName)
             }
             return
         }
 
         idleSeenSince = 0L
 
+        val joinedLower = texts.joinToString(" ").lowercase()
+        val hasGpsHudOnScreen = joinedLower.contains("km/h") || joinedLower.contains("chegada prevista")
+
+        // Se a corrida está ativa e o HUD de GPS da 99 continua na tela ("40 km/h | Chegada prevista"),
+        // renova o timestamp de atividade da corrida para manter isRideCurrentlyActive vivo até o desembarque.
+        if (isRideCurrentlyActive && hasGpsHudOnScreen) {
+            activeRideStartTime = now
+        } else if (!isRideCurrentlyActive && pendingOffer == null && hasGpsHudOnScreen) {
+            lastFreeGpsSeenTimestamp = now
+        }
+
         val currentPending = pendingOffer
-        if (currentPending != null &&
+        val isNormalOfferGpsTransition = currentPending != null &&
             !offerArrivedDuringRide &&
             AcceptanceRules.isPendingStillValid(pendingOfferTimestamp, now) &&
+            (AcceptanceRules.doesGpsHudMatchPendingOffer(
+                texts = texts,
+                pendingOffer = currentPending,
+                hasRecentDemandNavigation = hasRecentDemandNavigation(now)
+            ) || AcceptanceRules.isGpsHudTransitionFromFreshOffer(
+                texts = texts,
+                pendingOffer = currentPending,
+                offerArrivedDuringRide = offerArrivedDuringRide,
+                offerArrivedDuringFreeGps = offerArrivedDuringFreeGps,
+                hasRecentDemandNavigation = hasRecentDemandNavigation(now)
+            ))
+        val isConsecutiveOfferAddressMatch = currentPending != null &&
+            offerArrivedDuringRide &&
+            activeRideSeenDropoffPhase &&
+            (now - pendingOfferTimestamp) in 0..120_000L &&
+            (now - lastAcceptedTimestamp) >= 60_000L &&
             AcceptanceRules.doesGpsHudMatchPendingOffer(
                 texts = texts,
                 pendingOffer = currentPending,
                 hasRecentDemandNavigation = hasRecentDemandNavigation(now)
             )
-        ) {
-            diag("BRANCH GPS_HUD_MATCH_OFFER -> transição confirmada pela rua da oferta")
-            handleTransitionToActiveRide(now)
+
+        if (isNormalOfferGpsTransition || isConsecutiveOfferAddressMatch) {
+            diag("BRANCH GPS_HUD_MATCH_OFFER -> transição confirmada para corrida ativa (consecutive=$isConsecutiveOfferAddressMatch)")
+            if (isConsecutiveOfferAddressMatch) {
+                offerArrivedDuringRide = false
+            }
+            handleTransitionToActiveRide(now, texts, packageName)
             return
         }
 
@@ -500,8 +595,8 @@ class RotaAccessibilityService : AccessibilityService() {
             now >= declineCooldownUntil
         ) {
             val hasFreshPending = currentPending != null &&
-                !offerArrivedDuringRide &&
-                AcceptanceRules.isPendingStillValid(pendingOfferTimestamp, now)
+                ((!offerArrivedDuringRide && AcceptanceRules.isPendingStillValid(pendingOfferTimestamp, now)) ||
+                    (offerArrivedDuringRide && activeRideSeenDropoffPhase && (now - pendingOfferTimestamp) in 0..120_000L))
             if (ParsingEngine.shouldVerifyFlutterLayerViaOcr(packageName, texts, hasFreshPending)) {
                 val requiredInterval = if (hasFreshPending) OCR_HYBRID_INTERVAL_MS else OCR_WATCHDOG_INTERVAL_MS
                 if ((now - lastScreenshotTimestamp) >= requiredInterval) {
@@ -512,33 +607,80 @@ class RotaAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun discardPendingOfferOnIdleScreen() {
+    private fun discardPendingOfferOnIdleScreen(
+        now: Long = System.currentTimeMillis(),
+        packageName: String = lastSupportedPackage
+    ) {
         if (pendingOffer != null) {
             diag("Tela ociosa sem card: oferta pendente descartada (não aceita)")
         }
+        // Se o motorista estava em uma corrida ativa (há pelo menos 90s) e retornou de forma estável
+        // (>= 2s) para a tela ociosa ("Buscando" / "Você está online"), garante que a corrida encerrada
+        // seja automaticamente marcada como CONCLUIDO mesmo que o motorista tenha fechado o popup de
+        // avaliação entre duas capturas de OCR.
+        if (isRideCurrentlyActive) {
+            val platform = ParsingEngine.resolvePlatform(packageName)
+            val targetPlatform = if (platform != "CORRIDA") platform else null
+            val activeRide = db.getLatestEstimatedRide(targetPlatform, maxAgeMs = 4 * 60 * 60 * 1000L)
+            if (activeRide != null && (now - activeRide.timestamp) >= MIN_ACTIVE_RIDE_DURATION_FOR_IDLE_COMPLETION_MS) {
+                db.updateRideStatus(activeRide.id, RideRecord.STATUS_CONCLUIDO)
+                lastAutoCompletedIdleRideId = activeRide.id
+                lastAutoCompletedIdleTimestamp = now
+                lastHandledRideId = activeRide.id
+                lastReceiptProcessedTimestamp = now
+                diag("AUTO-COMPLETE ON IDLE [#${activeRide.id} - ${activeRide.platform}]: R$ ${activeRide.grossPrice} marcada como CONCLUIDO ao retornar para tela ociosa")
+                sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
+                    setPackage(this@RotaAccessibilityService.packageName)
+                })
+            } else {
+                diag("BRANCH IDLE_SCREEN -> motorista online aguardando chamadas, limpa status de corrida ativa")
+            }
+        }
         pendingOffer = null
         pendingOfferRideId = null
+        offerArrivedDuringRide = false
+        offerArrivedDuringFreeGps = false
+        activeRideSeenDropoffPhase = false
+        previousConsecutiveRideId = -1L
         isRideCurrentlyActive = false
         idleSeenSince = 0L
+        lastDemandNavigationTimestamp = 0L
     }
 
     private fun commitPendingOfferAsAccepted(now: Long) {
         val offerToSave = pendingOffer ?: return
-        if (!AcceptanceRules.canCommitOnAcceptClick(true, pendingOfferTimestamp, now)) {
+        val isValidConsecutiveCommit = offerArrivedDuringRide && (now - pendingOfferTimestamp) in 0..120_000L
+        if (!AcceptanceRules.canCommitOnAcceptClick(true, pendingOfferTimestamp, now) && !isValidConsecutiveCommit) {
             pendingOffer = null
             pendingOfferRideId = null
             return
         }
+
+        val wasConsecutiveOffer = offerArrivedDuringRide
 
         // Consome a oferta pendente para nunca salvar duplicado
         pendingOffer = null
         val rideId = pendingOfferRideId
         pendingOfferRideId = null
         offerArrivedDuringRide = false
+        offerArrivedDuringFreeGps = false
+        activeRideSeenDropoffPhase = false
         isRideCurrentlyActive = true
         activeRideStartTime = now
         lastAcceptedTimestamp = now
         declineCooldownUntil = now + 2500L
+
+        // Se havia uma corrida anterior ainda como ESTIMADO na mesma plataforma (seja por corrida consecutiva
+        // ou porque o recibo anterior foi fechado rapidamente antes de iniciar esta nova corrida), conclui a anterior.
+        val prevEstimated = db.getLatestEstimatedRide(offerToSave.platform, maxAgeMs = 4 * 60 * 60 * 1000L)
+        if (prevEstimated != null && prevEstimated.id != rideId && (wasConsecutiveOffer || (now - prevEstimated.timestamp) >= 60_000L)) {
+            db.updateRideStatus(prevEstimated.id, RideRecord.STATUS_CONCLUIDO)
+            if (wasConsecutiveOffer) {
+                previousConsecutiveRideId = prevEstimated.id
+                lastConsecutiveAcceptTimestamp = now
+            }
+            diag("AUTO-COMPLETE CORRIDA ANTERIOR [#${prevEstimated.id} - ${prevEstimated.platform}]: R$ ${prevEstimated.grossPrice} concluída ao aceitar nova corrida")
+        }
 
         // Ao aceitar a corrida, se houver endereço, mantém o overlay por mais 8 segundos com o Street View aberto pro motorista ver a fachada!
         BubbleOverlayService.onRideAcceptedShowStreetViewBriefly(this, offerToSave.destinationAddress)
@@ -590,10 +732,13 @@ class RotaAccessibilityService : AccessibilityService() {
         }
         pendingOffer = null
         pendingOfferRideId = null
-        isRideCurrentlyActive = false
+        offerArrivedDuringRide = false
+        offerArrivedDuringFreeGps = false
+        // IMPORTANTE: se o motorista recusou uma oferta consecutiva durante uma viagem em andamento,
+        // a viagem atual continua ativa (NÃO zerar isRideCurrentlyActive).
         declineCooldownUntil = now + 2500L
         BubbleOverlayService.stop(this)
-        diag("Corrida recusada pelo motorista. Oferta descartada do banco e overlay fechado.")
+        diag("Corrida recusada pelo motorista. Oferta descartada do banco e overlay fechado (rideActive=$isRideCurrentlyActive).")
     }
 
     private fun isOwnAppForeground(): Boolean {
@@ -643,15 +788,22 @@ class RotaAccessibilityService : AccessibilityService() {
 
         lastDemandNavigationTimestamp = 0L
 
-        // Se uma nova oferta legítima tocou na tela, significa que não estamos em viagem bloqueada.
-        // Guarda se ela chegou DURANTE outra corrida: nesse caso só clique/toque confirmado prova aceite.
+        // IMPORTANTE: NUNCA zerar isRideCurrentlyActive aqui!
+        // Quando uma oferta consecutiva toca durante uma viagem em andamento, a corrida atual continua ativa.
+        // Manter isRideCurrentlyActive = true garante que:
+        //  1) uma 2ª ou 3ª oferta consecutiva na mesma viagem também receba offerArrivedDuringRide = true;
+        //  2) os marcadores de desembarque da corrida atual ("Corrida em dinheiro" / "O passageiro pode gravar")
+        //     NÃO promovam a oferta consecutiva ignorada/recusada;
+        //  3) o recibo de encerramento da corrida atual seja aceito pelo ScreenRouter.
         val isNewOfferCard = pendingOffer == null ||
                 pendingOffer?.platform != offer.platform ||
                 Math.abs((pendingOffer?.price ?: 0.0) - offer.price) >= 0.01
         if (isNewOfferCard) {
             offerArrivedDuringRide = isRideCurrentlyActive
+            offerArrivedDuringFreeGps = !isRideCurrentlyActive &&
+                lastFreeGpsSeenTimestamp != 0L &&
+                (timestamp - lastFreeGpsSeenTimestamp) in 0..15_000L
         }
-        isRideCurrentlyActive = false
         idleSeenSince = 0L
 
         val currentHash = offer.hashCode()
@@ -687,7 +839,7 @@ class RotaAccessibilityService : AccessibilityService() {
                 offerWithHome
             }
 
-            diag("OFERTA DETECTADA [${finalOffer.platform}]: R$ ${finalOffer.price} | ${finalOffer.distanceKm}km | R$/km ${finalOffer.ratePerKm} | Lucro R$ ${finalOffer.netProfit} | ModoCasa: ${finalOffer.isHeadingHome} (${finalOffer.homeDistanceDeltaKm}km)")
+            diag("OFERTA DETECTADA [${finalOffer.platform}]: R$ ${finalOffer.price} | ${finalOffer.distanceKm}km | R$/km ${finalOffer.ratePerKm} | Lucro R$ ${finalOffer.netProfit} | ModoCasa: ${finalOffer.isHeadingHome} (${finalOffer.homeDistanceDeltaKm}km) | duringRide=$offerArrivedDuringRide")
 
             // 1. Registra a oferta como OFERTA (oculta do faturamento). Só vira ESTIMADO quando o motorista ACEITAR.
             val existingRide = db.findRecentDuplicateRide(finalOffer.platform, finalOffer.price, finalOffer.distanceKm)
@@ -717,20 +869,110 @@ class RotaAccessibilityService : AccessibilityService() {
     }
 
     private fun handleReceipt(receipt: ReceiptResult) {
-        isRideCurrentlyActive = false
-        pendingOffer = null
-        pendingOfferRideId = null
-        BubbleOverlayService.stop(this)
+        val now = System.currentTimeMillis()
+        val hasConsecutiveOfferWaiting = pendingOffer != null &&
+            offerArrivedDuringRide &&
+            (now - pendingOfferTimestamp) in 0..120_000L
+        val hasAlreadyAcceptedConsecutiveRide = previousConsecutiveRideId != -1L &&
+            (now - lastConsecutiveAcceptTimestamp) in 0..180_000L
 
-        val ride = db.getLatestEstimatedRide(receipt.platform) ?: return
-        if (ride.id == lastHandledRideId) return
+        if (hasConsecutiveOfferWaiting) {
+            // A corrida anterior acabou de encerrar enquanto uma oferta consecutiva recente estava pendente.
+            // Mantém offerArrivedDuringRide = true e marca activeRideSeenDropoffPhase = true para que um card
+            // consecutivo IGNORADO não seja promovido por marcadores residuais de desembarque ou GPS genérico,
+            // mas um card consecutivo ACEito no canvas da 99 seja promovido assim que entrar na fase de embarque
+            // (isPickupPhaseScreen) ou casar explicitamente o endereço no HUD de GPS.
+            offerArrivedDuringRide = true
+            activeRideSeenDropoffPhase = true
+            pendingOfferTimestamp = now
+            isRideCurrentlyActive = false
+        } else if (hasAlreadyAcceptedConsecutiveRide) {
+            // O motorista já havia aceitado a corrida consecutiva pelo overlay durante o fim da viagem anterior:
+            // mantém isRideCurrentlyActive = true para a nova corrida consecutiva.
+            isRideCurrentlyActive = true
+        } else {
+            isRideCurrentlyActive = false
+            pendingOffer = null
+            pendingOfferRideId = null
+            BubbleOverlayService.stop(this)
+        }
+
+        // Seleciona a corrida alvo do recibo:
+        // 1. Se houve corrida consecutiva já aceita pelo overlay, o recibo pertence à corrida ANTERIOR (previousConsecutiveRideId).
+        // 2. Caso contrário, busca a corrida ESTIMADO mais recente da plataforma.
+        // 3. Se a corrida já foi marcada como CONCLUIDO há poucos segundos por um modal intermediário
+        //    (ex: "Pagamento recebido!" ou "Como foi sua corrida" sem preço explícito) e logo em seguida
+        //    apareceu o toast "Valor da corrida | +R$17,80", permite atualizar o valor final dessa mesma corrida.
+        val ride: RideRecord = when {
+            hasAlreadyAcceptedConsecutiveRide -> {
+                val prev = db.getRideById(previousConsecutiveRideId)
+                previousConsecutiveRideId = -1L
+                prev ?: db.getLatestEstimatedRide(receipt.platform, maxAgeMs = 4 * 60 * 60 * 1000L) ?: return
+            }
+            else -> {
+                val latestEst = db.getLatestEstimatedRide(receipt.platform, maxAgeMs = 4 * 60 * 60 * 1000L)
+                if (latestEst != null) {
+                    latestEst
+                } else if (lastHandledRideId != -1L && (now - lastReceiptProcessedTimestamp) in 0..90_000L) {
+                    val recentHandled = db.getRideById(lastHandledRideId)
+                    if (recentHandled != null && recentHandled.platform.equals(receipt.platform, ignoreCase = true)) {
+                        recentHandled
+                    } else {
+                        return
+                    }
+                } else {
+                    return
+                }
+            }
+        }
+
+        if (ride.id == lastHandledRideId && ride.status != RideRecord.STATUS_ESTIMADO) {
+            // Já processamos o fechamento desta corrida: só atualiza se este novo recibo trouxer um valor final
+            // explícito diferente (ou se a corrida havia sido auto-concluída no retorno ao ocioso e chegou um cancelamento imediato).
+            if (receipt.isCompleted) {
+                val explicitNewPrice = receipt.finalPrice ?: return
+                val effectivePrice = if (receipt.isCashCollectionScreen) {
+                    Math.max(explicitNewPrice, ride.originalPrice)
+                } else {
+                    explicitNewPrice
+                }
+                if (Math.abs(ride.grossPrice - effectivePrice) < 0.01) return
+                val cost = ride.distanceKm * prefs.costPerKm
+                val newNet = Math.max(0.0, Math.round((effectivePrice - cost) * 100.0) / 100.0)
+                db.updateRidePrice(ride.id, effectivePrice, newNet, RideRecord.STATUS_CONCLUIDO)
+                lastReceiptProcessedTimestamp = now
+                diag("RECIBO COMPLEMENTAR [${receipt.platform}]: corrida #${ride.id} atualizada para R$ $effectivePrice")
+                sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
+                    setPackage(this@RotaAccessibilityService.packageName)
+                })
+            } else if (
+                receipt.isCancelled &&
+                ride.id == lastAutoCompletedIdleRideId &&
+                (now - lastAutoCompletedIdleTimestamp) <= 20_000L
+            ) {
+                db.updateRideStatus(ride.id, receipt.status, receipt.cancellationFee ?: 0.0)
+                lastAutoCompletedIdleRideId = -1L
+                lastReceiptProcessedTimestamp = now
+                diag("RECIBO DE CANCELAMENTO TARDIO [${receipt.platform}]: corrida #${ride.id} ajustada para ${receipt.status}")
+                sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
+                    setPackage(this@RotaAccessibilityService.packageName)
+                })
+            }
+            return
+        }
+
         lastHandledRideId = ride.id
-        lastReceiptProcessedTimestamp = System.currentTimeMillis()
+        lastReceiptProcessedTimestamp = now
 
-        diag("RECIBO DETECTADO [${receipt.platform}]: finalPrice=${receipt.finalPrice}, cancelado=${receipt.isCancelled}")
+        diag("RECIBO DETECTADO [${receipt.platform}]: ride=#${ride.id}, finalPrice=${receipt.finalPrice}, cashScreen=${receipt.isCashCollectionScreen}, cancelado=${receipt.isCancelled}")
 
         if (receipt.isCompleted) {
-            val finalPrice = receipt.finalPrice ?: ride.originalPrice
+            val rawFinal = receipt.finalPrice
+            val finalPrice = when {
+                rawFinal == null -> ride.originalPrice
+                receipt.isCashCollectionScreen -> Math.max(rawFinal, ride.originalPrice)
+                else -> rawFinal
+            }
             val cost = ride.distanceKm * prefs.costPerKm
             val newNet = Math.max(0.0, Math.round((finalPrice - cost) * 100.0) / 100.0)
             db.updateRidePrice(ride.id, finalPrice, newNet, RideRecord.STATUS_CONCLUIDO)
@@ -1167,28 +1409,23 @@ class RotaAccessibilityService : AccessibilityService() {
                                                 val ocrNow = System.currentTimeMillis()
                                                 if (ParsingEngine.isDemandHotspotScreen(ocrTexts)) {
                                                     lastDemandNavigationTimestamp = ocrNow
-                                                }
-                                                if (ParsingEngine.isIdleDriverScreen(ocrTexts)) {
+                                                } else if (ParsingEngine.isIdleDriverScreen(ocrTexts) && !isRideCurrentlyActive) {
                                                     lastDemandNavigationTimestamp = 0L
-                                                    if (isRideCurrentlyActive) {
-                                                        diag("BRANCH OCR_IDLE_SCREEN -> motorista na tela inicial, limpa status de corrida ativa")
-                                                        isRideCurrentlyActive = false
-                                                    }
                                                 }
                                                 when (val reading = ScreenRouter.read(
                                                     packageName = packageName,
                                                     texts = ocrTexts,
                                                     costPerKm = prefs.costPerKm,
                                                     minRatingThreshold = prefs.minPassengerRating,
-                                                    isRideCurrentlyActive = isRideCurrentlyActive
+                                                    isRideCurrentlyActive = isEffectiveRideActiveForReceipt(ocrNow)
                                                 )) {
                                                     is ScreenReading.Receipt -> {
                                                         consecutiveEmptyOcrCount = 0
                                                         ocrFastRetryPending = false
                                                         val receipt = reading.receipt
-                                                        diag("BRANCH OCR_RECEIPT ${receipt.platform} completed=${receipt.isCompleted} cancelled=${receipt.isCancelled}")
+                                                        diag("BRANCH OCR_RECEIPT ${receipt.platform} completed=${receipt.isCompleted} cancelled=${receipt.isCancelled} price=${receipt.finalPrice}")
                                                         val currentReceiptHash = receipt.hashCode()
-                                                        if (currentReceiptHash != lastReceiptHash && (ocrNow - lastReceiptProcessedTimestamp) > 8_000L) {
+                                                        if (currentReceiptHash != lastReceiptHash || (ocrNow - lastReceiptProcessedTimestamp) > 8_000L) {
                                                             lastReceiptHash = currentReceiptHash
                                                             lastReceiptTimestamp = ocrNow
                                                             handleReceipt(receipt)
@@ -1203,7 +1440,7 @@ class RotaAccessibilityService : AccessibilityService() {
                                                         consecutiveEmptyOcrCount = 0
                                                         ocrFastRetryPending = false
                                                         diag("BRANCH OCR_ACTIVE_RIDE_SCREEN -> motorista em navegação/viagem")
-                                                        handleTransitionToActiveRide(ocrNow)
+                                                        handleTransitionToActiveRide(ocrNow, ocrTexts, packageName)
                                                     }
                                                     is ScreenReading.Unknown -> {
                                                         diag("OCR_PARSE_NULL (texto lido, mas sem preço+distância válidos)")
@@ -1327,6 +1564,7 @@ class RotaAccessibilityService : AccessibilityService() {
         const val ACTION_RIDE_UPDATED = "com.drifly.app.ACTION_RIDE_UPDATED"
         private const val PENDING_OFFER_VALIDITY_MS = 45_000L
         private const val ACCEPTED_STREET_VIEW_GRACE_MS = 8_500L
+        private const val MIN_ACTIVE_RIDE_DURATION_FOR_IDLE_COMPLETION_MS = 90_000L
 
         // Janela em que a MESMA oferta (mesmo preço e distância) não é exibida de novo pelo overlay.
         // Precisa cobrir a duração do card na tela (~15-20s), senão o overlay reaparece durante a oferta.
@@ -1368,9 +1606,34 @@ class RotaAccessibilityService : AccessibilityService() {
         var isRideCurrentlyActive: Boolean = false
 
         fun setPendingOffer(offer: RideOffer, timestamp: Long = System.currentTimeMillis(), rideId: Long? = null) {
+            val isNewOffer = pendingOffer == null ||
+                pendingOffer?.platform != offer.platform ||
+                Math.abs((pendingOffer?.price ?: 0.0) - offer.price) >= 0.01
+            if (isNewOffer) {
+                instance?.let { svc ->
+                    svc.offerArrivedDuringRide = isRideCurrentlyActive
+                    svc.offerArrivedDuringFreeGps = !isRideCurrentlyActive &&
+                        svc.lastFreeGpsSeenTimestamp != 0L &&
+                        (timestamp - svc.lastFreeGpsSeenTimestamp) in 0..15_000L
+                }
+            }
             pendingOffer = offer
             pendingOfferTimestamp = timestamp
             pendingOfferRideId = rideId
+        }
+
+        fun consumeRecentlyAutoCompletedIdleRideId(
+            now: Long = System.currentTimeMillis(),
+            maxAgeMs: Long = 20_000L
+        ): Long? {
+            val svc = instance ?: return null
+            val rideId = svc.lastAutoCompletedIdleRideId
+            val ts = svc.lastAutoCompletedIdleTimestamp
+            if (rideId != -1L && ts != 0L && (now - ts) in 0..maxAgeMs) {
+                svc.lastAutoCompletedIdleRideId = -1L
+                return rideId
+            }
+            return null
         }
     }
 }
