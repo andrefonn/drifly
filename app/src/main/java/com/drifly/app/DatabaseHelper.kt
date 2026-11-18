@@ -434,17 +434,54 @@ class DatabaseHelper(context: Context) :
         ) > 0
     }
 
-    fun getLatestEstimatedRide(platform: String? = null): RideRecord? {
+    fun rideExists(id: Long): Boolean {
+        val cursor = readableDatabase.rawQuery("SELECT 1 FROM rides WHERE id = ? LIMIT 1", arrayOf(id.toString()))
+        val exists = cursor.moveToFirst()
+        cursor.close()
+        return exists
+    }
+
+    fun getRideById(id: Long): RideRecord? {
         val db = readableDatabase
-        val sql = if (platform != null) {
-            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status = ? AND UPPER(platform) = UPPER(?) ORDER BY timestamp DESC LIMIT 1"
-        } else {
-            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status = ? ORDER BY timestamp DESC LIMIT 1"
+        val cursor = db.rawQuery(
+            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE id = ? LIMIT 1",
+            arrayOf(id.toString())
+        )
+        var ride: RideRecord? = null
+        if (cursor.moveToFirst()) {
+            ride = RideRecord(
+                id = cursor.getLong(0),
+                platform = cursor.getString(1),
+                grossPrice = cursor.getDouble(2),
+                distanceKm = cursor.getDouble(3),
+                netProfit = cursor.getDouble(4),
+                timestamp = cursor.getLong(5),
+                status = cursor.getString(6) ?: RideRecord.STATUS_ESTIMADO,
+                cancellationFee = cursor.getDouble(7),
+                originalPrice = cursor.getDouble(8)
+            )
         }
-        val args = if (platform != null) {
-            arrayOf(RideRecord.STATUS_ESTIMADO, platform)
+        cursor.close()
+        return ride
+    }
+
+    fun getLatestEstimatedRide(platform: String? = null, maxAgeMs: Long? = null): RideRecord? {
+        val db = readableDatabase
+        val minTimestamp = if (maxAgeMs != null && maxAgeMs > 0L) System.currentTimeMillis() - maxAgeMs else null
+        val sql: String
+        val args: Array<String>
+        if (platform != null && minTimestamp != null) {
+            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status = ? AND UPPER(platform) = UPPER(?) AND timestamp >= ? ORDER BY timestamp DESC LIMIT 1"
+            args = arrayOf(RideRecord.STATUS_ESTIMADO, platform, minTimestamp.toString())
+        } else if (platform != null) {
+            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status = ? AND UPPER(platform) = UPPER(?) ORDER BY timestamp DESC LIMIT 1"
+            args = arrayOf(RideRecord.STATUS_ESTIMADO, platform)
+        } else if (minTimestamp != null) {
+            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status = ? AND timestamp >= ? ORDER BY timestamp DESC LIMIT 1"
+            args = arrayOf(RideRecord.STATUS_ESTIMADO, minTimestamp.toString())
         } else {
-            arrayOf(RideRecord.STATUS_ESTIMADO)
+            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status = ? ORDER BY timestamp DESC LIMIT 1"
+            args = arrayOf(RideRecord.STATUS_ESTIMADO)
         }
 
         val cursor = db.rawQuery(sql, args)
@@ -464,6 +501,34 @@ class DatabaseHelper(context: Context) :
         }
         cursor.close()
         return ride
+    }
+
+    /** Retorna todas as corridas e ofertas de hoje (incluindo OFERTA) para auditoria no relatório de diagnóstico. */
+    fun getTodayAllRidesForDiagnostic(): List<RideRecord> {
+        val (start, end) = getPeriodRange("TODAY")
+        val list = mutableListOf<RideRecord>()
+        val db = readableDatabase
+        val cursor = db.rawQuery(
+            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE timestamp BETWEEN ? AND ? ORDER BY timestamp ASC",
+            arrayOf(start.toString(), end.toString())
+        )
+        while (cursor.moveToNext()) {
+            list.add(
+                RideRecord(
+                    id = cursor.getLong(0),
+                    platform = cursor.getString(1),
+                    grossPrice = cursor.getDouble(2),
+                    distanceKm = cursor.getDouble(3),
+                    netProfit = cursor.getDouble(4),
+                    timestamp = cursor.getLong(5),
+                    status = cursor.getString(6) ?: RideRecord.STATUS_ESTIMADO,
+                    cancellationFee = cursor.getDouble(7),
+                    originalPrice = cursor.getDouble(8)
+                )
+            )
+        }
+        cursor.close()
+        return list
     }
 
     fun insertExpense(category: String, amount: Double, desc: String): Long {

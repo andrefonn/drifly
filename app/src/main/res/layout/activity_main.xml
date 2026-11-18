@@ -1710,7 +1710,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:text="Modo Moto (Aceite com gesto de arrastar slider)"
+                        android:text="Modo Moto / Slider (usa swipe se não houver botão Aceitar)"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textColor="#F5F5F7" />
 

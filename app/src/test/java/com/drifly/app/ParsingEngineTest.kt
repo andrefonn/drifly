@@ -820,4 +820,281 @@ class ParsingEngineTest {
             ParsingEngine.parseNodes("com.app99.driver", mapWithTopPillAndKmOnly, 0.2148, 4.75f)
         )
     }
+
+    @Test
+    fun test99OfferWithPickupInMetersAndTripInKmIsParsedCorrectly() {
+        // Captura REAL do drifly_diag_20261114_125407.txt (11:41:30.348):
+        // Embarque "2 min (113 m)" + viagem "9 20 min (11,8 km)" antes descartava a corrida como R$ 14,10 / 0,11 km!
+        val realOfferTexts = listOf(
+            "11:41", "101", "99", "Moto", "ZONA INDUSTRIAL", "NORTE", "MORRO DO MEIO",
+            "R$14,10", "0% de Taxa99 semanal", "9 R$1,12 Tarifa base dinâmica incl.",
+            "* Passageiro novo CPF verif.", "2 min (113 m)", "9 20 min (11,8 km)", "9A 65%",
+            "Brasil Atacadista, Rua Albano Schmidt, 1200 - Boa", "Vista",
+            "Rua José Gorges Filho, 59, Vila Nova", "Aceitar", "X", "+", "Topo", "Joinville- Laurc", "COMA"
+        )
+
+        val offer = ParsingEngine.parseNodes("com.app99.driver", realOfferTexts, 0.2148, 4.75f)
+        assertNotNull("Oferta real da 99 com embarque em metros deve ser detectada", offer)
+        assertEquals(14.10, offer!!.price, 0.001)
+        assertEquals(11.91, offer.distanceKm, 0.02)
+        assertEquals(22, offer.durationMinutes)
+        assertEquals("Rua José Gorges Filho, 59, Vila Nova", offer.destinationAddress)
+    }
+
+    @Test
+    fun test99FreeGpsNavigationToDemandZoneIsNotActiveRideAndNotOffer() {
+        // Captura REAL do drifly_diag_20261114_125407.txt (10:49:56.398):
+        // Motorista clicou em "Navegar" no mapa de demanda da 99 (sem nenhuma corrida aceita).
+        val freeGpsNavTexts = listOf(
+            "58", "m", "Vire à esquerda", "Rua São Leopoldo, 129", "0", "km/h",
+            "15 min", "9,2 km", "Chegada prevista:", "11:04"
+        )
+
+        assertFalse(
+            "Navegação livre até zona de demanda NÃO pode ser classificada como corrida ativa",
+            ParsingEngine.isActiveRideOrNavigationScreen(freeGpsNavTexts)
+        )
+        assertEquals(
+            "ScreenRouter deve retornar Unknown para navegação livre sem corrida",
+            ScreenReading.Unknown,
+            ScreenRouter.read("com.app99.driver", freeGpsNavTexts, 0.2148, 4.75f, isRideCurrentlyActive = false)
+        )
+        assertNull(
+            "Navegação GPS sem card de oferta nunca deve gerar oferta mesmo se houver saldo na tela",
+            ParsingEngine.parseNodes("com.app99.driver", freeGpsNavTexts + listOf("R$ 47,40"), 0.2148, 4.75f)
+        )
+    }
+
+    @Test
+    fun test99ActiveRideSafetyBannerAndDropOffFromRealLog() {
+        // Log real 14:21:42: aviso de segurança nativo durante corrida ativa da 99
+        val safetyHudTexts = listOf(
+            "O passageiro pode gravar por segurança",
+            "Compartilhar rota?",
+            "Ajustes",
+            "0",
+            "km/h",
+            "Ir"
+        )
+        assertTrue(
+            "Aviso de segurança durante viagem da 99 deve indicar corrida ativa",
+            ParsingEngine.isActiveRideOrNavigationScreen(safetyHudTexts)
+        )
+        assertEquals(
+            ScreenReading.ActiveRide,
+            ScreenRouter.read("com.app99.driver", safetyHudTexts, 0.2148, 4.75f, isRideCurrentlyActive = false)
+        )
+
+        // Log real 14:27:43: tela de desembarque com "Pagamento no aplicativo"
+        val dropOffTexts = listOf("Chegada prevista: 14:28", "Pagamento no aplicativo", "R$ 5,20")
+        assertTrue(ParsingEngine.isActiveRideOrNavigationScreen(dropOffTexts))
+        assertEquals(
+            ScreenReading.ActiveRide,
+            ScreenRouter.read("com.app99.driver", dropOffTexts, 0.2148, 4.75f, isRideCurrentlyActive = false)
+        )
+
+        // Painel de histórico de corridas nunca deve marcar corrida ativa nem recibo
+        val historyPanelTexts = listOf("Histórico de corridas", "Ganhos", "R$ 21,00", "Pagamento no aplicativo")
+        assertFalse(ParsingEngine.isActiveRideOrNavigationScreen(historyPanelTexts))
+        assertEquals(
+            ScreenReading.Unknown,
+            ScreenRouter.read("com.app99.driver", historyPanelTexts, 0.2148, 4.75f, isRideCurrentlyActive = true)
+        )
+    }
+
+    @Test
+    fun test99PostRideRatingAndSafetyReceiptRequiresActiveRide() {
+        // Log real 14:27:45 e 14:27:50: telas pós-corrida da 99 sem tela prévia de "Você ganhou R$"
+        val ratingScreenTexts = listOf(
+            "Como foi sua corrida com João?",
+            "Seu feedback sincero pode ajudar",
+            "Avaliar como anônimo",
+            "Enviar"
+        )
+        val safetyCheckTexts = listOf(
+            "Você se sentiu seguro(a) nesta corrida?",
+            "Sim",
+            "Não"
+        )
+
+        val ratingReadingActive = ScreenRouter.read(
+            "com.app99.driver", ratingScreenTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(ratingReadingActive is ScreenReading.Receipt)
+        val ratingReceipt = (ratingReadingActive as ScreenReading.Receipt).receipt
+        assertTrue(ratingReceipt.isCompleted)
+        assertNull(ratingReceipt.finalPrice)
+        assertEquals(RideRecord.STATUS_CONCLUIDO, ratingReceipt.status)
+
+        val safetyReadingActive = ScreenRouter.read(
+            "com.app99.driver", safetyCheckTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(safetyReadingActive is ScreenReading.Receipt)
+        assertTrue((safetyReadingActive as ScreenReading.Receipt).receipt.isCompleted)
+
+        // Sem corrida ativa, telas de avaliação não devem disparar recibo falso
+        assertEquals(
+            ScreenReading.Unknown,
+            ScreenRouter.read("com.app99.driver", ratingScreenTexts, 0.2148, 4.75f, isRideCurrentlyActive = false)
+        )
+        assertEquals(
+            ScreenReading.Unknown,
+            ScreenRouter.read("com.app99.driver", safetyCheckTexts, 0.2148, 4.75f, isRideCurrentlyActive = false)
+        )
+    }
+
+    @Test
+    fun testShouldVerifyFlutterLayerViaOcrFor99HybridScreens() {
+        val nativeGpsHud = listOf("109", "m", "R. Jacob Richlin", "Rua Corupá, 386", "12", "km/h")
+        assertTrue(ParsingEngine.shouldVerifyFlutterLayerViaOcr("com.app99.driver", nativeGpsHud, hasPendingOffer = false))
+        assertTrue(ParsingEngine.shouldVerifyFlutterLayerViaOcr("com.app99.driver", nativeGpsHud, hasPendingOffer = true))
+
+        assertFalse(
+            ParsingEngine.shouldVerifyFlutterLayerViaOcr(
+                "com.app99.driver",
+                listOf("Buscando", "Recompensas", "R$ 15,80"),
+                hasPendingOffer = true
+            )
+        )
+        assertFalse(
+            ParsingEngine.shouldVerifyFlutterLayerViaOcr(
+                "com.app99.driver",
+                listOf("Histórico de corridas", "Ganhos"),
+                hasPendingOffer = false
+            )
+        )
+        assertFalse(
+            ParsingEngine.shouldVerifyFlutterLayerViaOcr(
+                "com.app99.driver",
+                listOf("Rua São Leopoldo, 129", "Demanda alta", "Navegar", "Como funciona o mapa"),
+                hasPendingOffer = false
+            )
+        )
+        assertFalse(
+            ParsingEngine.shouldVerifyFlutterLayerViaOcr(
+                "com.ubercab.driver",
+                nativeGpsHud,
+                hasPendingOffer = true
+            )
+        )
+    }
+
+    @Test
+    fun testAcceptActionTextHandlesOcrArtifactsAndAvoidsRateText() {
+        assertTrue(ParsingEngine.isAcceptActionText("Aceitar >"))
+        assertTrue(ParsingEngine.isAcceptActionText("Aceitar"))
+        assertTrue(ParsingEngine.isAcceptActionText("Pegar!"))
+        assertFalse(ParsingEngine.isAcceptActionText("Taxa de Aceitação"))
+        assertFalse(ParsingEngine.isAcceptActionText("Aceitar ✅"))
+    }
+
+    @Test
+    fun testNov16CashRideDropOffScreenIsActiveRideAndNotPickupPhase() {
+        // Log real 16/11 13:13:57: aproximação final de corrida em dinheiro na 99
+        val cashDropOffTexts = listOf(
+            "13:13 9 99", "0", "km/h", "60", "m", "Av. Paulo...",
+            "1 min 60 m", "• Chegada prevista: 13:14",
+            "$ Corrida em dinheiro", "Cobrar pagamento"
+        )
+        assertTrue(ParsingEngine.isActiveRideOrNavigationScreen(cashDropOffTexts))
+        assertFalse(
+            "Tela de desembarque/cobrança não pode ser confundida com início de fase de embarque",
+            ParsingEngine.isPickupPhaseScreen(cashDropOffTexts)
+        )
+        assertTrue(
+            ParsingEngine.isPickupPhaseScreen(
+                listOf("13:16 9 99", "18 km/h", "A caminho do passageiro", "Cheguei ao local")
+            )
+        )
+    }
+
+    @Test
+    fun testNov16CashCollectionAndRatingScreensCompleteRideWithCorrectPrice() {
+        // 1. Log real 16/11 13:14:40: "Seus ganhos | Cobrar do passageiro | R$16,64 | Detalhes da tarifa | ... | R$17,80"
+        val cashCollectionTexts = listOf(
+            "13:14 | 99", "Seus ganhos", "1$1 Cobrar do passageiro", "R$16,64",
+            "Detalhes da tarifa", "Valor devolvido após o pagamento (prÓximo seg)",
+            "Receba em dinheiro ou Pix", "O passageiro pagou", "R$17,80"
+        )
+        val cashReading = ScreenRouter.read(
+            "com.app99.driver", cashCollectionTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue("Tela 'Cobrar do passageiro' deve gerar recibo de conclusão", cashReading is ScreenReading.Receipt)
+        val cashReceipt = (cashReading as ScreenReading.Receipt).receipt
+        assertTrue(cashReceipt.isCompleted)
+        assertTrue(cashReceipt.isCashCollectionScreen)
+        assertEquals(17.80, cashReceipt.finalPrice ?: 0.0, 0.001)
+
+        // 2. Log real 16/11 13:15:00: "R$16,64 | Pagamento recebido! | Confirmar | Verificar pagamento >"
+        // Deve concluir mantendo finalPrice = null para nunca sobrescrever originalPrice (R$17,80) com troco/parcial (R$16,64)
+        val paymentReceivedTexts = listOf(
+            "13:14 9 | 99", "R$16,64", "Pagamento recebido!", "Confirmar", "♡A N42%", "Verificar pagamento >"
+        )
+        val paymentReading = ScreenRouter.read(
+            "com.app99.driver", paymentReceivedTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(paymentReading is ScreenReading.Receipt)
+        val paymentReceipt = (paymentReading as ScreenReading.Receipt).receipt
+        assertTrue(paymentReceipt.isCompleted)
+        assertNull("Pagamento recebido! não deve sobrescrever o valor da corrida com o valor parcial em dinheiro", paymentReceipt.finalPrice)
+
+        // 3. Log real 16/11 13:15:05: modal "Como foi sua corrida com Carla Cristina?" sobreposto a "Seus ganhos"
+        val ratingOverCashTexts = listOf(
+            "13:15 90 99", "Seus ganhos", "1$1 Cobrar do passageiro", "R$16,64",
+            "Avaliar como anônimo", "Ajuda", "R$17,80",
+            "Como foi sua corrida com Carla Cristina?",
+            "Seu feedback sincero pode ajudar outros motoristas"
+        )
+        val ratingReading = ScreenRouter.read(
+            "com.app99.driver", ratingOverCashTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(ratingReading is ScreenReading.Receipt)
+        assertTrue((ratingReading as ScreenReading.Receipt).receipt.isCompleted)
+
+        // 4. Log real 16/11 13:15:15: modal "Você gostou do local de desembarque?" sobreposto a "Seus ganhos"
+        val dropoffFeedbackTexts = listOf(
+            "13:15 9 99", "Seus ganhos", "1$1 Cobrar do passageiro", "R$16,64",
+            "Você gostou do local de desembarque?", "Ajuda", "R$17,80", "Sim", "X"
+        )
+        val dropoffReading = ScreenRouter.read(
+            "com.app99.driver", dropoffFeedbackTexts, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(dropoffReading is ScreenReading.Receipt)
+        assertTrue((dropoffReading as ScreenReading.Receipt).receipt.isCompleted)
+
+        // 5. Log real 16/11 13:15:20 e 14/11 14:40:14: "Valor da corrida | +R$17,80 | ... | Buscando"
+        val postRideSummaryToast = listOf(
+            "13:15 9 99", "Valor da corrida", "+R$17,80",
+            "Você ganhou R$84,1 com o pacote 0% de", "Taxa", "GANHERS500", "Buscando", "X", "%"
+        )
+        val summaryReading = ScreenRouter.read(
+            "com.app99.driver", postRideSummaryToast, 0.2148, 4.75f, isRideCurrentlyActive = true
+        )
+        assertTrue(summaryReading is ScreenReading.Receipt)
+        val summaryReceipt = (summaryReading as ScreenReading.Receipt).receipt
+        assertTrue(summaryReceipt.isCompleted)
+        assertFalse(summaryReceipt.isCashCollectionScreen)
+        assertEquals(17.80, summaryReceipt.finalPrice ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun testNov16TopBalancePillAndNov14TruncatedPromoBannerNeverBecomeOffers() {
+        // Log real 16/11 13:15:25: pílula do topo "Taxa | R$88,95 | Ver" com escala do mapa "200 m"
+        val topBalancePillTexts = listOf(
+            "13:15 0 99", ")", "On:", "ha Frd", "Taxa", "R$88,95", "Ver", "200 m", "500 ft"
+        )
+        assertNull(
+            "Pílula de saldo acumulado R$88,95 no topo do mapa nunca pode virar oferta",
+            ParsingEngine.parseNodes("com.app99.driver", topBalancePillTexts, 0.2148, 4.75f)
+        )
+
+        // Log real 14/11 14:40:21: banner promocional truncado pelo OCR "...ou R$68,4 com" + escala "200 m"
+        val truncatedPromoTexts = listOf(
+            "14:40 M 99", "Taxa", "Ver", "ou R$68,4 com", "GANHERS500", "200 m", "500 ft"
+        )
+        assertNull(
+            "Banner promocional truncado 'ou R$68,4 com' nunca pode virar oferta",
+            ParsingEngine.parseNodes("com.app99.driver", truncatedPromoTexts, 0.2148, 4.75f)
+        )
+    }
 }
