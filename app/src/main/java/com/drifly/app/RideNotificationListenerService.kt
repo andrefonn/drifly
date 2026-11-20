@@ -7,7 +7,6 @@ import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import java.util.Locale
-import java.util.regex.Pattern
 
 import android.util.Log
 
@@ -84,7 +83,14 @@ class RideNotificationListenerService : NotificationListenerService() {
             return
         }
 
-        // 2. Se o monitoramento ativo estiver ligado, tenta extrair oferta de corrida
+        // 2. Conclusão/pagamento/antecipação: confirma a corrida pendente SEM usar o valor da
+        // notificação como tarifa (antecipação/bônus não é o ganho da corrida).
+        if (ParsingEngine.isCompletionOrAnticipationNotification(combinedContent)) {
+            handleCompletionNotification(packageName)
+            return
+        }
+
+        // 3. Se o monitoramento ativo estiver ligado, tenta extrair oferta de corrida
         if (prefs.isMonitoringActive) {
             val candidateTexts = mutableListOf<String>()
             if (title.isNotBlank()) candidateTexts.add(title)
@@ -93,7 +99,7 @@ class RideNotificationListenerService : NotificationListenerService() {
             if (subText.isNotBlank()) candidateTexts.add(subText)
             if (ticker.isNotBlank()) candidateTexts.add(ticker)
 
-            if (candidateTexts.isNotEmpty()) {
+            if (candidateTexts.isNotEmpty() && ParsingEngine.isLikelyRideOfferNotification(candidateTexts)) {
                 val offer = ParsingEngine.parseNodes(
                     packageName = packageName,
                     texts = candidateTexts,
@@ -119,7 +125,8 @@ class RideNotificationListenerService : NotificationListenerService() {
                             distance = offer.distanceKm,
                             net = offer.netProfit,
                             status = RideRecord.STATUS_OFERTA,
-                            originalPrice = offer.price
+                            originalPrice = offer.price,
+                            acceptanceEvidence = RideRecord.EVIDENCE_OFFER
                         )
 
                         // Armazena como oferta pendente associada ao ID registrado
@@ -137,6 +144,29 @@ class RideNotificationListenerService : NotificationListenerService() {
         }
     }
 
+    private fun handleCompletionNotification(packageName: String) {
+        val platform = ParsingEngine.resolvePlatform(packageName)
+        if (platform == "CORRIDA") return
+        val ride = db.getLatestEstimatedRide(platform, maxAgeMs = MAX_COMPLETION_RIDE_AGE_MS) ?: return
+        // A notificação de pagamento/antecipação NÃO é a tarifa: preserva o valor original da oferta.
+        // A tela de recibo, quando disponível, é quem pode corrigir o valor depois.
+        val cost = ride.distanceKm * prefs.costPerKm
+        val net = Math.max(0.0, Math.round((ride.originalPrice - cost) * 100.0) / 100.0)
+        db.updateRidePrice(
+            ride.id,
+            ride.originalPrice,
+            net,
+            RideRecord.STATUS_CONCLUIDO,
+            RideRecord.EVIDENCE_NOTIFICATION
+        )
+        try {
+            Log.i(TAG, "CONCLUSAO VIA NOTIFICACAO [${ride.platform}]: corrida #${ride.id} confirmada com valor original R$ ${ride.originalPrice}")
+        } catch (ignored: Throwable) {}
+        sendBroadcast(Intent(RotaAccessibilityService.ACTION_RIDE_UPDATED).apply {
+            setPackage(this@RideNotificationListenerService.packageName)
+        })
+    }
+
     private fun handleCancellationEvent(event: CancellationEvent) {
         // Busca a corrida estimada ativa (máx 30 min) estritamente da mesma plataforma da notificação.
         // Se a corrida acabou de ser auto-concluída nos últimos 20s ao voltar para a tela ociosa,
@@ -149,7 +179,12 @@ class RideNotificationListenerService : NotificationListenerService() {
             }
 
         if (targetRide != null) {
-            db.updateRideStatus(targetRide.id, event.status, event.fee)
+            db.updateRideStatus(
+                targetRide.id,
+                event.status,
+                event.fee,
+                if (event.fee > 0.0) RideRecord.EVIDENCE_EXPLICIT_FEE else RideRecord.EVIDENCE_CANCEL
+            )
 
             val intent = Intent(ACTION_RIDE_CANCELLED_DETECTED).apply {
                 putExtra("EXTRA_RIDE_ID", targetRide.id)
@@ -166,6 +201,7 @@ class RideNotificationListenerService : NotificationListenerService() {
         private const val TAG = "RideNotificationListener"
         const val ACTION_RIDE_CANCELLED_DETECTED = "com.drifly.app.ACTION_RIDE_CANCELLED"
         private const val MAX_CANCELLATION_RIDE_AGE_MS = 30 * 60 * 1000L
+        private const val MAX_COMPLETION_RIDE_AGE_MS = 4 * 60 * 60 * 1000L
 
         // Avisos de expiração/cancelamento de OFERTA antes do aceite (não devem cancelar corrida anterior)
         private val NON_RIDE_CANCEL_MARKERS = listOf(
@@ -217,7 +253,6 @@ class RideNotificationListenerService : NotificationListenerService() {
             "0.00"
         )
 
-        private val FEE_REGEX = Pattern.compile("r\\$\\s*([0-9]+(?:[\\.,][0-9]{3})*[\\.,][0-9]{2}|[0-9]+(?:[\\.,][0-9]{2})?)", Pattern.CASE_INSENSITIVE)
 
         fun parseCancellationNotification(packageName: String, content: String): CancellationEvent? {
             val pkg = packageName.lowercase(Locale.ROOT)
@@ -256,34 +291,10 @@ class RideNotificationListenerService : NotificationListenerService() {
                 )
             }
 
-            // Tenta extrair taxa explícita da notificação (ex: "Taxa de cancelamento de R$ 5,50" ou "R$ 0,00")
-            var extractedFee: Double? = null
-            val matcher = FEE_REGEX.matcher(content)
-            if (matcher.find()) {
-                val feeStr = matcher.group(1)?.replace(".", "")?.replace(",", ".")
-                val parsed = feeStr?.toDoubleOrNull()
-                if (parsed != null) {
-                    if (parsed == 0.0) {
-                        return CancellationEvent(
-                            platform = platform,
-                            isCancelled = true,
-                            fee = 0.0,
-                            status = RideRecord.STATUS_CANCELADO,
-                            reason = "Cancelada com taxa zero"
-                        )
-                    } else if (parsed > 0.0) {
-                        extractedFee = parsed
-                    }
-                }
-            }
-
-            val standardFee = when (platform) {
-                "99" -> 3.00
-                "UBER" -> 5.50
-                else -> 0.0
-            }
-
-            val finalFee = extractedFee ?: standardFee
+            // Só aceita taxa quando a notificação traz uma frase explícita de cobrança de cancelamento.
+            // Nunca usa taxa padrão nem o primeiro R$ da notificação (saldo/antecipação viravam taxa).
+            val extractedFee = ParsingEngine.extractExplicitCancellationFee(listOf(content))
+            val finalFee = extractedFee ?: 0.0
             val status = if (finalFee > 0.0) RideRecord.STATUS_CANCELADO_TAXA else RideRecord.STATUS_CANCELADO
 
             return CancellationEvent(

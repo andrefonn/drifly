@@ -37,6 +37,28 @@ object AcceptanceRules {
     ): Boolean =
         hasPending && !offerArrivedDuringRide && isPendingStillValid(pendingTimestamp, now)
 
+    /**
+     * Corrida consecutiva aceita dentro do app durante a viagem anterior: a única prova aceitável é
+     * a tela entrar na FASE DE EMBARQUE da nova corrida. Endereço genérico no HUD da corrida anterior
+     * NÃO prova aceite (foi o furo da 1.1.9).
+     */
+    fun canCommitOnConsecutivePickupTransition(
+        hasPending: Boolean,
+        pendingTimestamp: Long,
+        now: Long,
+        offerArrivedDuringRide: Boolean,
+        activeRideSeenDropoffPhase: Boolean,
+        lastAcceptedTimestamp: Long,
+        samePlatform: Boolean,
+        isPickupPhase: Boolean
+    ): Boolean {
+        if (!hasPending || !offerArrivedDuringRide || !activeRideSeenDropoffPhase) return false
+        if (!samePlatform || !isPickupPhase) return false
+        if ((now - pendingTimestamp) !in 0..120_000L) return false
+        if ((now - lastAcceptedTimestamp) < 60_000L) return false
+        return true
+    }
+
     enum class PostTapOutcome {
         CONFIRMED,
         FAILED,

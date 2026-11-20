@@ -6,7 +6,7 @@ import org.junit.Test
 class CancellationAndLifecycleTest {
 
     @Test
-    fun testUberCancellationNotificationWithStandardFee() {
+    fun testUberCancellationNotificationWithoutExplicitAmountNeverInventsStandardFee() {
         val event = RideNotificationListenerService.parseCancellationNotification(
             packageName = "com.ubercab.driver",
             content = "Viagem cancelada pelo passageiro. Uma taxa de cancelamento foi aplicada à sua conta."
@@ -15,12 +15,12 @@ class CancellationAndLifecycleTest {
         assertNotNull("Event should be detected as cancellation", event)
         assertTrue(event!!.isCancelled)
         assertEquals("UBER", event.platform)
-        assertEquals(5.50, event.fee, 0.001)
-        assertEquals(RideRecord.STATUS_CANCELADO_TAXA, event.status)
+        assertEquals(0.0, event.fee, 0.001)
+        assertEquals(RideRecord.STATUS_CANCELADO, event.status)
     }
 
     @Test
-    fun test99CancellationNotificationWithStandardFee() {
+    fun test99CancellationNotificationWithoutExplicitAmountNeverInventsStandardFee() {
         val event = RideNotificationListenerService.parseCancellationNotification(
             packageName = "com.app99.driver",
             content = "Corrida cancelada pelo passageiro."
@@ -29,8 +29,8 @@ class CancellationAndLifecycleTest {
         assertNotNull(event)
         assertTrue(event!!.isCancelled)
         assertEquals("99", event.platform)
-        assertEquals(3.00, event.fee, 0.001)
-        assertEquals(RideRecord.STATUS_CANCELADO_TAXA, event.status)
+        assertEquals(0.0, event.fee, 0.001)
+        assertEquals(RideRecord.STATUS_CANCELADO, event.status)
     }
 
     @Test
@@ -101,8 +101,8 @@ class CancellationAndLifecycleTest {
         assertTrue(result!!.isCancelled)
         assertFalse(result.isCompleted)
         assertEquals("99", result.platform)
-        assertEquals(3.00, result.cancellationFee ?: 0.0, 0.001)
-        assertEquals(RideRecord.STATUS_CANCELADO_TAXA, result.status)
+        assertEquals(0.0, result.cancellationFee ?: 0.0, 0.001)
+        assertEquals(RideRecord.STATUS_CANCELADO, result.status)
     }
 
     @Test
@@ -445,7 +445,112 @@ class CancellationAndLifecycleTest {
         val cancelReceipt = ParsingEngine.parseReceipt("com.app99.driver", cancelOverMapHeader)
         assertNotNull(cancelReceipt)
         assertTrue(cancelReceipt!!.isCancelled)
-        assertEquals(3.00, cancelReceipt.cancellationFee ?: 0.0, 0.001)
+        assertEquals(0.0, cancelReceipt.cancellationFee ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun testBillableRulesExcludeLegacyAndDuplicates() {
+        assertTrue(RideRecord.isBillable(RideRecord.STATUS_CONCLUIDO, RideRecord.EVIDENCE_RECEIPT, 0.0))
+        assertTrue(RideRecord.isBillable(RideRecord.STATUS_ESTIMADO, RideRecord.EVIDENCE_CLICK, 0.0))
+        assertFalse(RideRecord.isBillable(RideRecord.STATUS_ESTIMADO, RideRecord.EVIDENCE_LEGACY, 0.0))
+        assertFalse(RideRecord.isBillable(RideRecord.STATUS_ESTIMADO, RideRecord.EVIDENCE_SUSPECT, 0.0))
+        assertFalse(RideRecord.isBillable(RideRecord.STATUS_OFERTA, RideRecord.EVIDENCE_OFFER, 0.0))
+        assertFalse(RideRecord.isBillable(RideRecord.STATUS_DUPLICADO, RideRecord.EVIDENCE_DUPLICATE, 0.0))
+        assertFalse(RideRecord.isBillable(RideRecord.STATUS_CANCELADO, RideRecord.EVIDENCE_CANCEL, 0.0))
+        assertFalse(RideRecord.isBillable(RideRecord.STATUS_CANCELADO_TAXA, RideRecord.EVIDENCE_EXPLICIT_FEE, 0.0))
+        assertTrue(RideRecord.isBillable(RideRecord.STATUS_CANCELADO_TAXA, RideRecord.EVIDENCE_EXPLICIT_FEE, 4.25))
+    }
+
+    @Test
+    fun testActiveRideWithOfferCancelToastIsNotRideCancellation() {
+        // Log real de 19/11 09:24:54 e 12:16:19: toast "OK, corrida cancelada" da OFERTA
+        // enquanto a corrida atual continua na tela ("Finalizar corrida" + "Chegada prevista").
+        val texts = listOf(
+            "09:24 99",
+            "Rua Blumenau, 334, Centro, Joinville - SC",
+            "OK, corrida cancelada",
+            "Finalizar corrida",
+            "1 min 76 m",
+            "Chegada prevista: 09:24"
+        )
+        val result = ParsingEngine.parseReceipt("com.app99.driver", texts)
+        assertNull("Cancelamento de oferta durante corrida ativa não pode gerar taxa na corrida", result)
+    }
+
+    @Test
+    fun testDriverCancellationPromptIsRecognizedAndNotAReceipt() {
+        val texts = listOf(
+            "Deseja mesmo cancelar esta corrida?",
+            "Não cancelar",
+            "Cancelar"
+        )
+        assertTrue(ParsingEngine.isDriverCancellationPromptScreen(texts))
+        assertNull(ParsingEngine.parseReceipt("com.app99.driver", texts))
+    }
+
+    @Test
+    fun testExplicitCancellationFeeWinsAndBannerNeverBecomesFee() {
+        val explicit = ParsingEngine.parseReceipt(
+            "com.app99.driver",
+            listOf("Corrida cancelada", "Taxa de cancelamento: R$ 4,25")
+        )
+        assertNotNull(explicit)
+        assertEquals(4.25, explicit!!.cancellationFee ?: 0.0, 0.001)
+        assertEquals(RideRecord.STATUS_CANCELADO_TAXA, explicit.status)
+
+        // Botão "Cancelar corrida" sozinho não pode esconder um recibo real de cancelamento.
+        val withCancelButton = ParsingEngine.parseReceipt(
+            "com.app99.driver",
+            listOf("Corrida cancelada pelo passageiro", "Cancelar corrida", "Taxa de cancelamento: R$ 4,00")
+        )
+        assertNotNull(withCancelButton)
+        assertEquals(4.00, withCancelButton!!.cancellationFee ?: 0.0, 0.001)
+
+        val banner = ParsingEngine.parseReceipt(
+            "com.app99.driver",
+            listOf("13:15 99", "Taxa", "R$88,95", "Ver", "Corrida cancelada")
+        )
+        assertNotNull(banner)
+        assertEquals(0.0, banner!!.cancellationFee ?: 0.0, 0.001)
+
+        val feeNearBalance = ParsingEngine.parseReceipt(
+            "com.app99.driver",
+            listOf("Corrida cancelada", "Taxa de cancelamento aplicada. Seu saldo é R$ 88,95")
+        )
+        assertNotNull(feeNearBalance)
+        assertEquals(0.0, feeNearBalance!!.cancellationFee ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun testAnticipationNotificationNeverCreatesOfferAndCompletionPreservesFare() {
+        assertTrue(
+            ParsingEngine.isCompletionOrAnticipationNotification(
+                "Você recebeu uma antecipação da corrida. Pagamento recebido!"
+            )
+        )
+        assertTrue(
+            ParsingEngine.isCompletionOrAnticipationNotification(
+                "Você recebeu um bônus de R$ 5,00 pela corrida"
+            )
+        )
+        assertFalse(
+            ParsingEngine.isCompletionOrAnticipationNotification(
+                "Complete 10 corridas e ganhe bônus"
+            )
+        )
+        assertFalse(
+            ParsingEngine.isCompletionOrAnticipationNotification(
+                "Antecipação da corrida disponível"
+            )
+        )
+        assertFalse(
+            ParsingEngine.isLikelyRideOfferNotification(
+                listOf("Você recebeu R$ 3,82 de antecipação da corrida")
+            )
+        )
+        assertTrue(ParsingEngine.isPlausibleFinalFare(5.10, 5.10))
+        assertFalse(ParsingEngine.isPlausibleFinalFare(96.65, 12.30))
+        assertFalse(ParsingEngine.isPlausibleFinalFare(27.45, 5.10))
     }
 }
 

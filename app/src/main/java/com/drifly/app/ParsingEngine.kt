@@ -241,6 +241,21 @@ object ParsingEngine {
         "faturamento",
         "atingido",
         "meta:",
+        "antecip",
+        "antecipação",
+        "antecipacao",
+        "adiant",
+        "bônus",
+        "bonus",
+        "recebíveis",
+        "recebiveis",
+        "cashback",
+        "carteira",
+        "valor devolvido",
+        "devolvido após",
+        "devolvido apos",
+        "próxima seg",
+        "proxima seg",
         "entrega moto, entrega moto"
     )
 
@@ -879,12 +894,23 @@ object ParsingEngine {
         var legCount = 0
         var legDistanceAccum = 0.0
         var legMinutesAccum = 0
+        var firstLegKm: Double? = null
+        var firstLegMinutes: Int? = null
+        var remainingLegKmAccum = 0.0
+        var remainingLegMinutesAccum = 0
         for (text in cleanTexts) {
             val matcher = REGEX_TRECHO_MIN_KM.matcher(text)
             while (matcher.find()) {
                 val mins = matcher.group(1)?.toIntOrNull()
                 val km = extractLegKm(matcher)
                 if (mins != null && km != null) {
+                    if (legCount == 0) {
+                        firstLegKm = km
+                        firstLegMinutes = mins
+                    } else {
+                        remainingLegKmAccum += km
+                        remainingLegMinutesAccum += mins
+                    }
                     legDistanceAccum += km
                     legMinutesAccum += mins
                     legCount++
@@ -895,6 +921,18 @@ object ParsingEngine {
             legsDistanceSum = Math.round(legDistanceAccum * 100.0) / 100.0
             legsDurationSum = legMinutesAccum
         }
+
+        // Trechos detalhados preservados para a notificação (análise completa).
+        // Quando o card não rotula os trechos, o primeiro "X min (Y km)" é o embarque e o restante é a viagem.
+        val pickupLegKm = pickupDistKm
+            ?: if (legCount >= 2) firstLegKm else null
+        val tripLegKm = when {
+            tripDistKm != null -> tripDistKm
+            legCount >= 2 -> Math.round(remainingLegKmAccum * 100.0) / 100.0
+            else -> null
+        }
+        val pickupLegMinutes = if (legCount >= 2) firstLegMinutes else null
+        val tripLegMinutes = if (legCount >= 2 && remainingLegMinutesAccum > 0) remainingLegMinutesAccum else null
 
         // Determinação da distância final:
         // Se houver total explícito, usa ele
@@ -996,7 +1034,11 @@ object ParsingEngine {
                 passengerRating = rating,
                 isLowRating = isLow,
                 destinationAddress = destinationAddress,
-                pickupAddress = pickupAddress
+                pickupAddress = pickupAddress,
+                pickupDistanceKm = pickupLegKm,
+                tripDistanceKm = tripLegKm,
+                pickupDurationMinutes = pickupLegMinutes,
+                tripDurationMinutes = tripLegMinutes
             )
         }
 
@@ -1052,6 +1094,116 @@ object ParsingEngine {
         return addresses.lastOrNull()
     }
 
+    /**
+     * Diálogo em que o MOTORISTA confirma o cancelamento da corrida. Não é recibo: a tela ainda está
+     * ativa e o motorista pode tocar em "Não cancelar". O serviço usa isso para, se a tela voltar ao
+     * ocioso logo depois, marcar a corrida como CANCELADA sem taxa em vez de auto-concluir.
+     */
+    fun isDriverCancellationPromptScreen(texts: List<String>): Boolean {
+        if (texts.isEmpty()) return false
+        val joined = texts.joinToString(" ").lowercase()
+        val hasPrompt = joined.contains("deseja mesmo cancelar") ||
+            joined.contains("tem certeza que deseja cancelar") ||
+            joined.contains("por favor, nos conte o motivo") ||
+            joined.contains("por favor, nos conte o motiv") ||
+            (joined.contains("não cancelar") && joined.contains("cancelar")) ||
+            (joined.contains("nao cancelar") && joined.contains("cancelar"))
+        return hasPrompt && !joined.contains("corrida cancelada") && !joined.contains("viagem cancelada")
+    }
+
+    /**
+     * Extrai taxa APENAS quando existe uma frase explícita de cobrança de cancelamento perto do valor.
+     * Nunca usa o primeiro R$ da tela e nunca assume a taxa padrão da plataforma.
+     */
+    fun extractExplicitCancellationFee(texts: List<String>): Double? {
+        if (texts.isEmpty()) return null
+        val joined = texts.joinToString(" \n ").lowercase()
+        val phrases = listOf(
+            "taxa de cancelamento",
+            "taxa recebida",
+            "taxa cobrada",
+            "cobrança de cancelamento",
+            "cobranca de cancelamento"
+        )
+        for (phrase in phrases) {
+            var from = joined.indexOf(phrase)
+            while (from >= 0) {
+                val start = (from - 80).coerceAtLeast(0)
+                val end = (from + phrase.length + 80).coerceAtMost(joined.length)
+                val window = joined.substring(start, end)
+                if (NON_FARE_PRICE_MARKERS.none { window.contains(it) }) {
+                    val matcher = REGEX_PRECO_EXPLICITO.matcher(window)
+                    if (matcher.find()) {
+                        val parsed = matcher.group(1)?.let { parseMoneyValue(it) }
+                        if (parsed != null && parsed in 0.0..100.0) return parsed
+                    }
+                }
+                from = joined.indexOf(phrase, from + phrase.length)
+            }
+        }
+        return null
+    }
+
+    /** Evita que banner/antecipação/bônus entre como tarifa final. */
+    fun isPlausibleFinalFare(finalPrice: Double, originalPrice: Double): Boolean {
+        if (finalPrice <= 0.0) return false
+        if (originalPrice <= 0.0) return true
+        val lower = originalPrice * 0.5
+        val upper = originalPrice * 2.0 + 10.0
+        return finalPrice in lower..upper
+    }
+
+    /** Textos que NUNCA são uma oferta de corrida (antecipação, bônus, saldo, pacote, etc.). */
+    fun isNonFareNotificationText(content: String): Boolean {
+        val lower = content.lowercase()
+        val markers = listOf(
+            "antecip", "adiant", "bônus", "bonus", "saldo", "pacote 0%", "com o pacote",
+            "recebíveis", "recebiveis", "cashback", "carteira", "ganhos do dia", "ganhos de hoje",
+            "valor devolvido", "devolvido após", "proxima seg", "próxima seg", "promoção", "promocao"
+        )
+        return markers.any { lower.contains(it) }
+    }
+
+    /** Só permite que uma notificação vire oferta se ela tiver sinais reais de card de corrida. */
+    fun isLikelyRideOfferNotification(texts: List<String>): Boolean {
+        if (texts.isEmpty()) return false
+        val joined = texts.joinToString(" ").lowercase()
+        if (isNonFareNotificationText(joined)) return false
+        val hasOfferSignal = joined.contains("nova corrida") ||
+            joined.contains("nova viagem") ||
+            joined.contains("corrida disponível") ||
+            joined.contains("corrida disponivel") ||
+            joined.contains("aceitar") ||
+            joined.contains("passageiro") ||
+            joined.contains("embarque") ||
+            joined.contains("destino") ||
+            joined.contains("solicitação") ||
+            joined.contains("solicitacao")
+        return hasOfferSignal
+    }
+
+    /**
+     * Notificação de conclusão/pagamento. "Antecipação" só conta quando o texto também fala de
+     * corrida/viagem/pagamento; um aviso genérico de recebíveis não pode finalizar corrida.
+     */
+    fun isCompletionOrAnticipationNotification(content: String): Boolean {
+        val lower = content.lowercase()
+        val hasCompletion = lower.contains("pagamento recebido") ||
+            lower.contains("corrida finalizada") ||
+            lower.contains("viagem finalizada") ||
+            lower.contains("corrida concluída") ||
+            lower.contains("corrida concluida") ||
+            lower.contains("viagem concluída") ||
+            lower.contains("viagem concluida") ||
+            lower.contains("pagamento confirmado")
+        if (hasCompletion) return true
+        val hasAnticipation = lower.contains("antecip") || lower.contains("adiant")
+        val hasBonus = lower.contains("bônus") || lower.contains("bonus")
+        val hasRideContext = lower.contains("corrida") || lower.contains("viagem") || lower.contains("pagamento")
+        val hasReceived = lower.contains("receb") || lower.contains("credit") || lower.contains("pago") || lower.contains("pagamento")
+        return (hasAnticipation || hasBonus) && hasRideContext && hasReceived
+    }
+
     fun parseReceipt(packageName: String, texts: List<String>): ReceiptResult? {
         if (texts.isEmpty()) return null
         if (packageName.contains("com.drifly.app", ignoreCase = true)) return null
@@ -1067,6 +1219,9 @@ object ParsingEngine {
         if (HISTORY_OR_SETTINGS_MARKERS.any { joined.contains(it) }) {
             return null
         }
+
+        // Diálogo "Deseja mesmo cancelar esta corrida?" não é recibo: o motorista ainda pode desistir.
+        if (isDriverCancellationPromptScreen(cleanTexts)) return null
 
         // 1. Verifica Cancelamento em Tela (ignorando avisos de oferta/solicitação expirada antes do aceite)
         val isOfferOnlyCancellation = joined.contains("solicitação cancelada") ||
@@ -1092,6 +1247,16 @@ object ParsingEngine {
                 joined.contains("ride cancelled")
         )
 
+        // "OK, corrida cancelada" também aparece quando o motorista recusa uma OFERTA consecutiva.
+        // Se a tela ainda tem a corrida ativa (Finalizar corrida / Chegada prevista / GPS), isso NÃO é
+        // recibo de cancelamento da corrida. Era exatamente a causa da taxa fantasma #193/#215.
+        if (isCancelled && (isInTripOrDropoffPhaseScreen(cleanTexts) ||
+                joined.contains("chegada prevista") ||
+                joined.contains("km/h"))
+        ) {
+            return null
+        }
+
         if (isCancelled) {
             val hasNoFee = joined.contains("sem taxa") ||
                 joined.contains("sem cobrança") ||
@@ -1115,41 +1280,9 @@ object ParsingEngine {
                 )
             }
 
-            var detectedFee: Double? = null
-            for (i in cleanTexts.indices) {
-                if (isMapHeaderPriceToken(cleanTexts, i, span = 1)) continue
-                val text = cleanTexts[i]
-                val lineLower = text.lowercase()
-                if (NON_FARE_PRICE_MARKERS.any { lineLower.contains(it) } || isPromoBannerText(lineLower)) continue
-                val mPreco = REGEX_PRECO_EXPLICITO.matcher(text)
-                if (mPreco.find()) {
-                    val raw = mPreco.group(1)
-                    val parsed = raw?.let { parseMoneyValue(it) }
-                    if (parsed != null) {
-                        if (parsed == 0.0) {
-                            return ReceiptResult(
-                                platform = platform,
-                                isCompleted = false,
-                                isCancelled = true,
-                                finalPrice = 0.0,
-                                cancellationFee = 0.0,
-                                status = RideRecord.STATUS_CANCELADO
-                            )
-                        } else if (parsed in 0.01..25.0) {
-                            detectedFee = parsed
-                            break
-                        }
-                    }
-                }
-            }
-
-            val defaultFee = when (platform) {
-                "99" -> 3.00
-                "UBER" -> 5.50
-                else -> 0.0
-            }
-
-            val fee = detectedFee ?: defaultFee
+            // Só existe taxa se a tela disser explicitamente qual é. Nunca usar taxa padrão
+            // nem o primeiro R$ da tela (que podia ser saldo/banner).
+            val fee = extractExplicitCancellationFee(cleanTexts) ?: 0.0
             val status = if (fee > 0.0) RideRecord.STATUS_CANCELADO_TAXA else RideRecord.STATUS_CANCELADO
 
             return ReceiptResult(
@@ -1220,7 +1353,9 @@ object ParsingEngine {
             return null
         }
 
-        val hasFareCompletionPhrase = (!isPromoBannerText(joined) && (joined.contains("você ganhou") || joined.contains("voce ganhou"))) ||
+        val hasFareCompletionPhrase = (!isPromoBannerText(joined) &&
+                !isNonFareNotificationText(joined) &&
+                (joined.contains("você ganhou") || joined.contains("voce ganhou"))) ||
                 joined.contains("total recebido") ||
                 hasExplicitCompletionKeyword
 

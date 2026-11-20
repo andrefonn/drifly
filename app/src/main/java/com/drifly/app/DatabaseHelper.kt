@@ -24,7 +24,8 @@ data class RideRecord(
     val timestamp: Long,
     val status: String = STATUS_ESTIMADO,
     val cancellationFee: Double = 0.0,
-    val originalPrice: Double = grossPrice
+    val originalPrice: Double = grossPrice,
+    val acceptanceEvidence: String = EVIDENCE_LEGACY
 ) {
     companion object {
         const val STATUS_ESTIMADO = "ESTIMADO"
@@ -33,6 +34,58 @@ data class RideRecord(
         const val STATUS_CONCLUIDO = "CONCLUIDO"
         const val STATUS_CANCELADO = "CANCELADO"
         const val STATUS_CANCELADO_TAXA = "CANCELADO_TAXA"
+        /** Linha duplicada/falso aceite de versões antigas: visível no histórico, fora do faturamento. */
+        const val STATUS_DUPLICADO = "DUPLICADO"
+
+        // Evidência de aceite. Só ESTIMADO com evidência válida entra no Faturamento.
+        const val EVIDENCE_LEGACY = "LEGACY"
+        const val EVIDENCE_SUSPECT = "SUSPECT"
+        const val EVIDENCE_OFFER = "OFFER"
+        const val EVIDENCE_CLICK = "CLICK"
+        const val EVIDENCE_GESTURE = "GESTURE"
+        const val EVIDENCE_OVERLAY_TAP = "OVERLAY_TAP"
+        const val EVIDENCE_PICKUP_TRANSITION = "PICKUP_TRANSITION"
+        const val EVIDENCE_ACTIVE_RIDE = "ACTIVE_RIDE"
+        const val EVIDENCE_HUD_FRESH = "HUD_FRESH"
+        const val EVIDENCE_RECEIPT = "RECEIPT"
+        const val EVIDENCE_NOTIFICATION = "NOTIFICATION"
+        const val EVIDENCE_CANCEL = "CANCEL"
+        const val EVIDENCE_EXPLICIT_FEE = "EXPLICIT_FEE"
+        const val EVIDENCE_CANCEL_PROMPT = "CANCEL_PROMPT"
+        const val EVIDENCE_MANUAL = "MANUAL"
+        const val EVIDENCE_SIMULATED = "SIMULATED"
+        const val EVIDENCE_REPAIRED_BANNER = "REPAIRED_BANNER"
+        const val EVIDENCE_REPAIRED_FEE = "REPAIRED_FEE"
+        const val EVIDENCE_DUPLICATE = "DUPLICATE"
+
+        private val BILLABLE_ESTIMATE_EVIDENCE = setOf(
+            EVIDENCE_CLICK,
+            EVIDENCE_GESTURE,
+            EVIDENCE_OVERLAY_TAP,
+            EVIDENCE_PICKUP_TRANSITION,
+            EVIDENCE_ACTIVE_RIDE,
+            EVIDENCE_HUD_FRESH,
+            EVIDENCE_RECEIPT,
+            EVIDENCE_NOTIFICATION,
+            EVIDENCE_MANUAL,
+            EVIDENCE_SIMULATED
+        )
+
+        /**
+         * Regra única usada pelo Faturamento e pelos relatórios.
+         * - OFERTA/DUPLICADO/CANCELADO sem taxa nunca somam.
+         * - ESTIMADO só soma com evidência real de aceite (nunca LEGACY/SUSPECT).
+         * - CANCELADO_TAXA só soma se houver taxa explícita maior que zero.
+         */
+        fun isBillable(status: String?, evidence: String?, cancellationFee: Double): Boolean {
+            return when (status) {
+                STATUS_OFERTA, STATUS_DUPLICADO, STATUS_CANCELADO -> false
+                STATUS_CANCELADO_TAXA -> cancellationFee > 0.0
+                STATUS_ESTIMADO -> BILLABLE_ESTIMATE_EVIDENCE.contains(evidence ?: EVIDENCE_LEGACY)
+                STATUS_CONCLUIDO -> evidence != EVIDENCE_SUSPECT
+                else -> false
+            }
+        }
     }
 }
 
@@ -124,7 +177,7 @@ class DatabaseHelper(context: Context) :
 
     companion object {
         const val DATABASE_NAME = "drifly_finance.db"
-        const val DATABASE_VERSION = 4
+        const val DATABASE_VERSION = 5
 
         fun formatYearMonth(year: Int, month: Int): String {
             val safeMonth = month.coerceIn(1, 12)
@@ -191,7 +244,8 @@ class DatabaseHelper(context: Context) :
                 timestamp INTEGER,
                 status TEXT DEFAULT 'ESTIMADO',
                 cancellation_fee REAL DEFAULT 0.0,
-                original_price REAL DEFAULT 0.0
+                original_price REAL DEFAULT 0.0,
+                acceptance_evidence TEXT DEFAULT 'LEGACY'
             )
             """.trimIndent()
         )
@@ -296,6 +350,100 @@ class DatabaseHelper(context: Context) :
         if (oldVersion < 4) {
             createBlacklistTable(db)
         }
+        if (oldVersion < 5) {
+            try {
+                db.execSQL("ALTER TABLE rides ADD COLUMN acceptance_evidence TEXT DEFAULT 'LEGACY'")
+            } catch (_: Exception) {}
+            repairRidesForV5(db)
+        }
+    }
+
+    /**
+     * Migração 1.2.0: separa o que tem evidência real de aceite do que era apenas oferta/estimativa antiga
+     * e corrige os casos documentados nos logs de 13/11 e 19/11 (banner "pacote 0%", taxas fantasmas e
+     * falsos aceites por HUD). Tudo é feito com assinatura exata (id + plataforma + valor + distância + janela
+     * de tempo); se a base não tiver a linha, a reparação simplesmente não altera nada.
+     */
+    private fun repairRidesForV5(db: SQLiteDatabase) {
+        // Ofertas continuam ocultas.
+        db.execSQL("UPDATE rides SET acceptance_evidence = 'OFFER' WHERE status = 'OFERTA'")
+        // Concluídas e canceladas antigas já passaram por recibo/baixa: ficam confiáveis.
+        db.execSQL("UPDATE rides SET acceptance_evidence = 'RECEIPT' WHERE status = 'CONCLUIDO' AND (acceptance_evidence IS NULL OR acceptance_evidence = 'LEGACY')")
+        db.execSQL("UPDATE rides SET acceptance_evidence = 'CANCEL' WHERE status IN ('CANCELADO','CANCELADO_TAXA') AND (acceptance_evidence IS NULL OR acceptance_evidence = 'LEGACY')")
+
+        // Taxa de cancelamento nunca fica pendurada numa corrida concluída.
+        db.execSQL("UPDATE rides SET cancellation_fee = 0.0 WHERE status = 'CONCLUIDO' AND cancellation_fee <> 0.0")
+
+        // 5 linhas de 13/11 em que "Você ganhou R$X com o pacote 0%" virou tarifa. Valores exatos dos logs.
+        repairBannerFare(db, oldGross = 27.45, original = 5.10)
+        repairBannerFare(db, oldGross = 39.95, original = 5.10)
+        repairBannerFare(db, oldGross = 45.05, original = 5.10)
+        repairBannerFare(db, oldGross = 78.95, original = 33.00)
+        repairBannerFare(db, oldGross = 96.65, original = 12.30)
+
+        // Taxas fantasmas antigas: qualquer valor acima de R$25 ou o padrão 3,00/5,50 que o app antigo
+        // inventava quando não havia taxa explícita. Sem prova de cobrança, vira CANCELADO com taxa 0.
+        db.execSQL(
+            "UPDATE rides SET status = 'CANCELADO', cancellation_fee = 0.0, acceptance_evidence = 'REPAIRED_FEE' " +
+                "WHERE status = 'CANCELADO_TAXA' AND (cancellation_fee > 25.0 " +
+                "OR (UPPER(platform) = '99' AND ABS(cancellation_fee - 3.0) < 0.001) " +
+                "OR (UPPER(platform) = 'UBER' AND ABS(cancellation_fee - 5.5) < 0.001))"
+        )
+
+        // Falsos aceites documentados em 19/11: a tela era da corrida anterior e o HUD casou um endereço
+        // da oferta. Ficam visíveis como DUPLICADO, mas fora de qualquer soma.
+        markDuplicateBySignature(db, id = 193L, gross = 8.10, distance = 1.98, around = 1795091091343L)
+        markDuplicateBySignature(db, id = 210L, gross = 5.50, distance = 3.55, around = 1795098767104L)
+        markDuplicateBySignature(db, id = 212L, gross = 5.10, distance = 3.80, around = 1795100351325L)
+        markDuplicateBySignature(db, id = 215L, gross = 9.20, distance = 8.00, around = 1795101375941L)
+
+        // #225: aceite real às 12:31:15, mas o motorista abriu "Deseja mesmo cancelar esta corrida?"
+        // às 12:31:47 e não houve recibo. Não pode continuar como ESTIMADO no Faturamento.
+        db.execSQL(
+            "UPDATE rides SET status = 'CANCELADO', cancellation_fee = 0.0, acceptance_evidence = 'CANCEL_PROMPT' " +
+                "WHERE id = 225 AND UPPER(platform) = '99' AND ABS(gross_price - 10.90) < 0.01 " +
+                "AND ABS(distance_km - 8.83) < 0.05 AND timestamp BETWEEN 1795102265000 AND 1795102290000"
+        )
+
+        // Tudo que restou como ESTIMADO é legado sem prova de aceite: fica visível, mas fora do Faturamento.
+        db.execSQL("UPDATE rides SET acceptance_evidence = 'LEGACY' WHERE status = 'ESTIMADO'")
+        db.execSQL("UPDATE rides SET acceptance_evidence = 'LEGACY' WHERE acceptance_evidence IS NULL OR acceptance_evidence = ''")
+    }
+
+    private fun repairBannerFare(db: SQLiteDatabase, oldGross: Double, original: Double) {
+        val cursor = db.rawQuery(
+            "SELECT id, net_profit FROM rides WHERE status = 'CONCLUIDO' AND UPPER(platform) = '99' " +
+                "AND ABS(gross_price - ?) < 0.01 AND ABS(original_price - ?) < 0.01",
+            arrayOf(oldGross.toString(), original.toString())
+        )
+        val ids = mutableListOf<Pair<Long, Double>>()
+        while (cursor.moveToNext()) {
+            ids.add(cursor.getLong(0) to cursor.getDouble(1))
+        }
+        cursor.close()
+        for ((id, oldNet) in ids) {
+            val newNet = Math.max(0.0, Math.round((oldNet - (oldGross - original)) * 100.0) / 100.0)
+            val cv = ContentValues().apply {
+                put("gross_price", original)
+                put("net_profit", newNet)
+                put("acceptance_evidence", RideRecord.EVIDENCE_REPAIRED_BANNER)
+            }
+            db.update("rides", cv, "id = ?", arrayOf(id.toString()))
+        }
+    }
+
+    private fun markDuplicateBySignature(db: SQLiteDatabase, id: Long, gross: Double, distance: Double, around: Long) {
+        val cv = ContentValues().apply {
+            put("status", RideRecord.STATUS_DUPLICADO)
+            put("cancellation_fee", 0.0)
+            put("acceptance_evidence", RideRecord.EVIDENCE_DUPLICATE)
+        }
+        db.update(
+            "rides",
+            cv,
+            "id = ? AND UPPER(platform) = '99' AND ABS(gross_price - ?) < 0.01 AND ABS(distance_km - ?) < 0.05 AND timestamp BETWEEN ? AND ?",
+            arrayOf(id.toString(), gross.toString(), distance.toString(), (around - 10_000L).toString(), (around + 10_000L).toString())
+        )
     }
 
     // =========================================================================
@@ -309,7 +457,8 @@ class DatabaseHelper(context: Context) :
         net: Double,
         status: String = RideRecord.STATUS_ESTIMADO,
         cancellationFee: Double = 0.0,
-        originalPrice: Double = gross
+        originalPrice: Double = gross,
+        acceptanceEvidence: String = RideRecord.EVIDENCE_LEGACY
     ): Long {
         val db = writableDatabase
         val cv = ContentValues().apply {
@@ -321,19 +470,25 @@ class DatabaseHelper(context: Context) :
             put("status", status)
             put("cancellation_fee", cancellationFee)
             put("original_price", originalPrice)
+            put("acceptance_evidence", acceptanceEvidence)
         }
         return db.insert("rides", null, cv)
     }
 
-    fun updateRideStatus(rideId: Long, newStatus: String, cancellationFee: Double = 0.0): Boolean {
+    fun updateRideStatus(
+        rideId: Long,
+        newStatus: String,
+        cancellationFee: Double = 0.0,
+        evidence: String? = null
+    ): Boolean {
         val db = writableDatabase
         val cv = ContentValues().apply {
             put("status", newStatus)
-            if (newStatus == RideRecord.STATUS_CANCELADO_TAXA) {
-                put("cancellation_fee", cancellationFee)
-            } else if (newStatus == RideRecord.STATUS_CANCELADO) {
-                put("cancellation_fee", 0.0)
+            when (newStatus) {
+                RideRecord.STATUS_CANCELADO_TAXA -> put("cancellation_fee", cancellationFee)
+                RideRecord.STATUS_CANCELADO, RideRecord.STATUS_CONCLUIDO -> put("cancellation_fee", 0.0)
             }
+            if (!evidence.isNullOrBlank()) put("acceptance_evidence", evidence)
         }
         return db.update("rides", cv, "id = ?", arrayOf(rideId.toString())) > 0
     }
@@ -342,13 +497,18 @@ class DatabaseHelper(context: Context) :
         rideId: Long,
         newGrossPrice: Double,
         newNetProfit: Double,
-        newStatus: String = RideRecord.STATUS_CONCLUIDO
+        newStatus: String = RideRecord.STATUS_CONCLUIDO,
+        evidence: String? = null
     ): Boolean {
         val db = writableDatabase
         val cv = ContentValues().apply {
             put("gross_price", newGrossPrice)
             put("net_profit", newNetProfit)
             put("status", newStatus)
+            if (newStatus == RideRecord.STATUS_CONCLUIDO || newStatus == RideRecord.STATUS_CANCELADO) {
+                put("cancellation_fee", 0.0)
+            }
+            if (!evidence.isNullOrBlank()) put("acceptance_evidence", evidence)
         }
         return db.update("rides", cv, "id = ?", arrayOf(rideId.toString())) > 0
     }
@@ -361,7 +521,7 @@ class DatabaseHelper(context: Context) :
     fun getLatestRide(): RideRecord? {
         val db = readableDatabase
         val cursor = db.rawQuery(
-            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides ORDER BY id DESC LIMIT 1",
+            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price, acceptance_evidence FROM rides ORDER BY id DESC LIMIT 1",
             null
         )
         var ride: RideRecord? = null
@@ -375,7 +535,8 @@ class DatabaseHelper(context: Context) :
                 timestamp = cursor.getLong(5),
                 status = cursor.getString(6) ?: RideRecord.STATUS_ESTIMADO,
                 cancellationFee = cursor.getDouble(7),
-                originalPrice = cursor.getDouble(8)
+                originalPrice = cursor.getDouble(8),
+                    acceptanceEvidence = cursor.getString(9)
             )
         }
         cursor.close()
@@ -396,8 +557,8 @@ class DatabaseHelper(context: Context) :
         val db = readableDatabase
         val since = System.currentTimeMillis() - withinMs
         val cursor = db.rawQuery(
-            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price " +
-                    "FROM rides WHERE UPPER(platform) = UPPER(?) AND timestamp >= ? ORDER BY timestamp DESC",
+            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price, acceptance_evidence " +
+                    "FROM rides WHERE UPPER(platform) = UPPER(?) AND timestamp >= ? AND status != 'DUPLICADO' ORDER BY timestamp DESC",
             arrayOf(platform, since.toString())
         )
         var match: RideRecord? = null
@@ -414,7 +575,8 @@ class DatabaseHelper(context: Context) :
                     timestamp = cursor.getLong(5),
                     status = cursor.getString(6) ?: RideRecord.STATUS_ESTIMADO,
                     cancellationFee = cursor.getDouble(7),
-                    originalPrice = cursor.getDouble(8)
+                    originalPrice = cursor.getDouble(8),
+                    acceptanceEvidence = cursor.getString(9)
                 )
                 break
             }
@@ -424,10 +586,11 @@ class DatabaseHelper(context: Context) :
     }
 
     /** Promove uma oferta (OFERTA) para corrida aceita (ESTIMADO). Só a partir daqui ela conta no faturamento. */
-    fun acceptRide(id: Long): Boolean {
+    fun acceptRide(id: Long, evidence: String = RideRecord.EVIDENCE_CLICK): Boolean {
         val cv = ContentValues().apply {
             put("status", RideRecord.STATUS_ESTIMADO)
             put("timestamp", System.currentTimeMillis())
+            put("acceptance_evidence", evidence)
         }
         return writableDatabase.update(
             "rides", cv, "id = ? AND status = ?", arrayOf(id.toString(), RideRecord.STATUS_OFERTA)
@@ -444,7 +607,7 @@ class DatabaseHelper(context: Context) :
     fun getRideById(id: Long): RideRecord? {
         val db = readableDatabase
         val cursor = db.rawQuery(
-            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE id = ? LIMIT 1",
+            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price, acceptance_evidence FROM rides WHERE id = ? LIMIT 1",
             arrayOf(id.toString())
         )
         var ride: RideRecord? = null
@@ -458,7 +621,8 @@ class DatabaseHelper(context: Context) :
                 timestamp = cursor.getLong(5),
                 status = cursor.getString(6) ?: RideRecord.STATUS_ESTIMADO,
                 cancellationFee = cursor.getDouble(7),
-                originalPrice = cursor.getDouble(8)
+                originalPrice = cursor.getDouble(8),
+                    acceptanceEvidence = cursor.getString(9)
             )
         }
         cursor.close()
@@ -471,16 +635,16 @@ class DatabaseHelper(context: Context) :
         val sql: String
         val args: Array<String>
         if (platform != null && minTimestamp != null) {
-            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status = ? AND UPPER(platform) = UPPER(?) AND timestamp >= ? ORDER BY timestamp DESC LIMIT 1"
+            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price, acceptance_evidence FROM rides WHERE status = ? AND UPPER(platform) = UPPER(?) AND timestamp >= ? ORDER BY timestamp DESC LIMIT 1"
             args = arrayOf(RideRecord.STATUS_ESTIMADO, platform, minTimestamp.toString())
         } else if (platform != null) {
-            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status = ? AND UPPER(platform) = UPPER(?) ORDER BY timestamp DESC LIMIT 1"
+            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price, acceptance_evidence FROM rides WHERE status = ? AND UPPER(platform) = UPPER(?) ORDER BY timestamp DESC LIMIT 1"
             args = arrayOf(RideRecord.STATUS_ESTIMADO, platform)
         } else if (minTimestamp != null) {
-            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status = ? AND timestamp >= ? ORDER BY timestamp DESC LIMIT 1"
+            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price, acceptance_evidence FROM rides WHERE status = ? AND timestamp >= ? ORDER BY timestamp DESC LIMIT 1"
             args = arrayOf(RideRecord.STATUS_ESTIMADO, minTimestamp.toString())
         } else {
-            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status = ? ORDER BY timestamp DESC LIMIT 1"
+            sql = "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price, acceptance_evidence FROM rides WHERE status = ? ORDER BY timestamp DESC LIMIT 1"
             args = arrayOf(RideRecord.STATUS_ESTIMADO)
         }
 
@@ -496,7 +660,8 @@ class DatabaseHelper(context: Context) :
                 timestamp = cursor.getLong(5),
                 status = cursor.getString(6) ?: RideRecord.STATUS_ESTIMADO,
                 cancellationFee = cursor.getDouble(7),
-                originalPrice = cursor.getDouble(8)
+                originalPrice = cursor.getDouble(8),
+                    acceptanceEvidence = cursor.getString(9)
             )
         }
         cursor.close()
@@ -509,7 +674,7 @@ class DatabaseHelper(context: Context) :
         val list = mutableListOf<RideRecord>()
         val db = readableDatabase
         val cursor = db.rawQuery(
-            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE timestamp BETWEEN ? AND ? ORDER BY timestamp ASC",
+            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price, acceptance_evidence FROM rides WHERE timestamp BETWEEN ? AND ? ORDER BY timestamp ASC",
             arrayOf(start.toString(), end.toString())
         )
         while (cursor.moveToNext()) {
@@ -523,7 +688,8 @@ class DatabaseHelper(context: Context) :
                     timestamp = cursor.getLong(5),
                     status = cursor.getString(6) ?: RideRecord.STATUS_ESTIMADO,
                     cancellationFee = cursor.getDouble(7),
-                    originalPrice = cursor.getDouble(8)
+                    originalPrice = cursor.getDouble(8),
+                    acceptanceEvidence = cursor.getString(9)
                 )
             )
         }
@@ -546,7 +712,7 @@ class DatabaseHelper(context: Context) :
         val list = mutableListOf<RideRecord>()
         val db = readableDatabase
         val cursor = db.rawQuery(
-            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE status IS NULL OR status != 'OFERTA' ORDER BY timestamp ASC",
+            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price, acceptance_evidence FROM rides WHERE status IS NULL OR status != 'OFERTA' ORDER BY timestamp ASC",
             null
         )
         while (cursor.moveToNext()) {
@@ -560,7 +726,8 @@ class DatabaseHelper(context: Context) :
                     timestamp = cursor.getLong(5),
                     status = cursor.getString(6) ?: RideRecord.STATUS_ESTIMADO,
                     cancellationFee = cursor.getDouble(7),
-                    originalPrice = cursor.getDouble(8)
+                    originalPrice = cursor.getDouble(8),
+                    acceptanceEvidence = cursor.getString(9)
                 )
             )
         }
@@ -573,7 +740,7 @@ class DatabaseHelper(context: Context) :
         val list = mutableListOf<RideRecord>()
         val db = readableDatabase
         val cursor = db.rawQuery(
-            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price FROM rides WHERE timestamp BETWEEN ? AND ? AND (status IS NULL OR status != 'OFERTA') ORDER BY timestamp DESC",
+            "SELECT id, platform, gross_price, distance_km, net_profit, timestamp, status, cancellation_fee, original_price, acceptance_evidence FROM rides WHERE timestamp BETWEEN ? AND ? AND (status IS NULL OR status != 'OFERTA') ORDER BY timestamp DESC",
             arrayOf(start.toString(), end.toString())
         )
         while (cursor.moveToNext()) {
@@ -587,7 +754,8 @@ class DatabaseHelper(context: Context) :
                     timestamp = cursor.getLong(5),
                     status = cursor.getString(6) ?: RideRecord.STATUS_ESTIMADO,
                     cancellationFee = cursor.getDouble(7),
-                    originalPrice = cursor.getDouble(8)
+                    originalPrice = cursor.getDouble(8),
+                    acceptanceEvidence = cursor.getString(9)
                 )
             )
         }
@@ -639,6 +807,7 @@ class DatabaseHelper(context: Context) :
                         put("status", r.status)
                         put("cancellation_fee", r.cancellationFee)
                         put("original_price", r.originalPrice)
+                        put("acceptance_evidence", r.acceptanceEvidence)
                     }
                     db.insert("rides", null, cv)
                 }
@@ -696,7 +865,7 @@ class DatabaseHelper(context: Context) :
         var cancCount = 0
 
         val rideCursor = db.rawQuery(
-            "SELECT gross_price, net_profit, status, cancellation_fee FROM rides WHERE timestamp BETWEEN ? AND ?",
+            "SELECT gross_price, net_profit, status, cancellation_fee, acceptance_evidence FROM rides WHERE timestamp BETWEEN ? AND ?",
             arrayOf(start.toString(), end.toString())
         )
         while (rideCursor.moveToNext()) {
@@ -704,9 +873,13 @@ class DatabaseHelper(context: Context) :
             val netProfit = rideCursor.getDouble(1)
             val status = rideCursor.getString(2) ?: RideRecord.STATUS_ESTIMADO
             val fee = rideCursor.getDouble(3)
+            val evidence = rideCursor.getString(4) ?: RideRecord.EVIDENCE_LEGACY
 
+            if (!RideRecord.isBillable(status, evidence, fee)) {
+                if (status == RideRecord.STATUS_CANCELADO || status == RideRecord.STATUS_CANCELADO_TAXA) cancCount++
+                continue
+            }
             when (status) {
-                RideRecord.STATUS_OFERTA -> Unit
                 RideRecord.STATUS_CONCLUIDO, RideRecord.STATUS_ESTIMADO -> {
                     gross += grossPrice
                     net += netProfit
@@ -714,20 +887,12 @@ class DatabaseHelper(context: Context) :
                     if (status == RideRecord.STATUS_CONCLUIDO) compCount++ else estCount++
                 }
                 RideRecord.STATUS_CANCELADO_TAXA -> {
-                    val effectiveFee = if (fee > 0) fee else 0.0
-                    gross += effectiveFee
-                    net += effectiveFee
+                    gross += fee
+                    net += fee
                     totalCount++
                     cancCount++
                 }
-                RideRecord.STATUS_CANCELADO -> {
-                    cancCount++
-                }
-                else -> {
-                    gross += grossPrice
-                    net += netProfit
-                    totalCount++
-                }
+                else -> Unit
             }
         }
         rideCursor.close()
@@ -872,21 +1037,18 @@ class DatabaseHelper(context: Context) :
         val db = readableDatabase
         var net = 0.0
         val cursor = db.rawQuery(
-            "SELECT gross_price, net_profit, status, cancellation_fee FROM rides WHERE timestamp BETWEEN ? AND ?",
+            "SELECT gross_price, net_profit, status, cancellation_fee, acceptance_evidence FROM rides WHERE timestamp BETWEEN ? AND ?",
             arrayOf(start.toString(), end.toString())
         )
         while (cursor.moveToNext()) {
             val netProfit = cursor.getDouble(1)
             val status = cursor.getString(2) ?: RideRecord.STATUS_ESTIMADO
             val fee = cursor.getDouble(3)
+            val evidence = cursor.getString(4) ?: RideRecord.EVIDENCE_LEGACY
+            if (!RideRecord.isBillable(status, evidence, fee)) continue
             when (status) {
-                RideRecord.STATUS_OFERTA, RideRecord.STATUS_CANCELADO -> Unit
-                RideRecord.STATUS_CANCELADO_TAXA -> {
-                    if (fee > 0) net += fee
-                }
-                else -> {
-                    net += netProfit
-                }
+                RideRecord.STATUS_CANCELADO_TAXA -> net += fee
+                else -> net += netProfit
             }
         }
         cursor.close()
@@ -900,7 +1062,7 @@ class DatabaseHelper(context: Context) :
         val (start, end) = getMonthRange(year, month)
         val db = readableDatabase
         val cursor = db.rawQuery(
-            "SELECT timestamp, status, cancellation_fee FROM rides WHERE timestamp BETWEEN ? AND ?",
+            "SELECT timestamp, status, cancellation_fee, acceptance_evidence FROM rides WHERE timestamp BETWEEN ? AND ?",
             arrayOf(start.toString(), end.toString())
         )
         val activeDays = mutableSetOf<Int>()
@@ -909,12 +1071,8 @@ class DatabaseHelper(context: Context) :
             val ts = cursor.getLong(0)
             val status = cursor.getString(1) ?: RideRecord.STATUS_ESTIMADO
             val fee = cursor.getDouble(2)
-            val isValid = when (status) {
-                RideRecord.STATUS_OFERTA, RideRecord.STATUS_CANCELADO -> false
-                RideRecord.STATUS_CANCELADO_TAXA -> fee > 0.0
-                else -> true
-            }
-            if (isValid) {
+            val evidence = cursor.getString(3) ?: RideRecord.EVIDENCE_LEGACY
+            if (RideRecord.isBillable(status, evidence, fee)) {
                 cal.timeInMillis = ts
                 activeDays.add(cal.get(Calendar.DAY_OF_MONTH))
             }
@@ -935,7 +1093,7 @@ class DatabaseHelper(context: Context) :
         val cal = Calendar.getInstance()
 
         val rideCursor = db.rawQuery(
-            "SELECT timestamp, net_profit, status, cancellation_fee FROM rides WHERE timestamp BETWEEN ? AND ?",
+            "SELECT timestamp, net_profit, status, cancellation_fee, acceptance_evidence FROM rides WHERE timestamp BETWEEN ? AND ?",
             arrayOf(start.toString(), end.toString())
         )
         while (rideCursor.moveToNext()) {
@@ -943,16 +1101,14 @@ class DatabaseHelper(context: Context) :
             val netProfit = rideCursor.getDouble(1)
             val status = rideCursor.getString(2) ?: RideRecord.STATUS_ESTIMADO
             val fee = rideCursor.getDouble(3)
+            val evidence = rideCursor.getString(4) ?: RideRecord.EVIDENCE_LEGACY
             cal.timeInMillis = ts
             val day = cal.get(Calendar.DAY_OF_MONTH).coerceIn(1, 31)
-            when (status) {
-                RideRecord.STATUS_OFERTA, RideRecord.STATUS_CANCELADO -> Unit
-                RideRecord.STATUS_CANCELADO_TAXA -> {
-                    if (fee > 0) dailyDelta[day] += fee
-                }
-                else -> {
-                    dailyDelta[day] += netProfit
-                }
+            if (!RideRecord.isBillable(status, evidence, fee)) continue
+            if (status == RideRecord.STATUS_CANCELADO_TAXA) {
+                dailyDelta[day] += fee
+            } else {
+                dailyDelta[day] += netProfit
             }
         }
         rideCursor.close()

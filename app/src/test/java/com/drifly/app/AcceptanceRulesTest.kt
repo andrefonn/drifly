@@ -41,6 +41,49 @@ class AcceptanceRulesTest {
     }
 
     @Test
+    fun consecutiveOfferOnlyCommitsAfterRealPickupTransition() {
+        val t = 100_000L
+        assertTrue(
+            AcceptanceRules.canCommitOnConsecutivePickupTransition(
+                hasPending = true,
+                pendingTimestamp = t,
+                now = t + 30_000,
+                offerArrivedDuringRide = true,
+                activeRideSeenDropoffPhase = true,
+                lastAcceptedTimestamp = t - 120_000,
+                samePlatform = true,
+                isPickupPhase = true
+            )
+        )
+        // HUD da corrida anterior (sem fase de embarque) nunca confirma
+        assertFalse(
+            AcceptanceRules.canCommitOnConsecutivePickupTransition(
+                hasPending = true,
+                pendingTimestamp = t,
+                now = t + 10_000,
+                offerArrivedDuringRide = true,
+                activeRideSeenDropoffPhase = true,
+                lastAcceptedTimestamp = t - 120_000,
+                samePlatform = true,
+                isPickupPhase = false
+            )
+        )
+        // Oferta que não chegou durante corrida usa a regra normal, não a consecutiva
+        assertFalse(
+            AcceptanceRules.canCommitOnConsecutivePickupTransition(
+                hasPending = true,
+                pendingTimestamp = t,
+                now = t + 10_000,
+                offerArrivedDuringRide = false,
+                activeRideSeenDropoffPhase = true,
+                lastAcceptedTimestamp = t - 120_000,
+                samePlatform = true,
+                isPickupPhase = true
+            )
+        )
+    }
+
+    @Test
     fun classifyPostTapVerificationRejectsOfferIdleErrorsAndEmptyFinalAttempt() {
         val sampleTexts = listOf("Moto", "R$ 7,90", "3,2 km", "8 min")
 

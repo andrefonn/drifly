@@ -14,6 +14,9 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -213,9 +216,7 @@ class BubbleOverlayService : Service() {
         root?.let { view ->
             val durationMs = getDismissDelayForOffer(offer, prefs)
             bindOverlayData(view, offer, prefs)
-            bindStreetViewPreview(this@BubbleOverlayService, view, offer.destinationAddress, true) {
-                pauseAutoDismiss(view)
-            }
+            bindStreetViewPreview(this@BubbleOverlayService, view, offer.destinationAddress)
             resetAutoDismissTimer(durationMs)
             startVisualTimerBar(view, durationMs)
             diag(
@@ -370,6 +371,21 @@ class BubbleOverlayService : Service() {
             }
         }
 
+        /** Rótulo do estado ativo, preservando as identidades já existentes. */
+        fun stateLabelForOffer(offer: RideOffer, prefs: PreferencesManager): String {
+            return when {
+                offer.isBlacklistBlocked -> "LISTA NEGRA"
+                prefs.isModoCasaActive -> "MODO CASA"
+                isOfferGood(offer, prefs) -> "ACEITAR"
+                else -> "RECUSAR"
+            }
+        }
+
+        /** Verde para estados positivos, vermelho para recusa/bloqueio. */
+        fun stateAccentForOffer(offer: RideOffer, prefs: PreferencesManager): Int {
+            return if (isOfferGood(offer, prefs)) 0xFF4AE38A.toInt() else 0xFFFF5C64.toInt()
+        }
+
         fun getDismissDelayForOffer(offer: RideOffer, prefs: PreferencesManager): Long {
             return if (isOfferGood(offer, prefs)) {
                 AUTO_DISMISS_GOOD_OFFER_MS
@@ -469,7 +485,7 @@ class BubbleOverlayService : Service() {
 
         /**
          * Quando o motorista ACEITA a corrida, se houver endereço de destino, mantém o overlay por mais 8 segundos
-         * com a foto da fachada do Street View aberta automaticamente e depois fecha sozinho.
+         * com a prévia da fachada do Street View visível e depois fecha sozinho.
          */
         fun onRideAcceptedShowStreetViewBriefly(context: Context, destination: String?) {
             // Garante que uma corrida aceita pelo motorista nunca seja apagada por auto-dismiss ou descarte
@@ -482,12 +498,11 @@ class BubbleOverlayService : Service() {
                 }
                 view.visibility = View.VISIBLE
                 view.alpha = 1f
-                val frameContainer = view.findViewById<View>(R.id.frameStreetViewContainer)
-                val tvIcon = view.findViewById<TextView>(R.id.tvStreetViewActionIcon)
-                if (frameContainer != null && frameContainer.visibility != View.VISIBLE) {
-                    view.findViewById<View>(R.id.btnToggleStreetView)?.performClick()
-                } else {
-                    tvIcon?.text = "▲ Fachada (Aceita)"
+                // A prévia já é carregada automaticamente; apenas garante que está visível se houver imagem.
+                val preview = view.findViewById<View>(R.id.layoutStreetViewPreview)
+                val previewImage = view.findViewById<ImageView>(R.id.ivStreetViewImage)
+                if (preview != null && previewImage?.drawable != null) {
+                    preview.visibility = View.VISIBLE
                 }
                 val acceptedViewDelay = 8_000L
                 directHandler.removeCallbacks(directAutoDismiss)
@@ -502,8 +517,7 @@ class BubbleOverlayService : Service() {
          * Trata:
          * 1. Arraste e reposicionamento da janela pela tela (deslocamento > touchSlop).
          * 2. Zona de exclusão circular de 52 dp ao redor do centro do botão fechar X (fecha sem aceitar).
-         * 3. Toque no botão de alternar Street View / Fachada (expande/recolhe).
-         * 4. Aceite manual ao tocar no corpo do card (com proteção contra duplo toque/debounce) se ativado.
+         * 3. Aceite manual ao tocar no corpo do card (com proteção contra duplo toque/debounce) se ativado.
          */
         fun setupOverlayTouchHandling(
             root: View,
@@ -572,19 +586,7 @@ class BubbleOverlayService : Service() {
                                 return@setOnTouchListener true
                             }
 
-                            // 2. Toque no botão de alternar Street View / Fachada
-                            val btnToggleStreetView = root.findViewById<View>(R.id.btnToggleStreetView)
-                            if (btnToggleStreetView != null && btnToggleStreetView.visibility == View.VISIBLE) {
-                                val svLoc = IntArray(2)
-                                btnToggleStreetView.getLocationOnScreen(svLoc)
-                                if (OverlayTouchMath.isInsideBounds(event.rawX, event.rawY, svLoc[0], svLoc[1], btnToggleStreetView.width, btnToggleStreetView.height)) {
-                                    diag("OVERLAY_TOUCH STREETVIEW_TOGGLE")
-                                    btnToggleStreetView.performClick()
-                                    return@setOnTouchListener true
-                                }
-                            }
-
-                            // 3. Toque no corpo do overlay flutuante
+                            // 2. Toque no corpo do overlay flutuante
                             if (prefs.tapToAcceptEnabled) {
                                 val now = SystemClock.uptimeMillis()
                                 if (OverlayTouchMath.shouldAllowAcceptTap(isAcceptTriggered, lastAcceptTapTimestamp, now)) {
@@ -689,9 +691,7 @@ class BubbleOverlayService : Service() {
                     }
                 }
                 bindOverlayData(existingView, offer, prefs)
-                bindStreetViewPreview(appContext, existingView, offer.destinationAddress, true) {
-                    pauseAutoDismiss(existingView)
-                }
+                bindStreetViewPreview(appContext, existingView, offer.destinationAddress)
                 directHandler.removeCallbacks(directAutoDismiss)
                 directHandler.postDelayed(directAutoDismiss, dismissDelayMs)
                 startVisualTimerBar(existingView, dismissDelayMs)
@@ -786,9 +786,7 @@ class BubbleOverlayService : Service() {
             )
 
             bindOverlayData(root, offer, prefs)
-            bindStreetViewPreview(appContext, root, offer.destinationAddress, true) {
-                pauseAutoDismiss(root)
-            }
+            bindStreetViewPreview(appContext, root, offer.destinationAddress)
 
             root.visibility = View.VISIBLE
             root.alpha = 1f
@@ -841,14 +839,15 @@ class BubbleOverlayService : Service() {
         fun bindOverlayData(root: View, offer: RideOffer, prefs: PreferencesManager) {
             val ptBr = Locale("pt", "BR")
 
+            val headerBar = root.findViewById<View>(R.id.headerBar)
             val tvVerdictBadge = root.findViewById<TextView>(R.id.tvVerdictBadge)
             val layoutModoCasaBadge = root.findViewById<View>(R.id.layoutModoCasaBadge)
-            val tvModoCasaKm = root.findViewById<TextView>(R.id.tvModoCasaKm)
+            val tvModoCasaVerdict = root.findViewById<TextView>(R.id.tvModoCasaVerdict)
+            val tvModoCasaLabel = root.findViewById<TextView>(R.id.tvModoCasaLabel)
 
             val tvPlatform = root.findViewById<TextView>(R.id.tvPlatformBadge)
-            val tvMetaGross = root.findViewById<TextView>(R.id.tvMetaGross)
-            val tvMetaDistance = root.findViewById<TextView>(R.id.tvMetaDistance)
-            val tvMetaDuration = root.findViewById<TextView>(R.id.tvMetaDuration)
+            val tvDistanceValue = root.findViewById<TextView>(R.id.tvDistanceValue)
+            val tvDistanceUnit = root.findViewById<TextView>(R.id.tvDistanceUnit)
 
             val tvRateKm = root.findViewById<TextView>(R.id.tvRateKm)
             val viewBarRateKm = root.findViewById<View>(R.id.viewBarRateKm)
@@ -856,192 +855,164 @@ class BubbleOverlayService : Service() {
             val viewBarRateHour = root.findViewById<View>(R.id.viewBarRateHour)
             val tvRating = root.findViewById<TextView>(R.id.tvRating)
             val viewBarRating = root.findViewById<View>(R.id.viewBarRating)
+            val viewBarDistance = root.findViewById<View>(R.id.viewBarDistance)
 
-            val tvNetProfit = root.findViewById<TextView>(R.id.tvNetProfit)
+            val tvRidePrice = root.findViewById<TextView>(R.id.tvRidePrice)
             val tvFuelCost = root.findViewById<TextView>(R.id.tvFuelCost)
 
             val layoutAlert = root.findViewById<View>(R.id.layoutRatingAlert)
             val tvRatingWarning = root.findViewById<TextView>(R.id.tvRatingWarning)
 
-            // Metadados
-            tvPlatform?.text = offer.platform
-            tvMetaGross?.text = String.format(ptBr, "Bruto R$ %.2f", offer.price)
-            tvMetaDistance?.text = String.format(ptBr, "%.1f km", offer.distanceKm)
-            tvMetaDuration?.text = if (offer.durationMinutes > 0) "${offer.durationMinutes} min" else "-- min"
+            // Identidade visual do estado ativo (ACEITAR / RECUSAR / MODO CASA / LISTA NEGRA)
+            val isModoCasa = prefs.isModoCasaActive
+            val isGood = isOfferGood(offer, prefs)
+            val accent = stateAccentForOffer(offer, prefs)
+            val accentSoft = (accent and 0x00FFFFFF) or (0xCC shl 24)
 
-            // Hero 1: R$ / KM
-            tvRateKm?.text = String.format(ptBr, "R$ %.2f", offer.ratePerKm)
-            val barKmRes = when {
-                offer.ratePerKm >= 2.50 -> R.drawable.bg_hero_bar_green
-                offer.ratePerKm >= 2.00 -> R.drawable.bg_hero_bar_yellow
-                else -> R.drawable.bg_hero_bar_red
+            root.setBackgroundResource(
+                if (isGood) R.drawable.bg_bubble_glass_good else R.drawable.bg_bubble_glass_bad
+            )
+            headerBar?.setBackgroundResource(
+                if (isGood) R.drawable.bg_overlay_header_good else R.drawable.bg_overlay_header_bad
+            )
+
+            // Plataforma de origem: 99 (amarelo), Uber (branco), iFood (vermelho) ou genérica.
+            val platformText = offer.platform.trim().uppercase(Locale.ROOT)
+            when {
+                platformText.contains("99") -> {
+                    tvPlatform?.text = "99"
+                    tvPlatform?.setBackgroundResource(R.drawable.bg_platform_99)
+                    tvPlatform?.setTextColor(0xFF0B0E0B.toInt())
+                }
+                platformText.contains("UBER") -> {
+                    tvPlatform?.text = "UBER"
+                    tvPlatform?.setBackgroundResource(R.drawable.bg_platform_uber)
+                    tvPlatform?.setTextColor(0xFF0B0E0B.toInt())
+                }
+                platformText.contains("IFOOD") -> {
+                    tvPlatform?.text = "iFood"
+                    tvPlatform?.setBackgroundResource(R.drawable.bg_platform_ifood)
+                    tvPlatform?.setTextColor(0xFFFFFFFF.toInt())
+                }
+                else -> {
+                    tvPlatform?.text = offer.platform
+                    tvPlatform?.setBackgroundResource(R.drawable.bg_platform_default)
+                    tvPlatform?.setTextColor(0xFFFFFFFF.toInt())
+                }
             }
-            viewBarRateKm?.setBackgroundResource(barKmRes)
 
-            // Hero 2: R$ / HORA
-            tvRateHour?.text = if (offer.ratePerHour > 0) String.format(ptBr, "R$ %.0f", offer.ratePerHour) else "--"
-            val barHourRes = when {
-                offer.ratePerHour >= 45.0 -> R.drawable.bg_hero_bar_green
-                offer.ratePerHour >= 30.0 -> R.drawable.bg_hero_bar_yellow
-                else -> R.drawable.bg_hero_bar_red
-            }
-            viewBarRateHour?.setBackgroundResource(barHourRes)
+            // Métricas principais (números grandes, sem prefixo para caber nas 4 colunas)
+            tvRateKm?.text = String.format(ptBr, "%.2f", offer.ratePerKm)
+            tvRateHour?.text = if (offer.ratePerHour > 0) String.format(ptBr, "%.2f", offer.ratePerHour) else "--"
+            tvDistanceValue?.text = String.format(ptBr, "%.1f", offer.distanceKm)
+            tvDistanceUnit?.text = "KM"
+            tvRating?.text = if (offer.passengerRating != null) String.format(ptBr, "%.2f", offer.passengerRating) else "5,00"
 
-            // Hero 3: NOTA
-            val ratingVal = offer.passengerRating ?: 5.0f
-            tvRating?.text = if (offer.passengerRating != null) String.format(ptBr, "%.2f", offer.passengerRating) else "5.00"
-            val barRatingRes = if (ratingVal >= prefs.minPassengerRating) R.drawable.bg_hero_bar_green else R.drawable.bg_hero_bar_red
-            viewBarRating?.setBackgroundResource(barRatingRes)
+            listOfNotNull(tvRateKm, tvRateHour, tvDistanceValue, tvRating).forEach { it.setTextColor(accent) }
+            tvDistanceUnit?.setTextColor(accentSoft)
 
-            // Card de Lucro Real
-            tvNetProfit?.text = String.format(ptBr, "R$ %.2f", offer.netProfit)
+            // Informações financeiras secundárias
+            tvRidePrice?.text = String.format(ptBr, "R$ %.2f", offer.price)
             tvFuelCost?.text = String.format(ptBr, "- R$ %.2f", offer.estimatedFuelCost)
 
-            // Veredito, Lista Negra & Modo Casa
-            val isModoCasa = prefs.isModoCasaActive
-            if (offer.isBlacklistBlocked) {
-                // Alerta vermelho de recusa obrigatório para Lista Negra (sobrepõe inclusive Modo Casa)
-                root.setBackgroundResource(R.drawable.bg_bubble_glass_bad)
-                tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_bad)
-                tvVerdictBadge?.setTextColor(0xFFFF454D.toInt())
-                tvVerdictBadge?.text = "Recusar ❌"
+            // As barras seguem a identidade do estado ativo: verde em ACEITAR/MODO CASA
+            // favorável, vermelho em RECUSAR/LISTA NEGRA/MODO CASA desfavorável.
+            // Antes elas usavam limites fixos por métrica e podiam ficar vermelhas num card ACEITAR.
+            val stateBarRes = if (isGood) R.drawable.bg_hero_bar_green else R.drawable.bg_hero_bar_red
+            viewBarRateKm?.setBackgroundResource(stateBarRes)
+            viewBarRateHour?.setBackgroundResource(stateBarRes)
+            viewBarDistance?.setBackgroundResource(stateBarRes)
+            viewBarRating?.setBackgroundResource(stateBarRes)
 
+            // Identificação central do estado, mantendo as particularidades de cada modo.
+            tvVerdictBadge?.setTextColor(0xFFFFFFFF.toInt())
+            tvVerdictBadge?.text = stateLabelForOffer(offer, prefs)
+
+            if (offer.isBlacklistBlocked) {
                 layoutAlert?.visibility = View.VISIBLE
                 tvRatingWarning?.text = offer.blacklistAlert ?: "⛔ Bairro na Lista Negra"
-
-                if (isModoCasa) {
-                    layoutModoCasaBadge?.visibility = View.VISIBLE
-                    val delta = offer.homeDistanceDeltaKm
-                    val kmText = if (delta > 0) String.format(ptBr, "+%.1f km", delta) else String.format(ptBr, "%.1f km", delta)
-                    tvModoCasaKm?.text = kmText
-                    layoutModoCasaBadge?.setBackgroundResource(R.drawable.bg_modo_casa_bad)
-                    tvModoCasaKm?.setTextColor(0xFFFF6B72.toInt())
-                } else {
-                    layoutModoCasaBadge?.visibility = View.GONE
-                }
             } else {
-                // Alerta de Nota Baixa (Oculto conforme solicitado: nota vermelha e veredito Recusar ❌ já indicam claramente)
                 layoutAlert?.visibility = View.GONE
+            }
 
-                if (!isModoCasa) {
-                    layoutModoCasaBadge?.visibility = View.GONE
-                    val isProfitable = (offer.ratePerKm >= prefs.minRatePerKm && offer.ratePerHour >= 30.0 && !offer.isLowRating)
-                    if (isProfitable) {
-                        root.setBackgroundResource(R.drawable.bg_bubble_glass_good)
-                        tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_good)
-                        tvVerdictBadge?.setTextColor(0xFF31D477.toInt())
-                        tvVerdictBadge?.text = "Aceitar ✅"
-                    } else {
-                        root.setBackgroundResource(R.drawable.bg_bubble_glass_bad)
-                        tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_bad)
-                        tvVerdictBadge?.setTextColor(0xFFFF454D.toInt())
-                        tvVerdictBadge?.text = "Recusar ❌"
-                    }
-                } else {
-                    layoutModoCasaBadge?.visibility = View.VISIBLE
-                    val delta = offer.homeDistanceDeltaKm
-                    val kmText = if (delta > 0) String.format(ptBr, "+%.1f km", delta) else String.format(ptBr, "%.1f km", delta)
-                    tvModoCasaKm?.text = kmText
+            if (isModoCasa && !offer.isBlacklistBlocked) {
+                // No Modo Casa o status direcional ocupa o lugar do título grande.
+                // O nome do modo fica pequeno abaixo, e apenas o KM recebe a cor do veredito.
+                tvVerdictBadge?.visibility = View.GONE
+                layoutModoCasaBadge?.visibility = View.VISIBLE
+                tvModoCasaLabel?.visibility = View.VISIBLE
 
-                    if (delta <= 0) {
-                        // Aproxima de casa
-                        layoutModoCasaBadge?.setBackgroundResource(R.drawable.bg_modo_casa_good)
-                        tvModoCasaKm?.setTextColor(0xFF31D477.toInt())
-                        root.setBackgroundResource(R.drawable.bg_bubble_glass_good)
-                        tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_good)
-                        tvVerdictBadge?.setTextColor(0xFF31D477.toInt())
+                val delta = offer.homeDistanceDeltaKm
+                val kmText = if (delta > 0) String.format(ptBr, "+%.1f km", delta) else String.format(ptBr, "%.1f km", delta)
+                val modoCasaColor = if (delta <= 0.0) 0xFF4AE38A.toInt() else 0xFFFF5C64.toInt()
 
-                        when {
-                            delta <= -8.0 -> tvVerdictBadge?.text = "Perfeita Direção ✅"
-                            delta <= -4.0 -> tvVerdictBadge?.text = "Excelente Direção ✅"
-                            else -> tvVerdictBadge?.text = "Boa Direção ✅"
-                        }
-                    } else {
-                        // Afasta de casa
-                        layoutModoCasaBadge?.setBackgroundResource(R.drawable.bg_modo_casa_bad)
-                        tvModoCasaKm?.setTextColor(0xFFFF6B72.toInt())
-                        root.setBackgroundResource(R.drawable.bg_bubble_glass_bad)
-                        tvVerdictBadge?.setBackgroundResource(R.drawable.bg_verdict_bad)
-                        tvVerdictBadge?.setTextColor(0xFFFF454D.toInt())
-
-                        when {
-                            delta <= 4.0 -> tvVerdictBadge?.text = "Ruim Direção ❌"
-                            delta <= 9.0 -> tvVerdictBadge?.text = "Péssima Direção ❌"
-                            else -> tvVerdictBadge?.text = "Evitar Direção ❌"
-                        }
-                    }
+                val statusText = when {
+                    delta <= -8.0 -> "PERFEITA DIREÇÃO"
+                    delta <= -4.0 -> "EXCELENTE DIREÇÃO"
+                    delta <= 0.0 -> "BOA DIREÇÃO"
+                    delta <= 4.0 -> "RUIM DIREÇÃO"
+                    delta <= 9.0 -> "PÉSSIMA DIREÇÃO"
+                    else -> "EVITAR DIREÇÃO"
                 }
+
+                // Status branco e KM na cor do veredito, em um único texto que se ajusta
+                // automaticamente à largura em telas menores.
+                val combinedText = "$statusText $kmText"
+                val spannable = SpannableString(combinedText)
+                spannable.setSpan(
+                    ForegroundColorSpan(0xFFFFFFFF.toInt()),
+                    0,
+                    statusText.length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                spannable.setSpan(
+                    ForegroundColorSpan(modoCasaColor),
+                    statusText.length + 1,
+                    combinedText.length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                tvModoCasaVerdict?.text = spannable
+            } else {
+                // Lista Negra e demais estados mantêm o título central original.
+                tvVerdictBadge?.visibility = View.VISIBLE
+                layoutModoCasaBadge?.visibility = View.GONE
+                tvModoCasaLabel?.visibility = View.GONE
             }
         }
 
-        @android.annotation.SuppressLint("SetJavaScriptEnabled")
         private fun bindStreetViewPreview(
             context: Context,
             view: View,
-            destination: String?,
-            autoOpen: Boolean = false,
-            onExpand: () -> Unit
+            destination: String?
         ) {
             val layoutStreetView = view.findViewById<View>(R.id.layoutStreetViewPreview) ?: return
-            val btnToggle = view.findViewById<View>(R.id.btnToggleStreetView) ?: return
-            val frameContainer = view.findViewById<View>(R.id.frameStreetViewContainer) ?: return
-            val tvLabel = view.findViewById<TextView>(R.id.tvStreetViewLabel) ?: return
-            val tvIcon = view.findViewById<TextView>(R.id.tvStreetViewActionIcon) ?: return
-            val ivStreetView = view.findViewById<ImageView>(R.id.ivStreetViewImage)
+            val ivStreetView = view.findViewById<ImageView>(R.id.ivStreetViewImage) ?: return
             val pbLoading = view.findViewById<View>(R.id.pbStreetViewLoading)
-            val webView = view.findViewById<android.webkit.WebView>(R.id.wvStreetView)
 
             if (destination.isNullOrBlank()) {
                 layoutStreetView.visibility = View.GONE
+                ivStreetView.tag = null
+                ivStreetView.setImageDrawable(null)
+                pbLoading?.visibility = View.GONE
                 return
             }
 
-            layoutStreetView.visibility = View.VISIBLE
-            tvLabel.text = "📍 $destination"
-            frameContainer.visibility = View.GONE
-            ivStreetView?.visibility = View.GONE
+            // A prévia nasce oculta e só ocupa espaço quando a imagem realmente chega.
+            layoutStreetView.visibility = View.GONE
+            ivStreetView.tag = destination
+            ivStreetView.setImageDrawable(null)
             pbLoading?.visibility = View.GONE
-            webView?.visibility = View.GONE
-            tvIcon.text = "▼ Fachada"
-            var isLoaded = false
 
-            fun loadStreetViewNow() {
-                if (isLoaded) return
-                isLoaded = true
-                pbLoading?.visibility = View.VISIBLE
-                CoroutineScope(Dispatchers.Main).launch {
-                    val result = StreetViewHelper.fetchStreetViewPreview(context, destination)
-                    pbLoading?.visibility = View.GONE
-                    if (result.bitmap != null && ivStreetView != null) {
-                        ivStreetView.setImageBitmap(result.bitmap)
-                        ivStreetView.visibility = View.VISIBLE
-                        webView?.visibility = View.GONE
-                    } else if (result.embedHtml.isNotEmpty() && webView != null) {
-                        webView.settings.javaScriptEnabled = true
-                        webView.settings.domStorageEnabled = true
-                        webView.visibility = View.VISIBLE
-                        webView.loadDataWithBaseURL("https://maps.googleapis.com", result.embedHtml, "text/html", "UTF-8", null)
-                    }
-                }
-            }
-
-            // Pré-carrega a fachada SEMPRE (não só nas ofertas boas): assim o toque em "Fachada"
-            // mostra a foto na hora, sem esperar geocodificação + download.
-            if (autoOpen) {
-                loadStreetViewNow()
-            }
-
-            btnToggle.setOnClickListener {
-                val isVisible = frameContainer.visibility == View.VISIBLE
-                if (isVisible) {
-                    frameContainer.visibility = View.GONE
-                    tvIcon.text = "▼ Fachada"
+            // Carregamento assíncrono: a fachada nunca atrasa a exibição do overlay.
+            CoroutineScope(Dispatchers.Main).launch {
+                val result = StreetViewHelper.fetchStreetViewPreview(context, destination)
+                if (ivStreetView.tag != destination) return@launch
+                val bitmap = result.bitmap
+                if (bitmap != null) {
+                    ivStreetView.setImageBitmap(bitmap)
+                    layoutStreetView.visibility = View.VISIBLE
                 } else {
-                    frameContainer.visibility = View.VISIBLE
-                    tvIcon.text = "▲ Ocultar"
-                    loadStreetViewNow()
-                    // Motorista abriu a fachada: para de contar o tempo, ele fecha no X
-                    onExpand()
+                    layoutStreetView.visibility = View.GONE
                 }
             }
         }
@@ -1075,11 +1046,10 @@ class BubbleOverlayService : Service() {
                 }
 
                 val ptBr = Locale("pt", "BR")
-                val isGood = isOfferGood(offer, prefs)
-                val verdict = if (isGood) "Aceitar ✅" else "Recusar ❌"
-                val accent = if (isGood) 0xFF31D477.toInt() else 0xFFFF454D.toInt()
+                val stateLabel = stateLabelForOffer(offer, prefs)
+                val accent = stateAccentForOffer(offer, prefs)
 
-                val title = String.format(ptBr, "%s • %s • R$ %.2f", verdict, offer.platform, offer.price)
+                val title = String.format(ptBr, "%s • %s • R$ %.2f", stateLabel, offer.platform, offer.price)
 
                 val summaryLine = buildString {
                     append(String.format(ptBr, "%.1f km", offer.distanceKm))
@@ -1089,14 +1059,37 @@ class BubbleOverlayService : Service() {
                     offer.passengerRating?.let { append(String.format(ptBr, " • Nota %.2f", it)) }
                 }
 
+                // Análise completa: a notificação é o local de consulta posterior, mesmo depois
+                // que o overlay compacto desaparece.
                 val expanded = buildString {
                     if (offer.isBlacklistBlocked && !offer.blacklistAlert.isNullOrBlank()) {
                         append("${offer.blacklistAlert}\n")
                     }
-                    append(summaryLine)
-                    if (offer.durationMinutes > 0) append(String.format(ptBr, "\n⏱ %d min", offer.durationMinutes))
-                    val dest = offer.destinationAddress
-                    if (!dest.isNullOrBlank()) append("\n📍 $dest")
+                    append("Estado: $stateLabel")
+                    append(String.format(ptBr, "\nValor bruto: R$ %.2f", offer.price))
+                    append(String.format(ptBr, "\nR$/km: %.2f", offer.ratePerKm))
+                    if (offer.ratePerHour > 0.0) {
+                        append(String.format(ptBr, " • R$/hora: %.2f", offer.ratePerHour))
+                    }
+                    append(String.format(ptBr, "\nDistância total: %.1f km", offer.distanceKm))
+                    if (offer.pickupDistanceKm != null || offer.tripDistanceKm != null) {
+                        append("\nDistância até embarque: ")
+                        append(offer.pickupDistanceKm?.let { String.format(ptBr, "%.1f km", it) } ?: "--")
+                        append(" • Com passageiro: ")
+                        append(offer.tripDistanceKm?.let { String.format(ptBr, "%.1f km", it) } ?: "--")
+                    }
+                    append(String.format(ptBr, "\nTempo total estimado: %s", if (offer.durationMinutes > 0) "${offer.durationMinutes} min" else "--"))
+                    if (offer.pickupDurationMinutes != null || offer.tripDurationMinutes != null) {
+                        append("\nTempo até embarque: ")
+                        append(offer.pickupDurationMinutes?.let { "$it min" } ?: "--")
+                        append(" • Com passageiro: ")
+                        append(offer.tripDurationMinutes?.let { "$it min" } ?: "--")
+                    }
+                    offer.passengerRating?.let { append(String.format(ptBr, "\nNota do passageiro: %.2f", it)) }
+                    append(String.format(ptBr, "\nCusto de combustível: -R$ %.2f", offer.estimatedFuelCost))
+                    append(String.format(ptBr, "\nLucro após combustível: R$ %.2f", offer.netProfit))
+                    offer.pickupAddress?.let { append("\nEmbarque: $it") }
+                    offer.destinationAddress?.let { append("\nDestino: $it") }
                     append("\nToque para abrir o DriFly")
                 }
 

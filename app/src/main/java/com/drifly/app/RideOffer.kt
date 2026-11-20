@@ -16,5 +16,11 @@ data class RideOffer(
     val homeDistanceDeltaKm: Double = 0.0,
     val pickupAddress: String? = null,
     val isBlacklistBlocked: Boolean = false,
-    val blacklistAlert: String? = null
+    val blacklistAlert: String? = null,
+    // Trechos detalhados (quando o card informa embarque e viagem separadamente).
+    // A distância/tempo totais continuam em distanceKm/durationMinutes.
+    val pickupDistanceKm: Double? = null,
+    val tripDistanceKm: Double? = null,
+    val pickupDurationMinutes: Int? = null,
+    val tripDurationMinutes: Int? = null
 )

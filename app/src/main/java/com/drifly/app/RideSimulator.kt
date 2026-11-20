@@ -75,7 +75,8 @@ object RideSimulator {
                 distance = distanceKm,
                 net = netProfit,
                 status = RideRecord.STATUS_ESTIMADO,
-                originalPrice = price
+                originalPrice = price,
+                acceptanceEvidence = RideRecord.EVIDENCE_SIMULATED
             )
             context.sendBroadcast(Intent(RotaAccessibilityService.ACTION_RIDE_UPDATED).apply {
                 setPackage(context.packageName)

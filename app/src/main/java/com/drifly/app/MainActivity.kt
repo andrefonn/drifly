@@ -366,7 +366,18 @@ class MainActivity : AppCompatActivity() {
             val distance = intent.getDoubleExtra("DISTANCE", 6.0)
             val net = intent.getDoubleExtra("NET", 20.0)
             val status = intent.getStringExtra("STATUS") ?: RideRecord.STATUS_ESTIMADO
-            db.insertRide(platform, gross, distance, net, status)
+            db.insertRide(
+                platform = platform,
+                gross = gross,
+                distance = distance,
+                net = net,
+                status = status,
+                acceptanceEvidence = if (status == RideRecord.STATUS_OFERTA) {
+                    RideRecord.EVIDENCE_OFFER
+                } else {
+                    RideRecord.EVIDENCE_MANUAL
+                }
+            )
             updateDashboard(animate = true)
             activeReportDialogRefresh?.invoke()
         }
@@ -2888,6 +2899,10 @@ class MainActivity : AppCompatActivity() {
                     text = "R$ 0,00"
                     setTextColor(0xFFFF454D.toInt())
                 }
+                RideRecord.STATUS_DUPLICADO -> {
+                    text = "R$ 0,00"
+                    setTextColor(0xFFFF454D.toInt())
+                }
                 else -> {
                     text = String.format(ptBr, "R$ %.2f", ride.grossPrice)
                     setTextColor(0xFFFFFFFF.toInt())
@@ -2900,7 +2915,7 @@ class MainActivity : AppCompatActivity() {
         val tvBadge = TextView(this).apply {
             when (ride.status) {
                 RideRecord.STATUS_ESTIMADO -> {
-                    text = "ESTIMADO"
+                    text = if (ride.acceptanceEvidence == RideRecord.EVIDENCE_LEGACY) "NÃO VERIFICADO" else "ESTIMADO"
                     setTextColor(0xFFFFB800.toInt())
                 }
                 RideRecord.STATUS_CONCLUIDO -> {
@@ -2913,6 +2928,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 RideRecord.STATUS_CANCELADO -> {
                     text = "CANCELADO"
+                    setTextColor(0xFFFF454D.toInt())
+                }
+                RideRecord.STATUS_DUPLICADO -> {
+                    text = "DUPLICADO"
                     setTextColor(0xFFFF454D.toInt())
                 }
                 else -> {
@@ -2953,8 +2972,17 @@ class MainActivity : AppCompatActivity() {
         val btnClose = view.findViewById<Button>(R.id.btnAdjustClose)
 
         tvTitle.text = "Ajuste de Corrida #${ride.id}"
-        tvSubtitle.text = "${ride.platform} • R$ ${String.format(ptBr, "%.2f", ride.grossPrice)} • ${ride.distanceKm} km"
-        tvBadge.text = ride.status
+        tvSubtitle.text = buildString {
+            append("${ride.platform} • R$ ${String.format(ptBr, "%.2f", ride.grossPrice)} • ${ride.distanceKm} km")
+            if (ride.status == RideRecord.STATUS_ESTIMADO && ride.acceptanceEvidence == RideRecord.EVIDENCE_LEGACY) {
+                append("\nNão verificada: confirme se esta corrida foi realmente aceita.")
+            }
+        }
+        tvBadge.text = if (ride.status == RideRecord.STATUS_ESTIMADO && ride.acceptanceEvidence == RideRecord.EVIDENCE_LEGACY) {
+            "NÃO VERIFICADO"
+        } else {
+            ride.status
+        }
 
         val currentDisplayPrice = if (ride.status == RideRecord.STATUS_CANCELADO_TAXA) {
             ride.cancellationFee
@@ -2973,7 +3001,7 @@ class MainActivity : AppCompatActivity() {
             if (newPrice > 0.0) {
                 val cost = ride.distanceKm * prefs.costPerKm
                 val newNet = Math.max(0.0, Math.round((newPrice - cost) * 100.0) / 100.0)
-                db.updateRidePrice(ride.id, newPrice, newNet, RideRecord.STATUS_CONCLUIDO)
+                db.updateRidePrice(ride.id, newPrice, newNet, RideRecord.STATUS_CONCLUIDO, RideRecord.EVIDENCE_MANUAL)
                 showNotificationBanner("Valor ajustado para R$ ${String.format(ptBr, "%.2f", newPrice)} (Concluída)!", BannerType.SUCCESS)
                 dialog.dismiss()
                 onUpdated()
@@ -2987,7 +3015,7 @@ class MainActivity : AppCompatActivity() {
             val cost = ride.distanceKm * prefs.costPerKm
             val basePrice = if (ride.grossPrice > 0.0) ride.grossPrice else ride.originalPrice
             val newNet = Math.max(0.0, Math.round((basePrice - cost) * 100.0) / 100.0)
-            db.updateRidePrice(ride.id, basePrice, newNet, RideRecord.STATUS_CONCLUIDO)
+            db.updateRidePrice(ride.id, basePrice, newNet, RideRecord.STATUS_CONCLUIDO, RideRecord.EVIDENCE_MANUAL)
             showNotificationBanner("Corrida confirmada como Concluída!", BannerType.SUCCESS)
             dialog.dismiss()
             onUpdated()
@@ -3004,7 +3032,7 @@ class MainActivity : AppCompatActivity() {
             val typedVal = parseBrFloat(etPrice.text.toString(), standardFee.toFloat()).toDouble()
             // Se o usuário digitou uma taxa personalizada diferente do valor integral da corrida, usa o valor digitado
             val effectiveFee = if (typedVal > 0.0 && Math.abs(typedVal - ride.grossPrice) > 0.001) typedVal else standardFee
-            db.updateRideStatus(ride.id, RideRecord.STATUS_CANCELADO_TAXA, effectiveFee)
+            db.updateRideStatus(ride.id, RideRecord.STATUS_CANCELADO_TAXA, effectiveFee, RideRecord.EVIDENCE_MANUAL)
             showNotificationBanner("Corrida marcada com taxa de R$ ${String.format(ptBr, "%.2f", effectiveFee)}!", BannerType.SUCCESS)
             dialog.dismiss()
             onUpdated()
@@ -3012,7 +3040,7 @@ class MainActivity : AppCompatActivity() {
 
         // 4. Cancelada sem Taxa
         btnCancelZeroFee.setOnClickListener {
-            db.updateRideStatus(ride.id, RideRecord.STATUS_CANCELADO, 0.0)
+            db.updateRideStatus(ride.id, RideRecord.STATUS_CANCELADO, 0.0, RideRecord.EVIDENCE_MANUAL)
             showNotificationBanner("Corrida cancelada sem taxa (R$ 0,00 lançados).", BannerType.INFO)
             dialog.dismiss()
             onUpdated()

@@ -61,6 +61,7 @@ object BackupManager {
                 put("status", r.status)
                 put("cancellation_fee", r.cancellationFee)
                 put("original_price", r.originalPrice)
+                put("acceptance_evidence", r.acceptanceEvidence)
             }
             ridesArray.put(rObj)
         }
@@ -281,7 +282,11 @@ object BackupManager {
                             timestamp = item.optLong("timestamp", System.currentTimeMillis()),
                             status = item.optString("status", RideRecord.STATUS_ESTIMADO),
                             cancellationFee = item.optDouble("cancellation_fee", 0.0),
-                            originalPrice = item.optDouble("original_price", item.optDouble("gross_price", 0.0))
+                            originalPrice = item.optDouble("original_price", item.optDouble("gross_price", 0.0)),
+                            acceptanceEvidence = item.optString(
+                                "acceptance_evidence",
+                                evidenceFromLegacyStatus(item.optString("status", RideRecord.STATUS_ESTIMADO))
+                            )
                         )
                     )
                 }
@@ -406,5 +411,13 @@ object BackupManager {
             e.printStackTrace()
             null
         }
+    }
+
+    /** Backups antigos não tinham evidência: deriva do status com a regra conservadora da 1.2.0. */
+    private fun evidenceFromLegacyStatus(status: String): String = when (status) {
+        RideRecord.STATUS_OFERTA -> RideRecord.EVIDENCE_OFFER
+        RideRecord.STATUS_CONCLUIDO -> RideRecord.EVIDENCE_RECEIPT
+        RideRecord.STATUS_CANCELADO, RideRecord.STATUS_CANCELADO_TAXA -> RideRecord.EVIDENCE_CANCEL
+        else -> RideRecord.EVIDENCE_LEGACY
     }
 }

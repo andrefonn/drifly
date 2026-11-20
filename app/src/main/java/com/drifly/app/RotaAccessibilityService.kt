@@ -79,6 +79,11 @@ class RotaAccessibilityService : AccessibilityService() {
     @Volatile
     private var activeRideSeenDropoffPhase: Boolean = false
 
+    // Momento em que o diálogo "Deseja mesmo cancelar esta corrida?" foi visto. Se a tela voltar
+    // ao ocioso logo depois, a corrida é CANCELADA sem taxa (e não auto-concluída).
+    @Volatile
+    private var driverCancellationPromptAt: Long = 0L
+
     @Volatile
     private var idleSeenSince: Long = 0L
 
@@ -261,7 +266,7 @@ class RotaAccessibilityService : AccessibilityService() {
                 if (!bt.isNullOrBlank() && !notifTexts.contains(bt)) notifTexts.add(bt)
                 if (!st.isNullOrBlank() && !notifTexts.contains(st)) notifTexts.add(st)
             }
-            if (notifTexts.isNotEmpty()) {
+            if (notifTexts.isNotEmpty() && ParsingEngine.isLikelyRideOfferNotification(notifTexts)) {
                 val offer = ParsingEngine.parseNodes(
                     packageName = packageName,
                     texts = notifTexts,
@@ -461,9 +466,15 @@ class RotaAccessibilityService : AccessibilityService() {
 
         val isAccept = clickedTexts.any { ParsingEngine.isAcceptActionText(it) }
         val isDecline = clickedTexts.any { ParsingEngine.isDeclineActionText(it) }
+        val isCancelConfirm = clickedTexts.any { it.trim().equals("cancelar", ignoreCase = true) }
+
+        if (isCancelConfirm && driverCancellationPromptAt != 0L && (now - driverCancellationPromptAt) in 0..60_000L) {
+            cancelActiveRideFromPrompt(now)
+            return
+        }
 
         if (isAccept) {
-            commitPendingOfferAsAccepted(now)
+            commitPendingOfferAsAccepted(now, RideRecord.EVIDENCE_CLICK)
         } else if (isDecline) {
             clearPendingOfferAndDismissOverlay(now)
         }
@@ -472,7 +483,8 @@ class RotaAccessibilityService : AccessibilityService() {
     private fun handleTransitionToActiveRide(
         now: Long,
         texts: List<String> = emptyList(),
-        packageName: String = lastSupportedPackage
+        packageName: String = lastSupportedPackage,
+        evidence: String = RideRecord.EVIDENCE_ACTIVE_RIDE
     ) {
         if (ParsingEngine.isInTripOrDropoffPhaseScreen(texts)) {
             activeRideSeenDropoffPhase = true
@@ -491,23 +503,23 @@ class RotaAccessibilityService : AccessibilityService() {
                 offerArrivedDuringRide = offerArrivedDuringRide
             )
         ) {
-            commitPendingOfferAsAccepted(now)
+            commitPendingOfferAsAccepted(now, evidence)
         } else if (
-            currentPending != null &&
-            offerArrivedDuringRide &&
-            activeRideSeenDropoffPhase &&
-            samePlatformAsPending &&
-            (now - pendingOfferTimestamp) in 0..120_000L &&
-            (now - lastAcceptedTimestamp) >= 60_000L &&
-            ParsingEngine.isPickupPhaseScreen(texts)
+            AcceptanceRules.canCommitOnConsecutivePickupTransition(
+                hasPending = currentPending != null,
+                pendingTimestamp = pendingOfferTimestamp,
+                now = now,
+                offerArrivedDuringRide = offerArrivedDuringRide,
+                activeRideSeenDropoffPhase = activeRideSeenDropoffPhase,
+                lastAcceptedTimestamp = lastAcceptedTimestamp,
+                samePlatform = samePlatformAsPending,
+                isPickupPhase = ParsingEngine.isPickupPhaseScreen(texts)
+            )
         ) {
-            // Caso o motorista tenha aceitado uma corrida consecutiva diretamente no canvas da 99 durante a viagem
-            // anterior (já na fase de viagem/desembarque) e fechado o recibo rapidamente, a transição para a FASE DE
-            // EMBARQUE ("Cheguei", "Ir buscar", "A caminho do passageiro", "Embarque de") confirma o término da corrida
-            // anterior e o início da consecutiva.
+            // O motorista aceitou uma corrida consecutiva diretamente no canvas da 99 durante a viagem
+            // anterior e a tela entrou na FASE DE EMBARQUE da nova corrida. Isso sim é prova real.
             diag("BRANCH CONSECUTIVE_PICKUP_TRANSITION -> corrida anterior concluída e corrida consecutiva iniciada")
-            offerArrivedDuringRide = false
-            commitPendingOfferAsAccepted(now)
+            commitPendingOfferAsAccepted(now, RideRecord.EVIDENCE_PICKUP_TRANSITION)
         } else if (BubbleOverlayService.isRunning() && (now - lastAcceptedTimestamp) > ACCEPTED_STREET_VIEW_GRACE_MS) {
             BubbleOverlayService.stop(this)
         }
@@ -529,6 +541,11 @@ class RotaAccessibilityService : AccessibilityService() {
         now: Long,
         allowHybridOcr: Boolean
     ) {
+        if (ParsingEngine.isDriverCancellationPromptScreen(texts)) {
+            driverCancellationPromptAt = now
+            diag("CANCEL_PROMPT: motorista abriu confirmação de cancelamento; aguardando desfecho")
+            return
+        }
         val looksIdle = ParsingEngine.isIdleDriverScreen(texts) &&
                 texts.none { ParsingEngine.isAcceptActionText(it) }
         if (looksIdle) {
@@ -569,23 +586,18 @@ class RotaAccessibilityService : AccessibilityService() {
                 offerArrivedDuringFreeGps = offerArrivedDuringFreeGps,
                 hasRecentDemandNavigation = hasRecentDemandNavigation(now)
             ))
-        val isConsecutiveOfferAddressMatch = currentPending != null &&
-            offerArrivedDuringRide &&
-            activeRideSeenDropoffPhase &&
-            (now - pendingOfferTimestamp) in 0..120_000L &&
-            (now - lastAcceptedTimestamp) >= 60_000L &&
-            AcceptanceRules.doesGpsHudMatchPendingOffer(
-                texts = texts,
-                pendingOffer = currentPending,
-                hasRecentDemandNavigation = hasRecentDemandNavigation(now)
-            )
 
-        if (isNormalOfferGpsTransition || isConsecutiveOfferAddressMatch) {
-            diag("BRANCH GPS_HUD_MATCH_OFFER -> transição confirmada para corrida ativa (consecutive=$isConsecutiveOfferAddressMatch)")
-            if (isConsecutiveOfferAddressMatch) {
-                offerArrivedDuringRide = false
-            }
-            handleTransitionToActiveRide(now, texts, packageName)
+        // REGRA 1.2.0: NUNCA promover uma oferta que chegou DURANTE outra corrida só porque o HUD
+        // da corrida atual contém uma rua da oferta. Era a causa dos falsos aceites #193/#210/#212/#215.
+        // Consecutiva só é confirmada pela transição real de embarque (CONSECUTIVE_PICKUP_TRANSITION).
+        if (isNormalOfferGpsTransition) {
+            diag("BRANCH GPS_HUD_MATCH_OFFER -> transição confirmada para corrida ativa (consecutive=false, evidence=HUD_FRESH)")
+            handleTransitionToActiveRide(
+                now = now,
+                texts = texts,
+                packageName = packageName,
+                evidence = RideRecord.EVIDENCE_HUD_FRESH
+            )
             return
         }
 
@@ -607,6 +619,34 @@ class RotaAccessibilityService : AccessibilityService() {
         }
     }
 
+    private fun cancelActiveRideFromPrompt(now: Long) {
+        val platform = ParsingEngine.resolvePlatform(lastSupportedPackage)
+        val targetPlatform = if (platform != "CORRIDA") platform else null
+        val activeRide = db.getLatestEstimatedRide(targetPlatform, maxAgeMs = 4 * 60 * 60 * 1000L)
+        if (activeRide != null) {
+            db.updateRideStatus(
+                activeRide.id,
+                RideRecord.STATUS_CANCELADO,
+                0.0,
+                RideRecord.EVIDENCE_CANCEL_PROMPT
+            )
+            lastHandledRideId = activeRide.id
+            lastReceiptProcessedTimestamp = now
+            diag("CANCEL_PROMPT CONFIRMADO [#${activeRide.id} - ${activeRide.platform}]: cancelada sem taxa")
+            sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
+                setPackage(this@RotaAccessibilityService.packageName)
+            })
+        }
+        driverCancellationPromptAt = 0L
+        isRideCurrentlyActive = false
+        pendingOffer = null
+        pendingOfferRideId = null
+        offerArrivedDuringRide = false
+        offerArrivedDuringFreeGps = false
+        activeRideSeenDropoffPhase = false
+        BubbleOverlayService.stop(this)
+    }
+
     private fun discardPendingOfferOnIdleScreen(
         now: Long = System.currentTimeMillis(),
         packageName: String = lastSupportedPackage
@@ -622,7 +662,23 @@ class RotaAccessibilityService : AccessibilityService() {
             val platform = ParsingEngine.resolvePlatform(packageName)
             val targetPlatform = if (platform != "CORRIDA") platform else null
             val activeRide = db.getLatestEstimatedRide(targetPlatform, maxAgeMs = 4 * 60 * 60 * 1000L)
-            if (activeRide != null && (now - activeRide.timestamp) >= MIN_ACTIVE_RIDE_DURATION_FOR_IDLE_COMPLETION_MS) {
+            val promptRecent = driverCancellationPromptAt != 0L && (now - driverCancellationPromptAt) in 0..60_000L
+            if (activeRide != null && promptRecent) {
+                // O motorista confirmou "Cancelar" no diálogo e a tela voltou ao ocioso: NÃO é conclusão.
+                db.updateRideStatus(
+                    activeRide.id,
+                    RideRecord.STATUS_CANCELADO,
+                    0.0,
+                    RideRecord.EVIDENCE_CANCEL_PROMPT
+                )
+                lastHandledRideId = activeRide.id
+                lastReceiptProcessedTimestamp = now
+                driverCancellationPromptAt = 0L
+                diag("AUTO-CANCEL ON IDLE [#${activeRide.id} - ${activeRide.platform}]: cancelada pelo motorista, sem taxa")
+                sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
+                    setPackage(this@RotaAccessibilityService.packageName)
+                })
+            } else if (activeRide != null && (now - activeRide.timestamp) >= MIN_ACTIVE_RIDE_DURATION_FOR_IDLE_COMPLETION_MS) {
                 db.updateRideStatus(activeRide.id, RideRecord.STATUS_CONCLUIDO)
                 lastAutoCompletedIdleRideId = activeRide.id
                 lastAutoCompletedIdleTimestamp = now
@@ -645,14 +701,39 @@ class RotaAccessibilityService : AccessibilityService() {
         isRideCurrentlyActive = false
         idleSeenSince = 0L
         lastDemandNavigationTimestamp = 0L
+        driverCancellationPromptAt = 0L
     }
 
-    private fun commitPendingOfferAsAccepted(now: Long) {
+    private fun commitPendingOfferAsAccepted(now: Long, evidence: String = RideRecord.EVIDENCE_CLICK) {
         val offerToSave = pendingOffer ?: return
-        val isValidConsecutiveCommit = offerArrivedDuringRide && (now - pendingOfferTimestamp) in 0..120_000L
-        if (!AcceptanceRules.canCommitOnAcceptClick(true, pendingOfferTimestamp, now) && !isValidConsecutiveCommit) {
+        val validEvidence = when (evidence) {
+            RideRecord.EVIDENCE_PICKUP_TRANSITION ->
+                offerArrivedDuringRide &&
+                    AcceptanceRules.canCommitOnConsecutivePickupTransition(
+                        hasPending = true,
+                        pendingTimestamp = pendingOfferTimestamp,
+                        now = now,
+                        offerArrivedDuringRide = offerArrivedDuringRide,
+                        activeRideSeenDropoffPhase = activeRideSeenDropoffPhase,
+                        lastAcceptedTimestamp = lastAcceptedTimestamp,
+                        samePlatform = true,
+                        isPickupPhase = true
+                    )
+            RideRecord.EVIDENCE_ACTIVE_RIDE, RideRecord.EVIDENCE_HUD_FRESH ->
+                AcceptanceRules.canCommitOnActiveRideScreen(true, pendingOfferTimestamp, now, offerArrivedDuringRide)
+            RideRecord.EVIDENCE_CLICK,
+            RideRecord.EVIDENCE_GESTURE,
+            RideRecord.EVIDENCE_OVERLAY_TAP ->
+                AcceptanceRules.canCommitOnAcceptClick(true, pendingOfferTimestamp, now)
+            else -> false
+        }
+        if (!validEvidence) {
+            diag("ACEITE DESCARTADO: evidência inválida ($evidence) ou oferta expirada")
             pendingOffer = null
             pendingOfferRideId = null
+            offerArrivedDuringRide = false
+            offerArrivedDuringFreeGps = false
+            activeRideSeenDropoffPhase = false
             return
         }
 
@@ -665,6 +746,7 @@ class RotaAccessibilityService : AccessibilityService() {
         offerArrivedDuringRide = false
         offerArrivedDuringFreeGps = false
         activeRideSeenDropoffPhase = false
+        driverCancellationPromptAt = 0L
         isRideCurrentlyActive = true
         activeRideStartTime = now
         lastAcceptedTimestamp = now
@@ -685,7 +767,7 @@ class RotaAccessibilityService : AccessibilityService() {
         // Ao aceitar a corrida, se houver endereço, mantém o overlay por mais 8 segundos com o Street View aberto pro motorista ver a fachada!
         BubbleOverlayService.onRideAcceptedShowStreetViewBriefly(this, offerToSave.destinationAddress)
 
-        val finalRideId = if (rideId != null && (db.acceptRide(rideId) || db.rideExists(rideId))) {
+        val finalRideId = if (rideId != null && (db.acceptRide(rideId, evidence) || db.rideExists(rideId))) {
             rideId
         } else {
             // Sem linha de oferta (apagada por fechar/expirar o overlay antes do aceite): grava como aceita.
@@ -696,7 +778,7 @@ class RotaAccessibilityService : AccessibilityService() {
                 withinMs = 60_000L
             )
             if (existing != null) {
-                db.acceptRide(existing.id)
+                db.acceptRide(existing.id, evidence)
                 existing.id
             } else {
                 db.insertRide(
@@ -705,13 +787,14 @@ class RotaAccessibilityService : AccessibilityService() {
                     distance = offerToSave.distanceKm,
                     net = offerToSave.netProfit,
                     status = RideRecord.STATUS_ESTIMADO,
-                    originalPrice = offerToSave.price
+                    originalPrice = offerToSave.price,
+                    acceptanceEvidence = evidence
                 )
             }
         }
 
 
-        diag("CORRIDA ACEITA E CONFIRMADA [#${finalRideId} - ${offerToSave.platform}]: R$ ${offerToSave.price} (${offerToSave.distanceKm} km)")
+        diag("CORRIDA ACEITA E CONFIRMADA [#${finalRideId} - ${offerToSave.platform}]: R$ ${offerToSave.price} (${offerToSave.distanceKm} km) | evidence=$evidence")
 
         sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
             setPackage(this@RotaAccessibilityService.packageName)
@@ -849,7 +932,8 @@ class RotaAccessibilityService : AccessibilityService() {
                 distance = finalOffer.distanceKm,
                 net = finalOffer.netProfit,
                 status = RideRecord.STATUS_OFERTA,
-                originalPrice = finalOffer.price
+                originalPrice = finalOffer.price,
+                acceptanceEvidence = RideRecord.EVIDENCE_OFFER
             )
 
             // Guarda como oferta pendente associada ao ID
@@ -931,15 +1015,25 @@ class RotaAccessibilityService : AccessibilityService() {
             // explícito diferente (ou se a corrida havia sido auto-concluída no retorno ao ocioso e chegou um cancelamento imediato).
             if (receipt.isCompleted) {
                 val explicitNewPrice = receipt.finalPrice ?: return
-                val effectivePrice = if (receipt.isCashCollectionScreen) {
-                    Math.max(explicitNewPrice, ride.originalPrice)
-                } else {
-                    explicitNewPrice
+                val effectivePrice = when {
+                    receipt.isCashCollectionScreen -> Math.max(explicitNewPrice, ride.originalPrice)
+                    !ParsingEngine.isPlausibleFinalFare(explicitNewPrice, ride.originalPrice) -> {
+                        diag("FARE_REJECTED complementar: R$ $explicitNewPrice fora da faixa da oferta R$ ${ride.originalPrice}; mantendo original")
+                        ride.originalPrice
+                    }
+                    else -> explicitNewPrice
                 }
                 if (Math.abs(ride.grossPrice - effectivePrice) < 0.01) return
                 val cost = ride.distanceKm * prefs.costPerKm
                 val newNet = Math.max(0.0, Math.round((effectivePrice - cost) * 100.0) / 100.0)
-                db.updateRidePrice(ride.id, effectivePrice, newNet, RideRecord.STATUS_CONCLUIDO)
+                db.updateRidePrice(
+                    ride.id,
+                    effectivePrice,
+                    newNet,
+                    RideRecord.STATUS_CONCLUIDO,
+                    RideRecord.EVIDENCE_RECEIPT
+                )
+                driverCancellationPromptAt = 0L
                 lastReceiptProcessedTimestamp = now
                 diag("RECIBO COMPLEMENTAR [${receipt.platform}]: corrida #${ride.id} atualizada para R$ $effectivePrice")
                 sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
@@ -950,7 +1044,13 @@ class RotaAccessibilityService : AccessibilityService() {
                 ride.id == lastAutoCompletedIdleRideId &&
                 (now - lastAutoCompletedIdleTimestamp) <= 20_000L
             ) {
-                db.updateRideStatus(ride.id, receipt.status, receipt.cancellationFee ?: 0.0)
+                db.updateRideStatus(
+                    ride.id,
+                    receipt.status,
+                    receipt.cancellationFee ?: 0.0,
+                    if ((receipt.cancellationFee ?: 0.0) > 0.0) RideRecord.EVIDENCE_EXPLICIT_FEE else RideRecord.EVIDENCE_CANCEL
+                )
+                driverCancellationPromptAt = 0L
                 lastAutoCompletedIdleRideId = -1L
                 lastReceiptProcessedTimestamp = now
                 diag("RECIBO DE CANCELAMENTO TARDIO [${receipt.platform}]: corrida #${ride.id} ajustada para ${receipt.status}")
@@ -971,13 +1071,30 @@ class RotaAccessibilityService : AccessibilityService() {
             val finalPrice = when {
                 rawFinal == null -> ride.originalPrice
                 receipt.isCashCollectionScreen -> Math.max(rawFinal, ride.originalPrice)
+                !ParsingEngine.isPlausibleFinalFare(rawFinal, ride.originalPrice) -> {
+                    diag("FARE_REJECTED: R$ $rawFinal fora da faixa da oferta R$ ${ride.originalPrice}; mantendo original")
+                    ride.originalPrice
+                }
                 else -> rawFinal
             }
             val cost = ride.distanceKm * prefs.costPerKm
             val newNet = Math.max(0.0, Math.round((finalPrice - cost) * 100.0) / 100.0)
-            db.updateRidePrice(ride.id, finalPrice, newNet, RideRecord.STATUS_CONCLUIDO)
+            db.updateRidePrice(
+                ride.id,
+                finalPrice,
+                newNet,
+                RideRecord.STATUS_CONCLUIDO,
+                RideRecord.EVIDENCE_RECEIPT
+            )
+            driverCancellationPromptAt = 0L
         } else if (receipt.isCancelled) {
-            db.updateRideStatus(ride.id, receipt.status, receipt.cancellationFee ?: 0.0)
+            db.updateRideStatus(
+                ride.id,
+                receipt.status,
+                receipt.cancellationFee ?: 0.0,
+                if ((receipt.cancellationFee ?: 0.0) > 0.0) RideRecord.EVIDENCE_EXPLICIT_FEE else RideRecord.EVIDENCE_CANCEL
+            )
+            driverCancellationPromptAt = 0L
         }
 
         sendBroadcast(Intent(ACTION_RIDE_UPDATED).apply {
@@ -1016,13 +1133,13 @@ class RotaAccessibilityService : AccessibilityService() {
             val acceptedByNode = performClickAccept(clickableNodes) || clickAcceptInAnyWindow()
             if (acceptedByNode) {
                 diag("AUTO-ACCEPT OK: clique por nó executado")
-                commitPendingOfferAsAccepted(timestamp)
+                commitPendingOfferAsAccepted(timestamp, RideRecord.EVIDENCE_CLICK)
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 diag("AUTO-ACCEPT: sem nó acessível -> tentando botão Aceitar via OCR/gesto")
                 performTapOrSwipeAcceptWithVerification(offer, fromOverlayTouch = false)
             } else if (prefs.isMotorcycleMode) {
                 dispatchSwipeAcceptGesture { dispatched ->
-                    if (dispatched) commitPendingOfferAsAccepted(timestamp)
+                    if (dispatched) commitPendingOfferAsAccepted(timestamp, RideRecord.EVIDENCE_GESTURE)
                 }
             }
         } else if (prefs.autoDeclineEnabled && !matchesConditions) {
@@ -1189,7 +1306,8 @@ class RotaAccessibilityService : AccessibilityService() {
         val label = if (fromOverlayTouch) "MANUAL ACCEPT" else "AUTO ACCEPT"
         if (success) {
             diag("$label OK ($reason)")
-            commitPendingOfferAsAccepted(System.currentTimeMillis())
+            val evidence = if (fromOverlayTouch) RideRecord.EVIDENCE_OVERLAY_TAP else RideRecord.EVIDENCE_GESTURE
+            commitPendingOfferAsAccepted(System.currentTimeMillis(), evidence)
         } else {
             diag("$label FALHOU ($reason) -> nada salvo no Faturamento")
             BubbleOverlayService.isAcceptTriggered = false

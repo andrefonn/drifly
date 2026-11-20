@@ -109,6 +109,11 @@ class ParsingEngineTest {
         assertEquals(1.40, offer.ratePerKm, 0.01)
         // A fachada deve apontar para o DESTINO (último endereço do card), não para o embarque
         assertEquals("Rua Estados Unidos, 75, Araquari, Araquari", offer.destinationAddress)
+        // Trechos detalhados para a notificação de análise completa
+        assertEquals(1.8, offer.pickupDistanceKm ?: 0.0, 0.01)
+        assertEquals(2.3, offer.tripDistanceKm ?: 0.0, 0.01)
+        assertEquals(6, offer.pickupDurationMinutes)
+        assertEquals(6, offer.tripDurationMinutes)
     }
 
     @Test
@@ -215,6 +220,11 @@ class ParsingEngineTest {
         assertEquals(9, offer.durationMinutes)
         // R$/km real = 5,10 / 2,8 = 1,82 (e não 2,83 usando só o embarque)
         assertEquals(1.82, offer.ratePerKm, 0.01)
+        // Trechos detalhados preservados para a notificação
+        assertEquals(1.8, offer.pickupDistanceKm ?: 0.0, 0.01)
+        assertEquals(1.0, offer.tripDistanceKm ?: 0.0, 0.01)
+        assertEquals(7, offer.pickupDurationMinutes)
+        assertEquals(2, offer.tripDurationMinutes)
     }
 
     @Test
@@ -306,6 +316,8 @@ class ParsingEngineTest {
         assertEquals(22.00, offer!!.price, 0.001)
         // A distância total considerada para o custo real deve ser a soma (1.2 + 5.8 = 7.0) ou pelo menos a distância da viagem se discriminada
         assertEquals(7.0, offer.distanceKm, 0.01)
+        assertEquals(1.2, offer.pickupDistanceKm ?: 0.0, 0.01)
+        assertEquals(5.8, offer.tripDistanceKm ?: 0.0, 0.01)
     }
 
     @Test

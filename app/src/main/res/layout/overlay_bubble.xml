@@ -1,173 +1,131 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/bubbleRoot"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/bg_bubble_glass_good"
-    android:paddingHorizontal="12dp"
-    android:paddingVertical="10dp"
     android:elevation="20dp">
 
-    <!-- 1. TOPO UNIFICADO: Veredito + Modo Casa + Metadados (Plataforma, Bruto, KM, Min) + Botão Fechar -->
-    <RelativeLayout
+    <!-- 1. CABEÇALHO: plataforma (esquerda) + estado ativo (centro) + X (direita) -->
+    <FrameLayout
+        android:id="@+id/headerBar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_overlay_header_good"
+        android:paddingStart="12dp"
+        android:paddingEnd="8dp"
+        android:paddingVertical="7dp">
 
-        <LinearLayout
-            android:id="@+id/layoutTopLeft"
+        <!-- Identificação da plataforma (Uber / 99) -->
+        <TextView
+            android:id="@+id/tvPlatformBadge"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentStart="true"
-            android:layout_toStartOf="@id/btnCloseBubble"
-            android:layout_centerVertical="true"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:layout_height="36dp"
+            android:layout_gravity="start|center_vertical"
+            android:minWidth="42dp"
+            android:gravity="center"
+            android:paddingHorizontal="8dp"
+            android:text="UBER"
+            android:textColor="#0B0E0B"
+            android:fontFamily="sans-serif-black"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:background="@drawable/bg_platform_uber" />
 
-            <!-- Tag de Veredito: Aceitar ✅ / Recusar ❌ / Veredito Direcional -->
+        <!-- Identificação dinâmica do estado ativo -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginStart="52dp"
+            android:layout_marginEnd="52dp"
+            android:gravity="center"
+            android:orientation="vertical">
+
             <TextView
                 android:id="@+id/tvVerdictBadge"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_verdict_good"
-                android:textColor="#31D477"
-                android:fontFamily="sans-serif-black"
-                android:textStyle="bold"
-                android:textSize="13sp"
-                android:paddingHorizontal="10dp"
-                android:paddingVertical="4dp"
-                android:text="Aceitar ✅" />
-
-            <!-- Badge Compacta do Modo Casa (Aparece somente quando Modo Casa estiver ativo) -->
-            <LinearLayout
-                android:id="@+id/layoutModoCasaBadge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:background="@drawable/bg_modo_casa_good"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="4dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:visibility="gone">
-
-                <TextView
-                    android:id="@+id/tvModoCasaIcon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🏠"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/tvModoCasaKm"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="3dp"
-                    android:textColor="#31D477"
-                    android:fontFamily="sans-serif-black"
-                    android:textStyle="bold"
-                    android:textSize="12sp"
-                    android:text="-6.5 km" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/tvPlatformBadge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:text="UBER"
+                android:gravity="center"
+                android:maxLines="1"
+                android:text="ACEITAR"
                 android:textColor="#FFFFFF"
                 android:fontFamily="sans-serif-black"
                 android:textStyle="bold"
-                android:textSize="11sp"
-                android:background="@drawable/bg_badge_pill"
-                android:paddingHorizontal="7dp"
-                android:paddingVertical="3dp" />
+                android:letterSpacing="0.02"
+                android:textSize="25sp"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="17sp"
+                android:autoSizeMaxTextSize="25sp"
+                android:autoSizeStepGranularity="1sp" />
+
+            <!-- Cabeçalho do Modo Casa: status grande + KM colorido e identificação pequena -->
+            <LinearLayout
+                android:id="@+id/layoutModoCasaBadge"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvModoCasaVerdict"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:textColor="#FFFFFF"
+                    android:fontFamily="sans-serif-black"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.01"
+                    android:textSize="23sp"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="14sp"
+                    android:autoSizeMaxTextSize="23sp"
+                    android:autoSizeStepGranularity="1sp"
+                    android:text="Boa Direção" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvModoCasaLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Modo Casa"
+                android:textColor="#D8E4DC"
+                android:fontFamily="sans-serif-bold"
+                android:textStyle="bold"
+                android:letterSpacing="0.04"
+                android:textSize="9sp"
+                android:visibility="gone" />
         </LinearLayout>
 
-        <!-- Botão Fechar Redondo com área de toque generosa -->
+        <!-- Botão Fechar com área de toque confortável e ícone maior -->
         <ImageView
             android:id="@+id/btnCloseBubble"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="end|center_vertical"
             android:clickable="true"
             android:focusable="true"
-            android:padding="10dp"
+            android:padding="11dp"
             app:tint="#FFFFFF"
             android:background="@drawable/bg_btn_circle_glass"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:src="@drawable/ic_overlay_close"
+            android:scaleType="centerInside"
             android:contentDescription="Fechar" />
-    </RelativeLayout>
+    </FrameLayout>
 
-    <!-- 2. LINHA DE METADADOS EM ALTO DESTAQUE: Bruto • KM • Minutos -->
+    <!-- 2. MÉTRICAS PRINCIPAIS: 4 colunas equilibradas -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:id="@+id/tvMetaGross"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Bruto R$ 32,50"
-            android:textColor="#FFFFFF"
-            android:fontFamily="sans-serif-black"
-            android:textStyle="bold"
-            android:textSize="13.5sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="6dp"
-            android:text="•"
-            android:textColor="#FF8A24"
-            android:textStyle="bold"
-            android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/tvMetaDistance"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="8,4 km"
-            android:textColor="#FFFFFF"
-            android:fontFamily="sans-serif-black"
-            android:textStyle="bold"
-            android:textSize="13.5sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="6dp"
-            android:text="•"
-            android:textColor="#FF8A24"
-            android:textStyle="bold"
-            android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/tvMetaDuration"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="19 min"
-            android:textColor="#FFFFFF"
-            android:fontFamily="sans-serif-black"
-            android:textStyle="bold"
-            android:textSize="13.5sp" />
-    </LinearLayout>
-
-    <!-- 3. OS 3 NÚMEROS GRANDES (HERO METRICS GRID - NEGRITO PESADO E COMPACTO) -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginTop="8dp"
         android:background="@drawable/bg_hero_grid"
-        android:paddingVertical="7dp"
         android:paddingHorizontal="4dp"
+        android:paddingVertical="6dp"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
@@ -183,36 +141,41 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="R$ / KM"
-                android:textColor="#D5DAE6"
+                android:textColor="#C9D2CE"
                 android:fontFamily="sans-serif-black"
                 android:textStyle="bold"
                 android:letterSpacing="0.03"
-                android:textSize="11.5sp" />
+                android:textSize="9.5sp"
+                android:maxLines="1" />
 
             <TextView
                 android:id="@+id/tvRateKm"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="1dp"
-                android:text="R$ 3,87"
-                android:textColor="#FFFFFF"
+                android:gravity="center"
+                android:text="3,87"
+                android:textColor="#4AE38A"
                 android:fontFamily="sans-serif-black"
                 android:textStyle="bold"
-                android:textSize="22sp" />
+                android:maxLines="1"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="17sp"
+                android:autoSizeMaxTextSize="27sp"
+                android:autoSizeStepGranularity="1sp" />
 
             <View
                 android:id="@+id/viewBarRateKm"
-                android:layout_width="48dp"
-                android:layout_height="3.5dp"
+                android:layout_width="34dp"
+                android:layout_height="3dp"
                 android:layout_marginTop="3dp"
                 android:background="@drawable/bg_hero_bar_green" />
         </LinearLayout>
 
-        <!-- Divisor Vertical 1 -->
         <View
             android:layout_width="1dp"
-            android:layout_height="36dp"
-            android:background="#26FFFFFF" />
+            android:layout_height="42dp"
+            android:background="#1FFFFFFF" />
 
         <!-- Coluna 2: R$ / HORA -->
         <LinearLayout
@@ -226,38 +189,103 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="R$ / HORA"
-                android:textColor="#D5DAE6"
+                android:textColor="#C9D2CE"
                 android:fontFamily="sans-serif-black"
                 android:textStyle="bold"
                 android:letterSpacing="0.03"
-                android:textSize="11.5sp" />
+                android:textSize="9.5sp"
+                android:maxLines="1" />
 
             <TextView
                 android:id="@+id/tvRateHour"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="1dp"
-                android:text="R$ 102"
-                android:textColor="#FFFFFF"
+                android:gravity="center"
+                android:text="32"
+                android:textColor="#4AE38A"
                 android:fontFamily="sans-serif-black"
                 android:textStyle="bold"
-                android:textSize="22sp" />
+                android:maxLines="1"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="17sp"
+                android:autoSizeMaxTextSize="27sp"
+                android:autoSizeStepGranularity="1sp" />
 
             <View
                 android:id="@+id/viewBarRateHour"
-                android:layout_width="48dp"
-                android:layout_height="3.5dp"
+                android:layout_width="34dp"
+                android:layout_height="3dp"
                 android:layout_marginTop="3dp"
                 android:background="@drawable/bg_hero_bar_green" />
         </LinearLayout>
 
-        <!-- Divisor Vertical 2 -->
         <View
             android:layout_width="1dp"
-            android:layout_height="36dp"
-            android:background="#26FFFFFF" />
+            android:layout_height="42dp"
+            android:background="#1FFFFFFF" />
 
-        <!-- Coluna 3: ★ NOTA -->
+        <!-- Coluna 3: DISTÂNCIA TOTAL -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DISTÂNCIA"
+                android:textColor="#C9D2CE"
+                android:fontFamily="sans-serif-black"
+                android:textStyle="bold"
+                android:letterSpacing="0.03"
+                android:textSize="9.5sp"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/tvDistanceValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:gravity="center"
+                android:text="23,7"
+                android:textColor="#4AE38A"
+                android:fontFamily="sans-serif-black"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="17sp"
+                android:autoSizeMaxTextSize="27sp"
+                android:autoSizeStepGranularity="1sp" />
+
+            <TextView
+                android:id="@+id/tvDistanceUnit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="KM"
+                android:textColor="#9FB0A6"
+                android:fontFamily="sans-serif-black"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:textSize="8sp"
+                android:maxLines="1" />
+
+            <View
+                android:id="@+id/viewBarDistance"
+                android:layout_width="34dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="2dp"
+                android:background="@drawable/bg_hero_bar_green" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="42dp"
+            android:background="#1FFFFFFF" />
+
+        <!-- Coluna 4: NOTA DO PASSAGEIRO -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -269,40 +297,44 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="★ NOTA"
-                android:textColor="#D5DAE6"
+                android:textColor="#C9D2CE"
                 android:fontFamily="sans-serif-black"
                 android:textStyle="bold"
                 android:letterSpacing="0.03"
-                android:textSize="11.5sp" />
+                android:textSize="9.5sp"
+                android:maxLines="1" />
 
             <TextView
                 android:id="@+id/tvRating"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="1dp"
-                android:text="4.92"
-                android:textColor="#FFFFFF"
+                android:gravity="center"
+                android:text="4,95"
+                android:textColor="#4AE38A"
                 android:fontFamily="sans-serif-black"
                 android:textStyle="bold"
-                android:textSize="22sp" />
+                android:maxLines="1"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="17sp"
+                android:autoSizeMaxTextSize="27sp"
+                android:autoSizeStepGranularity="1sp" />
 
             <View
                 android:id="@+id/viewBarRating"
-                android:layout_width="48dp"
-                android:layout_height="3.5dp"
+                android:layout_width="34dp"
+                android:layout_height="3dp"
                 android:layout_marginTop="3dp"
                 android:background="@drawable/bg_hero_bar_green" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- 4. BARRA HORIZONTAL COMPACTA: Lucro Real & Custo Combustível -->
+    <!-- 3. FINANCEIRO SECUNDÁRIO + PRÉVIA AUTOMÁTICA DA FACHADA -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:background="@drawable/bg_net_profit_card"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="7dp"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginTop="7dp"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
@@ -310,67 +342,156 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:background="@drawable/bg_financial_strip"
+            android:paddingHorizontal="9dp"
+            android:paddingVertical="6dp"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/tvNetProfitTag"
-                android:layout_width="wrap_content"
+            <!-- Valor da corrida -->
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="LUCRO:"
-                android:textColor="#FF8A24"
-                android:fontFamily="sans-serif-black"
-                android:textStyle="bold"
-                android:textSize="12sp" />
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/tvNetProfit"
-                android:layout_width="wrap_content"
+                <TextView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:background="@drawable/bg_icon_currency_circle"
+                    android:gravity="center"
+                    android:text="R$"
+                    android:textColor="#4AE38A"
+                    android:fontFamily="sans-serif-black"
+                    android:textStyle="bold"
+                    android:textSize="8sp" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="VALOR DA CORRIDA"
+                        android:textColor="#B8C2BD"
+                        android:fontFamily="sans-serif-black"
+                        android:textStyle="bold"
+                        android:textSize="8sp"
+                        android:maxLines="2"
+                        android:lineSpacingExtra="0dp" />
+
+                    <TextView
+                        android:id="@+id/tvRidePrice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="R$ 32,10"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="sans-serif-black"
+                        android:textStyle="bold"
+                        android:textSize="17sp"
+                        android:maxLines="1"
+                        android:autoSizeTextType="uniform"
+                        android:autoSizeMinTextSize="13sp"
+                        android:autoSizeMaxTextSize="17sp"
+                        android:autoSizeStepGranularity="1sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <View
+                android:layout_width="1dp"
+                android:layout_height="26dp"
+                android:layout_marginHorizontal="5dp"
+                android:background="#1FFFFFFF" />
+
+            <!-- Custo de combustível -->
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:text="R$ 25,95"
-                android:textColor="#FFFFFF"
-                android:fontFamily="sans-serif-black"
-                android:textStyle="bold"
-                android:textSize="22sp" />
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="17dp"
+                    android:layout_height="17dp"
+                    android:src="@drawable/ic_fuel"
+                    android:contentDescription="Combustível" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CUSTO COMBUSTÍVEL"
+                        android:textColor="#B8C2BD"
+                        android:fontFamily="sans-serif-black"
+                        android:textStyle="bold"
+                        android:textSize="7.5sp"
+                        android:maxLines="2"
+                        android:lineSpacingExtra="0dp" />
+
+                    <TextView
+                        android:id="@+id/tvFuelCost"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="- R$ 1,65"
+                        android:textColor="#FF5C64"
+                        android:fontFamily="sans-serif-black"
+                        android:textStyle="bold"
+                        android:textSize="14.5sp"
+                        android:maxLines="1"
+                        android:autoSizeTextType="uniform"
+                        android:autoSizeMinTextSize="12sp"
+                        android:autoSizeMaxTextSize="14.5sp"
+                        android:autoSizeStepGranularity="0.5sp" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
 
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+        <!-- Prévia panorâmica automática da fachada (oculta até a imagem carregar) -->
+        <FrameLayout
+            android:id="@+id/layoutStreetViewPreview"
+            android:layout_width="92dp"
+            android:layout_height="52dp"
+            android:layout_marginStart="7dp"
+            android:visibility="gone"
+            android:background="@drawable/bg_inner_metric_card"
+            android:clipToOutline="true">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Combust.:"
-                android:textColor="#D5DAE6"
-                android:fontFamily="sans-serif-medium"
-                android:textStyle="bold"
-                android:textSize="11.5sp" />
+            <ImageView
+                android:id="@+id/ivStreetViewImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:contentDescription="Prévia da fachada do destino" />
 
-            <TextView
-                android:id="@+id/tvFuelCost"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:text="-R$ 6,55"
-                android:textColor="#FF5C64"
-                android:fontFamily="sans-serif-black"
-                android:textStyle="bold"
-                android:textSize="15sp" />
-        </LinearLayout>
+            <ProgressBar
+                android:id="@+id/pbStreetViewLoading"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="center"
+                android:indeterminateTint="#FF6900"
+                android:visibility="gone" />
+        </FrameLayout>
     </LinearLayout>
 
-    <!-- 5. ALERTA DE NOTA BAIXA (CONDICIONAL) -->
+    <!-- 4. ALERTA ESPECÍFICO DO ESTADO (ex.: LISTA NEGRA / baixa nota) -->
     <LinearLayout
         android:id="@+id/layoutRatingAlert"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginTop="6dp"
         android:background="@drawable/bg_alert_banner"
-        android:padding="6dp"
+        android:padding="5dp"
         android:visibility="gone"
         android:gravity="center">
 
@@ -378,98 +499,25 @@
             android:id="@+id/tvRatingWarning"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="⚠️ PASSAGEIRO COM NOTA BAIXA: 4.65 (Aceite Bloqueado)"
+            android:gravity="center"
+            android:text="⛔ Bairro na Lista Negra"
             android:textColor="#FFFFFF"
             android:fontFamily="sans-serif-black"
             android:textStyle="bold"
-            android:textSize="11.5sp" />
+            android:textSize="10.5sp"
+            android:maxLines="2"
+            android:ellipsize="end" />
     </LinearLayout>
 
-    <!-- 6. DESTINO & FACHADA STREET VIEW COLAPSÁVEL -->
-    <LinearLayout
-        android:id="@+id/layoutStreetViewPreview"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:orientation="vertical"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:id="@+id/btnToggleStreetView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="@drawable/bg_btn_secondary_glass"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="5dp">
-
-            <TextView
-                android:id="@+id/tvStreetViewLabel"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="📍 Av. Paulista, 1578 - Bela Vista"
-                android:textColor="#FFFFFF"
-                android:singleLine="true"
-                android:ellipsize="end"
-                android:fontFamily="sans-serif-medium"
-                android:textStyle="bold"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/tvStreetViewActionIcon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="▼ Fachada"
-                android:textColor="#FF8A24"
-                android:fontFamily="sans-serif-black"
-                android:textStyle="bold"
-                android:textSize="11.5sp" />
-        </LinearLayout>
-
-        <FrameLayout
-            android:id="@+id/frameStreetViewContainer"
-            android:layout_width="match_parent"
-            android:layout_height="125dp"
-            android:layout_marginTop="4dp"
-            android:visibility="gone"
-            android:background="@drawable/bg_inner_metric_card">
-
-            <ImageView
-                android:id="@+id/ivStreetViewImage"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="centerCrop"
-                android:visibility="gone"
-                android:contentDescription="Foto da Fachada Street View" />
-
-            <ProgressBar
-                android:id="@+id/pbStreetViewLoading"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:layout_gravity="center"
-                android:indeterminateTint="#FF6900"
-                android:visibility="gone" />
-
-            <WebView
-                android:id="@+id/wvStreetView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:visibility="gone" />
-        </FrameLayout>
-    </LinearLayout>
-
-    <!-- 7. BARRA DE TEMPORIZADOR INTELIGENTE (FECHAMENTO AUTOMÁTICO) -->
+    <!-- 5. TEMPORIZADOR INTELIGENTE -->
     <ProgressBar
         android:id="@+id/pbOverlayTimer"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
         android:layout_height="3dp"
-        android:layout_marginTop="6dp"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="6dp"
         android:max="100"
         android:progress="100"
         android:progressDrawable="@drawable/progress_bar_gradient" />
