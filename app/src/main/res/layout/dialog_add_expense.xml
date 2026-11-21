@@ -5,13 +5,13 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="22dp"
-    android:background="@drawable/bg_dialog_glass">
+    android:background="@drawable/bg_light_dialog">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Lançar Nova Despesa"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/drifly_ink"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="18sp" />
@@ -22,7 +22,7 @@
         android:layout_marginTop="4dp"
         android:layout_marginBottom="16dp"
         android:text="Informe a categoria e o valor para abater do lucro líquido real."
-        android:textColor="#A3A8B5"
+        android:textColor="@color/drifly_mut"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textSize="12sp" />
 
@@ -30,7 +30,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Categoria"
-        android:textColor="#F5F5F7"
+        android:textColor="@color/drifly_ink"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="12sp" />
@@ -41,11 +41,11 @@
         android:layout_height="48dp"
         android:layout_marginTop="6dp"
         android:layout_marginBottom="12dp"
-        android:background="@drawable/bg_input_field"
+        android:background="@drawable/bg_light_field"
         android:paddingHorizontal="14dp"
         android:hint="Ex: Gasolina, Almoço, Troca de Óleo"
         android:textColorHint="#606B7B"
-        android:textColor="#F5F5F7"
+        android:textColor="@color/drifly_ink"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textSize="14sp"
         android:inputType="textCapWords" />
@@ -54,7 +54,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Valor (R$)"
-        android:textColor="#F5F5F7"
+        android:textColor="@color/drifly_ink"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="12sp" />
@@ -65,11 +65,11 @@
         android:layout_height="48dp"
         android:layout_marginTop="6dp"
         android:layout_marginBottom="12dp"
-        android:background="@drawable/bg_input_field"
+        android:background="@drawable/bg_light_field"
         android:paddingHorizontal="14dp"
         android:hint="0,00"
         android:textColorHint="#606B7B"
-        android:textColor="#F5F5F7"
+        android:textColor="@color/drifly_ink"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="16sp"
@@ -80,7 +80,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Observação (Opcional)"
-        android:textColor="#F5F5F7"
+        android:textColor="@color/drifly_ink"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="12sp" />
@@ -90,14 +90,138 @@
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:layout_marginTop="6dp"
-        android:background="@drawable/bg_input_field"
+        android:background="@drawable/bg_light_field"
         android:paddingHorizontal="14dp"
         android:hint="Ex: Posto Shell Centro"
         android:textColorHint="#606B7B"
-        android:textColor="#F5F5F7"
+        android:textColor="@color/drifly_ink"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textSize="14sp"
         android:inputType="text" />
+
+    <!-- Abastecimento: alimenta o tanque da bolinha flutuante -->
+    <LinearLayout
+        android:id="@+id/layoutFuelFill"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_light_info"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="12dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:text="Foi abastecimento?"
+                    android:textColor="@color/drifly_ink"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/tvFuelFillHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Soma litros na bolinha do tanque"
+                    android:textColor="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textSize="11.5sp" />
+            </LinearLayout>
+
+            <Switch
+                android:id="@+id/swFuelFill"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutFuelLiters"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:text="Litros abastecidos"
+                    android:textColor="@color/drifly_ink"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/tvFuelLitersHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Calculado pelo preço do litro"
+                    android:textColor="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textSize="11.5sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="122dp"
+                android:layout_height="42dp"
+                android:background="@drawable/bg_light_field"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="10dp">
+
+                <EditText
+                    android:id="@+id/etFuelLiters"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@null"
+                    android:padding="0dp"
+                    android:hint="0,00"
+                    android:textColor="@color/drifly_ink"
+                    android:textColorHint="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="15sp"
+                    android:gravity="end"
+                    android:inputType="numberDecimal"
+                    android:digits="0123456789,." />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="L"
+                    android:textColor="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
 
     <!-- Botões de Ação Embutidos no Card de Vidro -->
     <LinearLayout
@@ -112,8 +236,8 @@
             android:layout_height="48dp"
             android:layout_weight="1"
             app:backgroundTint="@null"
-            android:background="@drawable/bg_period_unselected"
-            android:textColor="#A3A8B5"
+            android:background="@drawable/bg_light_chip"
+            android:textColor="@color/drifly_mut"
             android:fontFamily="@font/plus_jakarta_sans"
             android:textStyle="bold"
             android:textSize="14sp"

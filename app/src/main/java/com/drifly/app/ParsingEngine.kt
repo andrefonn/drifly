@@ -419,6 +419,38 @@ object ParsingEngine {
     }
 
     /**
+     * Texto/ID de um botão de recusa de verdade (Uber/nativo). Diferente de [isDeclineActionText],
+     * não aceita um "X" ou "Fechar" solto, que pode ser o fechar da navegação por baixo do card.
+     */
+    fun isDeclineButtonText(textOrId: String): Boolean {
+        val lower = textOrId.trim().lowercase()
+        if (lower.isEmpty()) return false
+        return lower == "recusar" ||
+            lower == "rejeitar" ||
+            lower == "ignorar" ||
+            lower.contains("recusar corrida") ||
+            lower.contains("recusar viagem") ||
+            lower.contains("btn_decline") ||
+            lower.contains("btn_reject") ||
+            lower.contains("decline") ||
+            lower.contains("reject")
+    }
+
+    /** X/×/✕/✖ isolado, como o botão de fechar/recusar do card da 99. */
+    fun isExactDeclineGlyph(text: String): Boolean {
+        val normalized = text.trim().lowercase().trim(' ', '.', ',', ':', ';', '!', '?', '(', ')', '[', ']')
+        return normalized == "x" || normalized == "×" || normalized == "✕" || normalized == "✖"
+    }
+
+    /** OCR que juntou o X do card com o selo "Não afeta a TA" na mesma linha. */
+    fun isDeclineGlyphMergedWithBadge(text: String): Boolean {
+        val lower = text.trim().lowercase()
+        val startsWithX = lower.startsWith("x ") || lower.startsWith("× ") ||
+            lower.startsWith("✕ ") || lower.startsWith("✖ ")
+        return startsWithX && (lower.contains("não afeta") || lower.contains("nao afeta"))
+    }
+
+    /**
      * Verifica se a lista de textos da tela indica que o motorista já está em uma corrida em andamento
      * ou em navegação passo-a-passo (evitando falsos overlays durante a corrida).
      */

@@ -15,6 +15,43 @@ package com.drifly.app
  */
 object AcceptanceRules {
 
+    /** Ação de automação decidida a partir das configurações da aba Corridas. */
+    enum class AutoAction {
+        ACCEPT,
+        DECLINE,
+        IGNORE
+    }
+
+    /**
+     * Decide aceitar/recusar usando exatamente os critérios configurados pelo motorista:
+     * R$/km mínimo, distância máxima, nota mínima, Modo Casa e Lista Negra.
+     *
+     * Regra: só aceita quando TODOS os critérios passam; só recusa quando algum falha.
+     * Se a automação correspondente estiver desligada, não faz nada (IGNORE).
+     */
+    fun decideAutomation(
+        offer: RideOffer,
+        minRatePerKm: Double,
+        maxDistanceKm: Double,
+        minPassengerRating: Float,
+        modoCasaActive: Boolean,
+        autoAcceptEnabled: Boolean,
+        autoDeclineEnabled: Boolean
+    ): AutoAction {
+        val withinRate = offer.ratePerKm >= minRatePerKm
+        val withinDistance = offer.distanceKm <= maxDistanceKm
+        val ratingOk = offer.passengerRating == null || offer.passengerRating >= minPassengerRating
+        // Modo Casa usa a mesma regra do resto do app: só é elegível se não aumenta a distância de casa.
+        val withinModoCasa = !modoCasaActive || offer.homeDistanceDeltaKm <= 0.0
+        val eligible = !offer.isBlacklistBlocked && withinRate && withinDistance && ratingOk && withinModoCasa
+
+        return when {
+            eligible && autoAcceptEnabled -> AutoAction.ACCEPT
+            !eligible && autoDeclineEnabled -> AutoAction.DECLINE
+            else -> AutoAction.IGNORE
+        }
+    }
+
     /** Tempo máximo que uma oferta pendente continua elegível a virar aceita. */
     const val PENDING_OFFER_VALIDITY_MS: Long = 45_000L
 

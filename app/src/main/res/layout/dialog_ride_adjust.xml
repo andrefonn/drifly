@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="20dp"
-    android:background="@drawable/bg_dialog_glass">
+    android:background="@drawable/bg_light_dialog">
 
     <!-- Topo: Título e Detalhes da Corrida -->
     <LinearLayout
@@ -17,7 +17,7 @@
         <FrameLayout
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="@drawable/bg_btn_circle_glass"
+            android:background="@drawable/bg_light_circle"
             android:padding="8dp">
 
             <ImageView
@@ -40,7 +40,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Ajuste Rápido de Corrida"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/drifly_ink"
                 android:fontFamily="@font/plus_jakarta_sans"
                 android:textStyle="bold"
                 android:textSize="17sp" />
@@ -50,7 +50,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Uber • R$ 32,50 • 8,4 km"
-                android:textColor="#A3A8B5"
+                android:textColor="@color/drifly_mut"
                 android:fontFamily="@font/plus_jakarta_sans"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -64,7 +64,7 @@
             android:paddingHorizontal="8dp"
             android:paddingVertical="4dp"
             android:background="@drawable/bg_badge_pill"
-            android:textColor="#FFB800"
+            android:textColor="@color/drifly_amber"
             android:fontFamily="@font/plus_jakarta_sans"
             android:textStyle="bold"
             android:textSize="11sp" />
@@ -74,14 +74,14 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginVertical="14dp"
-        android:background="#1AFFFFFF" />
+        android:background="@color/drifly_line" />
 
     <!-- Campo: Ajustar Valor Real Recebido -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Valor Real Recebido (R$):"
-        android:textColor="#A3A8B5"
+        android:textColor="@color/drifly_mut"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="12sp" />
@@ -98,8 +98,8 @@
             android:layout_width="0dp"
             android:layout_height="44dp"
             android:layout_weight="1"
-            android:background="@drawable/bg_input_field"
-            android:textColor="#FFFFFF"
+            android:background="@drawable/bg_light_field"
+            android:textColor="@color/drifly_ink"
             android:textColorHint="#5A6072"
             android:fontFamily="@font/plus_jakarta_sans"
             android:inputType="numberDecimal"
@@ -127,7 +127,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:text="Ações Rápidas de Status:"
-        android:textColor="#A3A8B5"
+        android:textColor="@color/drifly_mut"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="12sp" />
@@ -139,8 +139,8 @@
         android:layout_height="42dp"
         android:layout_marginTop="8dp"
         app:backgroundTint="@null"
-        android:background="@drawable/bg_btn_secondary_glass"
-        android:textColor="#31D477"
+        android:background="@drawable/bg_light_pill_green"
+        android:textColor="@color/drifly_green"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="13sp"
@@ -153,8 +153,8 @@
         android:layout_height="42dp"
         android:layout_marginTop="8dp"
         app:backgroundTint="@null"
-        android:background="@drawable/bg_btn_secondary_glass"
-        android:textColor="#60A5FA"
+        android:background="@drawable/bg_light_pill_amber"
+        android:textColor="@color/drifly_amber"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="13sp"
@@ -167,8 +167,8 @@
         android:layout_height="42dp"
         android:layout_marginTop="8dp"
         app:backgroundTint="@null"
-        android:background="@drawable/bg_btn_secondary_glass"
-        android:textColor="#FF454D"
+        android:background="@drawable/bg_light_pill_red"
+        android:textColor="@color/drifly_red"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="13sp"
@@ -181,8 +181,8 @@
         android:layout_height="42dp"
         android:layout_marginTop="8dp"
         app:backgroundTint="@null"
-        android:background="@drawable/bg_period_unselected"
-        android:textColor="#A3A8B5"
+        android:background="@drawable/bg_light_chip"
+        android:textColor="@color/drifly_mut"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textSize="12sp"
         android:text="🗑  Excluir Corrida do Extrato" />
@@ -194,8 +194,8 @@
         android:layout_height="44dp"
         android:layout_marginTop="14dp"
         app:backgroundTint="@null"
-        android:background="@drawable/bg_card_frosted_glass"
-        android:textColor="#FFFFFF"
+        android:background="@drawable/bg_light_card"
+        android:textColor="@color/drifly_ink"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="13sp"

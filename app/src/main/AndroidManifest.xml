@@ -45,6 +45,15 @@
         </service>
 
         <service
+            android:name=".FuelBubbleService"
+            android:foregroundServiceType="location|specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="floating_fuel_speedometer_overlay" />
+        </service>
+
+        <service
             android:name=".BubbleOverlayService"
             android:foregroundServiceType="specialUse"
             android:exported="false">

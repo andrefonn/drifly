@@ -45,6 +45,11 @@ object BackupManager {
             put("overlay_position", prefs.overlayPosition)
             put("goal_type", prefs.goalType)
             put("goal_target_amount", prefs.goalTargetAmount.toDouble())
+            put("floating_bubble_enabled", prefs.floatingBubbleEnabled)
+            put("fuel_level", prefs.fuelLevel.toDouble())
+            put("tank_liters", prefs.tankLiters)
+            put("tank_reference_liters", prefs.tankReferenceLiters)
+            put("tank_odometer_km", prefs.tankOdometerKm)
         }
         rootJson.put("preferences", prefsJson)
 
@@ -263,6 +268,11 @@ object BackupManager {
                 if (p.has("overlay_position")) prefs.overlayPosition = p.getString("overlay_position")
                 if (p.has("goal_type")) prefs.goalType = p.getString("goal_type")
                 if (p.has("goal_target_amount")) prefs.goalTargetAmount = p.getDouble("goal_target_amount").toFloat()
+                if (p.has("floating_bubble_enabled")) prefs.floatingBubbleEnabled = p.getBoolean("floating_bubble_enabled")
+                if (p.has("fuel_level")) prefs.fuelLevel = p.getDouble("fuel_level").toFloat()
+                if (p.has("tank_liters")) prefs.tankLiters = p.getDouble("tank_liters")
+                if (p.has("tank_reference_liters")) prefs.tankReferenceLiters = p.getDouble("tank_reference_liters")
+                if (p.has("tank_odometer_km")) prefs.tankOdometerKm = p.getDouble("tank_odometer_km")
             }
 
             var totalRestored = 0

@@ -4,6 +4,7 @@ import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
+import android.app.DatePickerDialog
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.ClipData
@@ -85,8 +86,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewTabSupport: View
 
     // Aba 1: Finanças & Resultados
-    private lateinit var tvGoalProgress: TextView
+    private lateinit var tvGoalTarget: TextView
+    private lateinit var tvGoalAchieved: TextView
+    private lateinit var tvGoalPercent: TextView
     private lateinit var pbGoal: ProgressBar
+    private var homeGlowAnimator: ObjectAnimator? = null
     private lateinit var tvGrossToday: TextView
     private lateinit var tvExpensesToday: TextView
     private lateinit var tvNetToday: TextView
@@ -116,7 +120,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var tvRealSalaryHero: TextView
     private lateinit var tvSalaryTrendBadge: TextView
-    private lateinit var tvPocketCashSubtitle: TextView
+    private lateinit var tvPocketCashValue: TextView
+    private lateinit var tvReservedValue: TextView
     private lateinit var tvAvgMonthlySalary: TextView
     private lateinit var tvAvgSalaryContext: TextView
     private lateinit var tvProjectedMonthlySalary: TextView
@@ -131,8 +136,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvCascadeOpProfit: TextView
     private lateinit var tvCascadeObligations: TextView
     private lateinit var tvCascadeObligationsDetail: TextView
+    private lateinit var sbFuelLevel: SeekBar
+    private lateinit var tvFuelLevelValue: TextView
     private lateinit var tvCascadeFinalSalary: TextView
+    private lateinit var layoutRealSalaryTotal: View
     private lateinit var tvIcrDiagnostic: TextView
+    private lateinit var tvIcrChip: TextView
+    private lateinit var pbIcr: ProgressBar
 
     private lateinit var btnAddObligation: View
     private lateinit var layoutDueSoonRadar: View
@@ -164,6 +174,12 @@ class MainActivity : AppCompatActivity() {
 
     // Aba 3: Configurações de Corrida & Modo Casa
     private lateinit var rgOverlayPosition: RadioGroup
+    private lateinit var cardPosTop: View
+    private lateinit var cardPosCenter: View
+    private lateinit var cardPosBottom: View
+    private lateinit var cardPosTopLabel: TextView
+    private lateinit var cardPosCenterLabel: TextView
+    private lateinit var cardPosBottomLabel: TextView
     private lateinit var swAutoAccept: Switch
     private lateinit var swAutoDecline: Switch
     private lateinit var swMotoMode: Switch
@@ -350,6 +366,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIncomingTabIntent(intent: Intent?) {
+        when (intent?.getStringExtra("drifly_destination")) {
+            "expense" -> {
+                intent.removeExtra("drifly_destination")
+                switchToTab(R.id.nav_finance)
+                bottomNavigation.selectedItemId = R.id.nav_finance
+                showAddExpenseDialog()
+            }
+            "rides" -> {
+                intent.removeExtra("drifly_destination")
+                bottomNavigation.selectedItemId = R.id.nav_rides
+                switchToTab(R.id.nav_rides)
+            }
+        }
         when (intent?.getStringExtra(EXTRA_OPEN_TAB)) {
             "SUPPORT" -> {
                 bottomNavigation.selectedItemId = R.id.nav_support
@@ -422,6 +451,9 @@ class MainActivity : AppCompatActivity() {
         btnToggleHomeMode = findViewById(R.id.btnToggleHomeMode)
         btnOpenSettings = findViewById(R.id.btnOpenSettings)
 
+        findViewById<TextView>(R.id.tvAppVersionFooter)?.text =
+            "DriFly v${UpdateManager.getCurrentVersionName(this)} • Compilação Oficial"
+
         // Banner de Alerta Flutuante
         layoutNotificationBanner = findViewById(R.id.layoutNotificationBanner)
         ivBannerIcon = findViewById(R.id.ivBannerIcon)
@@ -434,7 +466,9 @@ class MainActivity : AppCompatActivity() {
         viewTabSupport = findViewById(R.id.viewTabSupport)
 
         // Aba 1: Finanças
-        tvGoalProgress = findViewById(R.id.tvGoalProgress)
+        tvGoalTarget = findViewById(R.id.tvGoalTarget)
+        tvGoalAchieved = findViewById(R.id.tvGoalAchieved)
+        tvGoalPercent = findViewById(R.id.tvGoalPercent)
         pbGoal = findViewById(R.id.pbGoal)
         tvGrossToday = findViewById(R.id.tvGrossToday)
         tvExpensesToday = findViewById(R.id.tvExpensesToday)
@@ -464,7 +498,8 @@ class MainActivity : AppCompatActivity() {
 
         tvRealSalaryHero = findViewById(R.id.tvRealSalaryHero)
         tvSalaryTrendBadge = findViewById(R.id.tvSalaryTrendBadge)
-        tvPocketCashSubtitle = findViewById(R.id.tvPocketCashSubtitle)
+        tvPocketCashValue = findViewById(R.id.tvPocketCashValue)
+        tvReservedValue = findViewById(R.id.tvReservedValue)
         tvAvgMonthlySalary = findViewById(R.id.tvAvgMonthlySalary)
         tvAvgSalaryContext = findViewById(R.id.tvAvgSalaryContext)
         tvProjectedMonthlySalary = findViewById(R.id.tvProjectedMonthlySalary)
@@ -480,7 +515,10 @@ class MainActivity : AppCompatActivity() {
         tvCascadeObligations = findViewById(R.id.tvCascadeObligations)
         tvCascadeObligationsDetail = findViewById(R.id.tvCascadeObligationsDetail)
         tvCascadeFinalSalary = findViewById(R.id.tvCascadeFinalSalary)
+        layoutRealSalaryTotal = findViewById(R.id.layoutRealSalaryTotal)
         tvIcrDiagnostic = findViewById(R.id.tvIcrDiagnostic)
+        tvIcrChip = findViewById(R.id.tvIcrChip)
+        pbIcr = findViewById(R.id.pbIcr)
 
         btnAddObligation = findViewById(R.id.btnAddObligation)
         layoutDueSoonRadar = findViewById(R.id.layoutDueSoonRadar)
@@ -507,6 +545,16 @@ class MainActivity : AppCompatActivity() {
 
         // Aba 3: Corridas
         rgOverlayPosition = findViewById(R.id.rgOverlayPosition)
+        cardPosTop = findViewById(R.id.cardPosTop)
+        cardPosCenter = findViewById(R.id.cardPosCenter)
+        cardPosBottom = findViewById(R.id.cardPosBottom)
+        cardPosTopLabel = findViewById(R.id.cardPosTopLabel)
+        cardPosCenterLabel = findViewById(R.id.cardPosCenterLabel)
+        cardPosBottomLabel = findViewById(R.id.cardPosBottomLabel)
+
+        cardPosTop.setOnClickListener { selectOverlayPosition("TOP") }
+        cardPosCenter.setOnClickListener { selectOverlayPosition("CENTER") }
+        cardPosBottom.setOnClickListener { selectOverlayPosition("BOTTOM") }
         swAutoAccept = findViewById(R.id.swAutoAccept)
         swAutoDecline = findViewById(R.id.swAutoDecline)
         swMotoMode = findViewById(R.id.swMotoMode)
@@ -517,6 +565,8 @@ class MainActivity : AppCompatActivity() {
         etFuelPrice = findViewById(R.id.etFuelPrice)
         etFuelConsumption = findViewById(R.id.etFuelConsumption)
         etMaintenance = findViewById(R.id.etMaintenance)
+        sbFuelLevel = findViewById(R.id.sbFuelLevel)
+        tvFuelLevelValue = findViewById(R.id.tvFuelLevelValue)
 
         cardConfigModoCasa = findViewById(R.id.cardConfigModoCasa)
         etHomeAddress = findViewById(R.id.etHomeAddress)
@@ -602,34 +652,36 @@ class MainActivity : AppCompatActivity() {
      */
     private fun updateMonitoringToggleUI(isActive: Boolean) {
         if (isActive) {
-            cardMonitoringToggle.setBackgroundResource(R.drawable.bg_card_monitoring_active)
-            ivMonitoringPowerIcon.setColorFilter(0xFF31D477.toInt())
-            tvMonitoringTitle.text = "MONITORAMENTO ATIVO"
-            tvMonitoringTitle.setTextColor(0xFFFFFFFF.toInt())
+            cardMonitoringToggle.setBackgroundResource(R.drawable.bg_light_monitor_on)
+            flMonitoringIconContainer.setBackgroundResource(R.drawable.bg_light_circle_green)
+            ivMonitoringPowerIcon.setColorFilter(0xFF0B8A54.toInt())
+            tvMonitoringTitle.text = "Monitoramento ativo"
+            tvMonitoringTitle.setTextColor(0xFF162033.toInt())
             val shiftKm = prefs.shiftDistanceKm
             if (shiftKm > 0.05f) {
                 val shiftCost = shiftKm * prefs.costPerKm
-                tvMonitoringSubtitle.text = String.format(Locale("pt", "BR"), "Turno: %.1f km rodados • Combustível: -R$ %.2f", shiftKm, shiftCost)
+                tvMonitoringSubtitle.text = String.format(Locale("pt", "BR"), "Turno: %.1f km rodados • Combustível: R$ %.2f", shiftKm, shiftCost)
             } else {
-                tvMonitoringSubtitle.text = "Uber e 99 sendo monitorados • Toque para pausar"
+                tvMonitoringSubtitle.text = "Turno em andamento"
             }
-            tvMonitoringBadge.text = "ATIVO"
-            tvMonitoringBadge.setBackgroundResource(R.drawable.bg_pill_green)
-            tvMonitoringBadge.setTextColor(0xFF31D477.toInt())
+            tvMonitoringBadge.text = "Ligado"
+            tvMonitoringBadge.setBackgroundResource(R.drawable.bg_light_pill_green)
+            tvMonitoringBadge.setTextColor(0xFF0B8A54.toInt())
         } else {
-            cardMonitoringToggle.setBackgroundResource(R.drawable.bg_card_monitoring_inactive)
-            ivMonitoringPowerIcon.setColorFilter(0xFFFF6900.toInt())
-            tvMonitoringTitle.text = "LIGAR MONITORAMENTO"
-            tvMonitoringTitle.setTextColor(0xFFF5F5F7.toInt())
+            cardMonitoringToggle.setBackgroundResource(R.drawable.bg_light_monitor_off)
+            flMonitoringIconContainer.setBackgroundResource(R.drawable.bg_light_circle_orange)
+            ivMonitoringPowerIcon.setColorFilter(0xFFFF6F00.toInt())
+            tvMonitoringTitle.text = "Ligar monitoramento"
+            tvMonitoringTitle.setTextColor(0xFF162033.toInt())
             val shiftKm = prefs.shiftDistanceKm
             if (shiftKm > 0.05f) {
-                tvMonitoringSubtitle.text = String.format(Locale("pt", "BR"), "Último turno: %.1f km • Toque para novo turno", shiftKm)
+                tvMonitoringSubtitle.text = String.format(Locale("pt", "BR"), "Último turno: %.1f km", shiftKm)
             } else {
-                tvMonitoringSubtitle.text = "Toque para iniciar o cálculo contínuo em segundo plano"
+                tvMonitoringSubtitle.text = "Nenhum turno registrado ainda"
             }
-            tvMonitoringBadge.text = "DESLIGADO"
-            tvMonitoringBadge.setBackgroundResource(R.drawable.bg_pill_orange)
-            tvMonitoringBadge.setTextColor(0xFFFF6900.toInt())
+            tvMonitoringBadge.text = "Desligado"
+            tvMonitoringBadge.setBackgroundResource(R.drawable.bg_light_pill_orange)
+            tvMonitoringBadge.setTextColor(0xFFB24D00.toInt())
         }
     }
 
@@ -730,6 +782,7 @@ class MainActivity : AppCompatActivity() {
                 "CENTER" -> rgOverlayPosition.check(R.id.rbPosCenter)
                 else -> rgOverlayPosition.check(R.id.rbPosTop)
             }
+            updateOverlayPositionCards()
 
             swAutoAccept.isChecked = prefs.autoAcceptEnabled
             swAutoDecline.isChecked = prefs.autoDeclineEnabled
@@ -743,6 +796,10 @@ class MainActivity : AppCompatActivity() {
             etFuelPrice.setText(String.format(ptBr, "%.2f", prefs.fuelPrice))
             etFuelConsumption.setText(String.format(ptBr, "%.1f", prefs.fuelConsumption))
             etMaintenance.setText(String.format(ptBr, "%.2f", prefs.maintenanceCostPerKm))
+
+            val tankPercent = (FuelTankEngine.level(prefs) * 100).toInt()
+            sbFuelLevel.progress = tankPercent
+            tvFuelLevelValue.text = "$tankPercent%"
 
             // Modo Casa
             etHomeAddress.setText(prefs.homeAddress)
@@ -762,6 +819,14 @@ class MainActivity : AppCompatActivity() {
             field.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
             field.keyListener = allowedChars
         }
+    }
+
+    private fun EditText.doAfterTextChangedCompat(action: () -> Unit) {
+        addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: android.text.Editable?) = action()
+        })
     }
 
     private fun parseBrFloat(text: String, defaultVal: Float): Float {
@@ -845,9 +910,23 @@ class MainActivity : AppCompatActivity() {
                 SupportNotificationWorker.scheduleAllSupportReminders(this)
                 prefs.isMonitoringActive = true
                 updateMonitoringToggleUI(true)
+                if (prefs.floatingBubbleEnabled) FuelBubbleService.start(this)
                 showNotificationBanner("Monitoramento DriFly iniciado! Notificação contínua ativa.", BannerType.SUCCESS)
             }
         }
+
+        sbFuelLevel.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                tvFuelLevelValue.text = "$progress%"
+                if (fromUser) {
+                    FuelTankEngine.setManualLevel(prefs, progress / 100f)
+                    FuelBubbleService.refresh(this@MainActivity)
+                }
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
 
         btnSaveGoalOnly.setOnClickListener {
             prefs.goalTargetAmount = parseBrFloat(etGoalTarget.text.toString(), prefs.goalTargetAmount)
@@ -1014,7 +1093,34 @@ class MainActivity : AppCompatActivity() {
         btnAddExpense.setOnClickListener { showAddExpenseDialog() }
 
         btnOpenFullHistory.setOnClickListener {
-            showReportDialog("DAILY", "Histórico de Corridas")
+            showReportDialog("DAILY", "Histórico de corridas")
+        }
+
+        // A bolinha do tanque vive por conta própria (só o arraste até o X a fecha)
+        val canDrawFloatingBubble =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+        AppLogger.i(
+            "FuelBubbleService",
+            "Checagem da bolinha: habilitada=${prefs.floatingBubbleEnabled}, overlayPermitido=$canDrawFloatingBubble"
+        )
+        if (prefs.floatingBubbleEnabled && canDrawFloatingBubble) {
+            FuelBubbleService.start(this)
+        }
+
+        // Botões "i": revelam a explicação em card laranja claro (um por vez)
+        val infoPairs = listOf(
+            Pair(R.id.btnInfoHero, R.id.tvInfoHero),
+            Pair(R.id.btnInfoCascade, R.id.tvInfoCascade),
+            Pair(R.id.btnInfoPista, R.id.tvCascadeStreetCostsDetail),
+            Pair(R.id.btnInfoObligations, R.id.tvCascadeObligationsDetail)
+        )
+        infoPairs.forEach { (btnId, boxId) ->
+            findViewById<View>(btnId)?.setOnClickListener {
+                val box = findViewById<View>(boxId)
+                val willShow = box.visibility != View.VISIBLE
+                infoPairs.forEach { (_, id) -> findViewById<View>(id).visibility = View.GONE }
+                box.visibility = if (willShow) View.VISIBLE else View.GONE
+            }
         }
 
         // Aba 2 (Nova): Gestão Financeira Completa & Salário Real
@@ -1161,18 +1267,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         val targetFormatted = String.format(ptBr, "R$ %.2f", target)
-        val reachedFormatted = String.format(ptBr, "R$ %.2f", summary.totalNet)
-        val ssb = android.text.SpannableStringBuilder()
-        ssb.append("Meta: ")
-        val startTarget = ssb.length
-        ssb.append(targetFormatted)
-        ssb.setSpan(android.text.style.ForegroundColorSpan(0xFFFF6900.toInt()), startTarget, ssb.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-        ssb.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), startTarget, ssb.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-        val startReached = ssb.length
-        ssb.append(" (Atingido: $reachedFormatted – $percent%)")
-        ssb.setSpan(android.text.style.ForegroundColorSpan(0xFFA3A8B5.toInt()), startReached, ssb.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        val reachedFormatted = String.format(ptBr, "R$ %.2f", summary.totalNet.coerceAtLeast(0.0))
 
-        tvGoalProgress.text = ssb
+        tvGoalTarget.text = targetFormatted
+        tvGoalAchieved.text = "Atingido: $reachedFormatted"
+        tvGoalPercent.text = "$percent%"
 
         // Mantém a aba de Gestão Financeira sempre sincronizada quando corridas/despesas mudam
         updateManagementDashboard(animate = animate)
@@ -1196,65 +1295,67 @@ class MainActivity : AppCompatActivity() {
         tvMonthStatusPill.text = report.monthStatusPillText
         when {
             report.isCurrentMonth -> {
-                tvMonthStatusPill.setBackgroundResource(R.drawable.bg_pill_orange)
-                tvMonthStatusPill.setTextColor(0xFFFF8A24.toInt())
+                tvMonthStatusPill.setBackgroundResource(R.drawable.bg_light_pill_orange)
+                tvMonthStatusPill.setTextColor(DriPalette.ORANGE_DEEP)
             }
             report.isPastMonth -> {
-                tvMonthStatusPill.setBackgroundResource(R.drawable.bg_period_unselected)
-                tvMonthStatusPill.setTextColor(0xFFA3A8B5.toInt())
+                tvMonthStatusPill.setBackgroundResource(R.drawable.bg_light_chip)
+                tvMonthStatusPill.setTextColor(DriPalette.MUT)
             }
             else -> {
-                tvMonthStatusPill.setBackgroundResource(R.drawable.bg_pill_green)
-                tvMonthStatusPill.setTextColor(0xFF31D477.toInt())
+                tvMonthStatusPill.setBackgroundResource(R.drawable.bg_light_pill_green)
+                tvMonthStatusPill.setTextColor(DriPalette.GREEN)
             }
         }
 
-        // 2. Hero Card Principal: Salário Mensal Real (Comportamento em 2 Fases no Mês Atual)
-        if (report.isCurrentMonth && report.totalObligations > 0.0 && !report.isPhase2ProfitInPocket) {
-            tvRealSalaryHero.text = "R$ 0,00 livres hoje"
-            tvRealSalaryHero.setTextColor(0xFFFFB800.toInt())
+        // 2. Salário real do mês: "Livre hoje" nunca aparece negativo (clamp em 0)
+        tvRealSalaryHero.text = FinancialManagementEngine.formatCurrency(report.heroDisplaySalary.coerceAtLeast(0.0))
+        tvRealSalaryHero.setTextColor(DriPalette.INK)
+
+        val stillOwesThisMonth = report.isCurrentMonth &&
+            report.totalObligations > 0.0 && !report.isPhase2ProfitInPocket
+        if (stillOwesThisMonth) {
             tvSalaryTrendBadge.text = "Faltam ${FinancialManagementEngine.formatCurrency(report.missingForBreakEven)}"
-            tvSalaryTrendBadge.setBackgroundResource(R.drawable.bg_pill_orange)
-            tvSalaryTrendBadge.setTextColor(0xFFFF8A24.toInt())
+            tvSalaryTrendBadge.setBackgroundResource(R.drawable.bg_light_pill_orange)
+            tvSalaryTrendBadge.setTextColor(DriPalette.ORANGE_DEEP)
         } else {
-            tvRealSalaryHero.text = FinancialManagementEngine.formatCurrency(report.realSalary)
-            tvRealSalaryHero.setTextColor(
-                if (report.realSalary >= 0.0) 0xFF31D477.toInt() else 0xFFFF454D.toInt()
-            )
             tvSalaryTrendBadge.text = report.salaryTrendBadgeText
             if (report.salaryTrendPercent >= 0.0 || report.isBreakEvenReached) {
-                tvSalaryTrendBadge.setBackgroundResource(R.drawable.bg_pill_green)
-                tvSalaryTrendBadge.setTextColor(0xFF31D477.toInt())
+                tvSalaryTrendBadge.setBackgroundResource(R.drawable.bg_light_pill_green)
+                tvSalaryTrendBadge.setTextColor(DriPalette.GREEN)
             } else {
-                tvSalaryTrendBadge.setBackgroundResource(R.drawable.bg_pill_orange)
-                tvSalaryTrendBadge.setTextColor(0xFFFF8A24.toInt())
+                tvSalaryTrendBadge.setBackgroundResource(R.drawable.bg_light_pill_orange)
+                tvSalaryTrendBadge.setTextColor(DriPalette.ORANGE_DEEP)
             }
         }
 
-        tvPocketCashSubtitle.text = report.pocketCashSubtitle
+        tvPocketCashValue.text = FinancialManagementEngine.formatCurrency(report.pocketCashToday)
+        tvPocketCashValue.setTextColor(if (report.pocketCashToday >= 0.0) DriPalette.INK else DriPalette.RED)
+        tvReservedValue.text = FinancialManagementEngine.formatCurrency(report.reservedForUnpaid)
+        tvReservedValue.setTextColor(DriPalette.INK)
 
-        // Sub-grid: Média Salarial Mensal Estabilizada & Projeção de Fechamento
-        tvAvgMonthlySalary.text = "${FinancialManagementEngine.formatCurrency(report.averageMonthlySalary)} / mês"
+        // Sub-grid: Média salarial mensal & Projeção de fechamento
+        tvAvgMonthlySalary.text = FinancialManagementEngine.formatCurrency(report.averageMonthlySalary)
         tvAvgMonthlySalary.setTextColor(
-            if (report.averageMonthlySalary >= 0.0) 0xFFFFFFFF.toInt() else 0xFFFF454D.toInt()
+            if (report.averageMonthlySalary >= 0.0) DriPalette.INK else DriPalette.RED
         )
         tvAvgSalaryContext.text = report.averageContextLabel
 
-        tvProjectedMonthlySalary.text = "${FinancialManagementEngine.formatCurrency(report.projectedSalary)} livres"
+        tvProjectedMonthlySalary.text = FinancialManagementEngine.formatCurrency(report.projectedSalary)
         tvProjectedMonthlySalary.setTextColor(
-            if (report.projectedSalary >= 0.0) 0xFF31D477.toInt() else 0xFFFF454D.toInt()
+            if (report.projectedSalary >= 0.0) DriPalette.GREEN else DriPalette.RED
         )
         tvProjectedContext.text = report.projectedContextLabel
 
         // 3. Ponto de Equilíbrio ("Dia da Alforria")
         val reachedAlforria = (report.isBreakEvenReached && report.totalObligations > 0.0)
-        tvBreakEvenPercent.text = if (reachedAlforria) "100% QUITADO!" else "${report.breakEvenPercent}% coberto"
-        tvBreakEvenPercent.setTextColor(if (reachedAlforria) 0xFF31D477.toInt() else 0xFFFF8A24.toInt())
+        tvBreakEvenPercent.text = if (reachedAlforria) "100% quitado" else "${report.breakEvenPercent}% coberto"
+        tvBreakEvenPercent.setTextColor(if (reachedAlforria) DriPalette.GREEN else DriPalette.AMBER)
 
         val targetDrawableRes = if (reachedAlforria) {
-            R.drawable.progress_bar_emerald
+            R.drawable.progress_bar_light_green
         } else {
-            R.drawable.progress_bar_gradient
+            R.drawable.progress_bar_light
         }
         ContextCompat.getDrawable(this, targetDrawableRes)?.let { drawable ->
             val currentBounds = pbBreakEven.progressDrawable?.bounds
@@ -1280,29 +1381,50 @@ class MainActivity : AppCompatActivity() {
 
         tvFreedomDayStatus.text = report.freedomStatusText
         tvFreedomDayStatus.setTextColor(
-            if (reachedAlforria) 0xFF31D477.toInt() else 0xFFF5F5F7.toInt()
+            if (reachedAlforria) DriPalette.GREEN else DriPalette.AMBER
         )
 
         // 4. Cascata do Dinheiro (Pista -> Contas -> Seu Bolso) & ICR
         tvCascadeGross.text = FinancialManagementEngine.formatCurrency(report.grossRides)
         tvCascadeStreetCosts.text = "- ${FinancialManagementEngine.formatCurrency(report.totalStreetCosts)}"
-        tvCascadeStreetCostsDetail.text = "Desgaste/Combustível KM: ${FinancialManagementEngine.formatCurrency(report.autoKmCost)} • Despesas Rápidas: ${FinancialManagementEngine.formatCurrency(report.streetExpenses)}"
+        tvCascadeStreetCostsDetail.text = "Desgaste/Combustível KM: ${FinancialManagementEngine.formatCurrency(report.autoKmCost)} • Despesas Rápidas: ${FinancialManagementEngine.formatCurrency(report.streetExpenses)}\nO custo por km soma combustível (litro ÷ consumo) e manutenção."
         tvCascadeOpProfit.text = FinancialManagementEngine.formatCurrency(report.operationalProfit)
         tvCascadeObligations.text = "- ${FinancialManagementEngine.formatCurrency(report.totalObligations)}"
-        tvCascadeObligationsDetail.text = "Já pagas: ${FinancialManagementEngine.formatCurrency(report.paidObligations)} • Faltam pagar: ${FinancialManagementEngine.formatCurrency(report.unpaidObligations)}"
+        tvCascadeObligationsDetail.text = "Já pagas: ${FinancialManagementEngine.formatCurrency(report.paidObligations)} • Faltam pagar: ${FinancialManagementEngine.formatCurrency(report.unpaidObligations)}\nO salário real desconta todas as contas do mês selecionado."
         tvCascadeFinalSalary.text = FinancialManagementEngine.formatCurrency(report.realSalary)
-        tvCascadeFinalSalary.setTextColor(
-            if (report.realSalary >= 0.0) 0xFF31D477.toInt() else 0xFFFF454D.toInt()
+        val isRealSalaryPositive = report.realSalary >= 0.0
+        tvCascadeFinalSalary.setTextColor(if (isRealSalaryPositive) DriPalette.GREEN else DriPalette.RED)
+        layoutRealSalaryTotal.setBackgroundResource(
+            if (isRealSalaryPositive) R.drawable.bg_light_pill_green else R.drawable.bg_light_red_soft
         )
 
-        tvIcrDiagnostic.text = report.icrLabel
-        tvIcrDiagnostic.setTextColor(
-            when (report.icrLevel) {
-                IcrLevel.HEALTHY -> 0xFF31D477.toInt()
-                IcrLevel.MODERATE -> 0xFFFFB800.toInt()
-                IcrLevel.CRITICAL -> 0xFFFF454D.toInt()
-            }
-        )
+        val icrColor = when (report.icrLevel) {
+            IcrLevel.HEALTHY -> DriPalette.GREEN
+            IcrLevel.MODERATE -> DriPalette.AMBER
+            IcrLevel.CRITICAL -> DriPalette.RED
+        }
+        val icrChipDrawable = when (report.icrLevel) {
+            IcrLevel.HEALTHY -> R.drawable.bg_light_pill_green
+            IcrLevel.MODERATE -> R.drawable.bg_light_pill_amber
+            IcrLevel.CRITICAL -> R.drawable.bg_light_pill_red
+        }
+        val icrChipLabel = when (report.icrLevel) {
+            IcrLevel.HEALTHY -> "Saudável"
+            IcrLevel.MODERATE -> "Atenção"
+            IcrLevel.CRITICAL -> "Crítico"
+        }
+        tvIcrChip.text = "${report.icrPercent}% · $icrChipLabel"
+        tvIcrChip.setTextColor(icrColor)
+        tvIcrChip.setBackgroundResource(icrChipDrawable)
+        pbIcr.progress = report.icrPercent.coerceIn(0, 100)
+        val icrBarDrawable = when (report.icrLevel) {
+            IcrLevel.HEALTHY -> R.drawable.progress_bar_light_green
+            IcrLevel.MODERATE -> R.drawable.progress_bar_light_amber
+            IcrLevel.CRITICAL -> R.drawable.progress_bar_light_red
+        }
+        ContextCompat.getDrawable(this, icrBarDrawable)?.let { pbIcr.progressDrawable = it }
+        tvIcrDiagnostic.text = "Comprometimento da renda: parte do que você ganha que vai para as contas."
+        tvIcrDiagnostic.setTextColor(DriPalette.MUT)
 
         // 5. Radar de Pressão de 7 Dias
         if (report.totalEntriesCount > 0) {
@@ -1311,9 +1433,9 @@ class MainActivity : AppCompatActivity() {
             tvDueSoonRadarSubtitle.text = report.radarSubtitleText
             tvDueSoonRadarTitle.setTextColor(
                 when {
-                    report.overdueCount > 0 -> 0xFFFF454D.toInt()
-                    report.next7DaysPressureCount > 0 -> 0xFFFFB800.toInt()
-                    else -> 0xFF31D477.toInt()
+                    report.overdueCount > 0 -> DriPalette.RED
+                    report.next7DaysPressureCount > 0 -> DriPalette.AMBER
+                    else -> DriPalette.GREEN
                 }
             )
         } else {
@@ -1336,11 +1458,11 @@ class MainActivity : AppCompatActivity() {
         )
         for ((chipView, filterKey) in filterChips) {
             if (filterKey == selectedObligationFilter) {
-                chipView.setBackgroundResource(R.drawable.bg_period_selected)
+                chipView.setBackgroundResource(R.drawable.bg_chip_selected)
                 chipView.setTextColor(0xFFFFFFFF.toInt())
             } else {
-                chipView.setBackgroundResource(R.drawable.bg_period_unselected)
-                chipView.setTextColor(0xFFA3A8B5.toInt())
+                chipView.setBackgroundResource(R.drawable.bg_light_chip)
+                chipView.setTextColor(DriPalette.MUT)
             }
         }
 
@@ -1363,16 +1485,31 @@ class MainActivity : AppCompatActivity() {
                 val emptyFilterTv = TextView(this).apply {
                     text = "Nenhum compromisso nesta categoria neste mês."
                     textSize = 13f
-                    setTextColor(0xFFA3A8B5.toInt())
+                    setTextColor(DriPalette.MUT)
                     gravity = android.view.Gravity.CENTER
                     setPadding(dpToPx(16), dpToPx(20), dpToPx(16), dpToPx(20))
                     setBackgroundResource(R.drawable.bg_card_frosted_glass)
                 }
                 layoutObligationsList.addView(emptyFilterTv)
             } else {
-                for (item in filteredEntries) {
-                    val cardView = createObligationItemCard(item)
-                    layoutObligationsList.addView(cardView)
+                val pending = filteredEntries.filter { it.computedUrgency != ObligationUrgency.PAID }
+                val paid = filteredEntries.filter { it.computedUrgency == ObligationUrgency.PAID }
+
+                if (pending.isNotEmpty()) {
+                    layoutObligationsList.addView(
+                        createObligationGroupHeader("A pagar", pending.sumOf { it.amount })
+                    )
+                    for (item in pending) {
+                        layoutObligationsList.addView(createObligationItemCard(item))
+                    }
+                }
+                if (paid.isNotEmpty()) {
+                    layoutObligationsList.addView(
+                        createObligationGroupHeader("Pagas", paid.sumOf { it.amount })
+                    )
+                    for (item in paid) {
+                        layoutObligationsList.addView(createObligationItemCard(item))
+                    }
                 }
             }
         }
@@ -1411,6 +1548,36 @@ class MainActivity : AppCompatActivity() {
      * - Barra de progresso da parcela e previsão de término para parcelamentos
      * - Toque no card para abrir o modal de edição/exclusão
      */
+    /** Cabeçalho de grupo da lista de contas ("A pagar" / "Pagas") com o subtotal à direita. */
+    private fun createObligationGroupHeader(label: String, total: Double): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dpToPx(6)
+                bottomMargin = dpToPx(8)
+                setMargins(dpToPx(2), dpToPx(6), dpToPx(2), dpToPx(8))
+            }
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        row.addView(TextView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            text = label
+            textSize = 12.5f
+            setTextColor(DriPalette.MUT)
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        })
+        row.addView(TextView(this).apply {
+            text = FinancialManagementEngine.formatCurrency(total)
+            textSize = 13f
+            setTextColor(DriPalette.INK)
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        })
+        return row
+    }
+
     private fun createObligationItemCard(item: ObligationUiItem): View {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1420,7 +1587,7 @@ class MainActivity : AppCompatActivity() {
             ).apply {
                 setMargins(0, 0, 0, dpToPx(10))
             }
-            setBackgroundResource(R.drawable.bg_card_frosted_glass)
+            setBackgroundResource(R.drawable.bg_light_card)
             setPadding(dpToPx(14), dpToPx(12), dpToPx(14), dpToPx(12))
             isClickable = true
             isFocusable = true
@@ -1454,10 +1621,10 @@ class MainActivity : AppCompatActivity() {
             val badgeStart = ssb.length
             ssb.append("[${item.typeBadgeText}]")
             val badgeColor = when (item.type) {
-                MonthlyObligation.TYPE_INSTALLMENT -> 0xFFFF8A24.toInt()
-                MonthlyObligation.TYPE_FIXED_RECURRING -> 0xFF60A5FA.toInt()
-                MonthlyObligation.TYPE_DEBT_OPEN -> 0xFFFF454D.toInt()
-                else -> 0xFFA3A8B5.toInt()
+                MonthlyObligation.TYPE_INSTALLMENT -> DriPalette.ORANGE_DEEP
+                MonthlyObligation.TYPE_FIXED_RECURRING -> DriPalette.BLUE
+                MonthlyObligation.TYPE_DEBT_OPEN -> DriPalette.RED
+                else -> DriPalette.MUT
             }
             ssb.setSpan(
                 android.text.style.ForegroundColorSpan(badgeColor),
@@ -1473,7 +1640,7 @@ class MainActivity : AppCompatActivity() {
             )
             text = ssb
             textSize = 14f
-            setTextColor(0xFFFFFFFF.toInt())
+            setTextColor(DriPalette.INK)
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
         }
 
@@ -1487,10 +1654,10 @@ class MainActivity : AppCompatActivity() {
             text = "$prefix${item.dueStatusText}"
             textSize = 11.5f
             val statusColor = when (item.computedUrgency) {
-                ObligationUrgency.OVERDUE -> 0xFFFF454D.toInt()
-                ObligationUrgency.DUE_SOON -> 0xFFFFB800.toInt()
-                ObligationUrgency.PAID -> 0xFF31D477.toInt()
-                ObligationUrgency.UPCOMING -> 0xFFA3A8B5.toInt()
+                ObligationUrgency.OVERDUE -> DriPalette.RED
+                ObligationUrgency.DUE_SOON -> DriPalette.AMBER
+                ObligationUrgency.PAID -> DriPalette.GREEN
+                ObligationUrgency.UPCOMING -> DriPalette.MUT
             }
             setTextColor(statusColor)
             setPadding(0, dpToPx(3), 0, 0)
@@ -1502,19 +1669,19 @@ class MainActivity : AppCompatActivity() {
         // Coluna Direita: Valor + Botão 1-Toque (Pagar / Pago)
         val rightCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            // Largura fixa: evita que o valor seja espremido/cortado em telas estreitas.
+            layoutParams = LinearLayout.LayoutParams(dpToPx(98), LinearLayout.LayoutParams.WRAP_CONTENT)
             gravity = android.view.Gravity.END
         }
 
         val tvAmount = TextView(this).apply {
             text = FinancialManagementEngine.formatCurrency(item.amount)
-            textSize = 15f
-            setTextColor(if (item.isPaid) 0xFF31D477.toInt() else 0xFFFFFFFF.toInt())
+            textSize = 14f
+            setTextColor(if (item.isPaid) DriPalette.GREEN else DriPalette.INK)
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.END
+            isSingleLine = true
+            setPadding(0, 0, 0, 0)
         }
 
         val btnQuickPay = TextView(this).apply {
@@ -1529,13 +1696,13 @@ class MainActivity : AppCompatActivity() {
             textSize = 11f
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
             if (item.isPaid) {
-                text = "✓ PAGO"
-                setBackgroundResource(R.drawable.bg_pill_green)
-                setTextColor(0xFF31D477.toInt())
+                text = "✓ Pago"
+                setBackgroundResource(R.drawable.bg_light_pill_green)
+                setTextColor(DriPalette.GREEN)
             } else {
-                text = "PAGAR"
-                setBackgroundResource(R.drawable.bg_pill_orange)
-                setTextColor(0xFFFF8A24.toInt())
+                text = "Pagar"
+                setBackgroundResource(R.drawable.bg_light_pill_orange)
+                setTextColor(DriPalette.ORANGE_DEEP)
             }
             isClickable = true
             isFocusable = true
@@ -1572,7 +1739,7 @@ class MainActivity : AppCompatActivity() {
                 progress = item.installmentProgressPercent.coerceIn(2, 100)
                 progressDrawable = ContextCompat.getDrawable(
                     this@MainActivity,
-                    if (item.isPaid) R.drawable.progress_bar_emerald else R.drawable.progress_bar_gradient
+                    if (item.isPaid) R.drawable.progress_bar_light_green else R.drawable.progress_bar_light
                 )
             }
 
@@ -1588,9 +1755,9 @@ class MainActivity : AppCompatActivity() {
 
             val tvLeftMeta = TextView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                text = "Parcela ${item.installmentNumber} de ${item.totalInstallments} (${item.installmentProgressPercent}% quitado)"
-                textSize = 10.5f
-                setTextColor(0xFF8E9AA8.toInt())
+                text = "${item.installmentNumber} de ${item.totalInstallments} · ${item.installmentProgressPercent}% quitado"
+                textSize = 11f
+                setTextColor(DriPalette.MUT)
             }
 
             val tvRightMeta = TextView(this).apply {
@@ -1603,8 +1770,8 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     "Termina em ${item.estimatedEndMonthLabel ?: "-"}"
                 }
-                textSize = 10.5f
-                setTextColor(if (item.remainingInstallments == 0) 0xFF31D477.toInt() else 0xFFA3A8B5.toInt())
+                textSize = 11f
+                setTextColor(if (item.remainingInstallments == 0) DriPalette.GREEN else DriPalette.MUT)
             }
 
             metaRow.addView(tvLeftMeta)
@@ -1687,11 +1854,11 @@ class MainActivity : AppCompatActivity() {
         fun highlightPresetChip(activeView: TextView?) {
             for (chip in allPresetViews) {
                 if (chip == activeView) {
-                    chip.setBackgroundResource(R.drawable.bg_period_selected)
+                    chip.setBackgroundResource(R.drawable.bg_chip_selected)
                     chip.setTextColor(0xFFFFFFFF.toInt())
                 } else {
-                    chip.setBackgroundResource(R.drawable.bg_period_unselected)
-                    chip.setTextColor(0xFFF5F5F7.toInt())
+                    chip.setBackgroundResource(R.drawable.bg_light_chip)
+                    chip.setTextColor(DriPalette.INK)
                 }
             }
         }
@@ -1711,14 +1878,14 @@ class MainActivity : AppCompatActivity() {
                 if (weeklyVal > 0.0) {
                     val monthlyConverted = FinancialManagementEngine.convertWeeklyToMonthly(weeklyVal)
                     tvDialogSubtitle.text = "Conversão Semanal (×4,33): ${FinancialManagementEngine.formatCurrency(weeklyVal)}/sem = ${FinancialManagementEngine.formatCurrency(monthlyConverted)}/mês."
-                    tvDialogSubtitle.setTextColor(0xFF31D477.toInt())
+                    tvDialogSubtitle.setTextColor(DriPalette.GREEN)
                 } else {
                     tvDialogSubtitle.text = "Informe o valor semanal do aluguel (será multiplicado por 4,33 semanas no mês)."
-                    tvDialogSubtitle.setTextColor(0xFFFF8A24.toInt())
+                    tvDialogSubtitle.setTextColor(DriPalette.ORANGE_DEEP)
                 }
             } else if (existingItem == null) {
                 tvDialogSubtitle.text = "Toque em um atalho rápido ou preencha abaixo para calcular seu Salário Real."
-                tvDialogSubtitle.setTextColor(0xFFA3A8B5.toInt())
+                tvDialogSubtitle.setTextColor(DriPalette.MUT)
             }
         }
 
@@ -1731,11 +1898,11 @@ class MainActivity : AppCompatActivity() {
             )
             for ((btn, typeKey) in typeButtons) {
                 if (typeKey == selectedType) {
-                    btn.setBackgroundResource(R.drawable.bg_period_selected)
+                    btn.setBackgroundResource(R.drawable.bg_chip_selected)
                     btn.setTextColor(0xFFFFFFFF.toInt())
                 } else {
-                    btn.setBackgroundResource(R.drawable.bg_period_unselected)
-                    btn.setTextColor(0xFFA3A8B5.toInt())
+                    btn.setBackgroundResource(R.drawable.bg_light_chip)
+                    btn.setTextColor(DriPalette.MUT)
                 }
             }
 
@@ -1748,15 +1915,15 @@ class MainActivity : AppCompatActivity() {
             if (selectedType == MonthlyObligation.TYPE_FIXED_RECURRING) {
                 layoutFrequencyToggle.visibility = View.VISIBLE
                 if (isWeeklyFrequency) {
-                    btnFreqWeekly.setBackgroundResource(R.drawable.bg_period_selected)
+                    btnFreqWeekly.setBackgroundResource(R.drawable.bg_chip_selected)
                     btnFreqWeekly.setTextColor(0xFFFFFFFF.toInt())
-                    btnFreqMonthly.setBackgroundResource(R.drawable.bg_period_unselected)
-                    btnFreqMonthly.setTextColor(0xFFA3A8B5.toInt())
+                    btnFreqMonthly.setBackgroundResource(R.drawable.bg_light_chip)
+                    btnFreqMonthly.setTextColor(DriPalette.MUT)
                 } else {
-                    btnFreqMonthly.setBackgroundResource(R.drawable.bg_period_selected)
+                    btnFreqMonthly.setBackgroundResource(R.drawable.bg_chip_selected)
                     btnFreqMonthly.setTextColor(0xFFFFFFFF.toInt())
-                    btnFreqWeekly.setBackgroundResource(R.drawable.bg_period_unselected)
-                    btnFreqWeekly.setTextColor(0xFFA3A8B5.toInt())
+                    btnFreqWeekly.setBackgroundResource(R.drawable.bg_light_chip)
+                    btnFreqWeekly.setTextColor(DriPalette.MUT)
                 }
             } else {
                 isWeeklyFrequency = false
@@ -2032,12 +2199,61 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateHomeToggleVisual() {
         if (prefs.isModoCasaActive) {
-            btnToggleHomeMode.setBackgroundResource(R.drawable.bg_verdict_good)
-            btnToggleHomeMode.setColorFilter(0xFF31D477.toInt())
+            btnToggleHomeMode.setBackgroundResource(R.drawable.bg_light_home_active)
+            btnToggleHomeMode.setColorFilter(0xFFFFFFFF.toInt())
+            btnToggleHomeMode.outlineAmbientShadowColor = 0xFFFF6F00.toInt()
+            btnToggleHomeMode.outlineSpotShadowColor = 0xFFFF6F00.toInt()
+            startHomeGlow()
         } else {
-            btnToggleHomeMode.setBackgroundResource(R.drawable.bg_btn_circle_glass)
-            btnToggleHomeMode.setColorFilter(0xFFF5F5F7.toInt())
+            stopHomeGlow()
+            btnToggleHomeMode.setBackgroundResource(R.drawable.bg_light_circle)
+            btnToggleHomeMode.setColorFilter(0xFF334155.toInt())
         }
+    }
+
+    /** Modo Casa ligado: "pop" de escala + brilho/respiração contínua (2,4 s). */
+    private fun startHomeGlow() {
+        if (homeGlowAnimator != null) return
+
+        // pop de ativação (vai e volta)
+        btnToggleHomeMode.animate()
+            .scaleX(1.10f)
+            .scaleY(1.10f)
+            .setDuration(160L)
+            .setInterpolator(android.view.animation.OvershootInterpolator(2.2f))
+            .withEndAction {
+                if (homeGlowAnimator != null) {
+                    btnToggleHomeMode.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(220L)
+                        .start()
+                }
+            }
+            .start()
+
+        // respiração contínua (escala + elevação)
+        homeGlowAnimator = ObjectAnimator.ofPropertyValuesHolder(
+            btnToggleHomeMode,
+            android.animation.PropertyValuesHolder.ofFloat("scaleX", 1f, 1.055f),
+            android.animation.PropertyValuesHolder.ofFloat("scaleY", 1f, 1.055f),
+            android.animation.PropertyValuesHolder.ofFloat("elevation", dpToPx(3).toFloat(), dpToPx(11).toFloat())
+        ).apply {
+            duration = 2400L
+            repeatCount = ObjectAnimator.INFINITE
+            repeatMode = ObjectAnimator.REVERSE
+            startDelay = 380L
+            start()
+        }
+    }
+
+    private fun stopHomeGlow() {
+        homeGlowAnimator?.cancel()
+        homeGlowAnimator = null
+        btnToggleHomeMode.animate().cancel()
+        btnToggleHomeMode.scaleX = 1f
+        btnToggleHomeMode.scaleY = 1f
+        btnToggleHomeMode.elevation = dpToPx(2).toFloat()
     }
 
     private fun updateHomeConfigStatus() {
@@ -2045,7 +2261,7 @@ class MainActivity : AppCompatActivity() {
         if (prefs.homeAddress.isNotBlank() || (prefs.homeLatitude != 0f && prefs.homeLongitude != 0f)) {
             val addr = if (prefs.homeAddress.isNotBlank()) prefs.homeAddress else "GPS (${String.format(ptBr, "%.4f, %.4f", prefs.homeLatitude, prefs.homeLongitude)})"
             tvHomeConfigStatus.text = "✓ Casa configurada: $addr"
-            tvHomeConfigStatus.setTextColor(0xFF31D477.toInt())
+            tvHomeConfigStatus.setTextColor(DriPalette.GREEN)
         } else {
             tvHomeConfigStatus.text = "⚠️ Casa ainda não configurada."
             tvHomeConfigStatus.setTextColor(0xFFFBBF24.toInt())
@@ -2068,7 +2284,7 @@ class MainActivity : AppCompatActivity() {
             val itemRow = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setBackgroundResource(R.drawable.bg_card_frosted_glass)
+                setBackgroundResource(R.drawable.bg_light_card)
                 setPadding(
                     (14 * density).toInt(),
                     (10 * density).toInt(),
@@ -2090,8 +2306,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             val tvTitle = TextView(this).apply {
-                text = "⛔ ${item.rawTerm}"
-                setTextColor(0xFFF5F5F7.toInt())
+                text = item.rawTerm
+                setTextColor(DriPalette.INK)
                 textSize = 14f
                 setTypeface(typeface, Typeface.BOLD)
                 try {
@@ -2102,11 +2318,11 @@ class MainActivity : AppCompatActivity() {
 
             val tvSub = TextView(this).apply {
                 text = if (item.latitude != null && item.longitude != null) {
-                    "📍 Geolocalizado (${String.format(Locale.US, "%.3f, %.3f", item.latitude, item.longitude)})"
+                    "Geolocalizado (${String.format(Locale.US, "%.3f, %.3f", item.latitude, item.longitude)})"
                 } else {
-                    "📴 Modo texto normalizado (${item.normalizedTerm})"
+                    "Modo texto (${item.normalizedTerm})"
                 }
-                setTextColor(0xFFA3A8B5.toInt())
+                setTextColor(DriPalette.MUT)
                 textSize = 11f
                 try {
                     val font = androidx.core.content.res.ResourcesCompat.getFont(this@MainActivity, R.font.plus_jakarta_sans)
@@ -2118,9 +2334,9 @@ class MainActivity : AppCompatActivity() {
             infoLayout.addView(tvSub)
 
             val btnRemove = TextView(this).apply {
-                text = "✕"
-                setTextColor(0xFFFF454D.toInt())
-                textSize = 18f
+                text = "Remover"
+                setTextColor(DriPalette.RED)
+                textSize = 11.5f
                 setTypeface(typeface, Typeface.BOLD)
                 setPadding(
                     (10 * density).toInt(),
@@ -2215,6 +2431,36 @@ class MainActivity : AppCompatActivity() {
         val btnClearLogs = view.findViewById<Button>(R.id.btnClearLogs)
 
         val btnClose = view.findViewById<Button>(R.id.btnDiagClose)
+        val swFloatingBubble = view.findViewById<Switch>(R.id.swDiagFloatingBubble)
+
+        swFloatingBubble.isChecked = prefs.floatingBubbleEnabled
+        swFloatingBubble.setOnCheckedChangeListener { _, isChecked ->
+            prefs.floatingBubbleEnabled = isChecked
+            if (isChecked) {
+                FuelBubbleService.start(this)
+            } else {
+                FuelBubbleService.stop(this)
+            }
+        }
+
+        // Sanfona: só uma seção aberta por vez
+        val accordionSections = listOf(
+            Triple(headerPerms, contentPerms, ivPermsChevron),
+            Triple(headerBackup, contentBackup, ivBackupChevron),
+            Triple(headerUpdate, contentUpdate, ivUpdateChevron),
+            Triple(headerOem, contentOem, ivOemChevron),
+            Triple(headerLogs, contentLogs, ivLogsChevron)
+        )
+
+        fun toggleAccordion(index: Int) {
+            val willExpand = accordionSections[index].second.visibility == View.GONE
+            TransitionManager.beginDelayedTransition(layoutAccordionContainer, AutoTransition().setDuration(220))
+            accordionSections.forEachIndexed { i, section ->
+                val open = (i == index && willExpand)
+                section.second.visibility = if (open) View.VISIBLE else View.GONE
+                section.third.animate().rotation(if (open) 180f else 0f).setDuration(220).start()
+            }
+        }
 
         fun refreshPermsState() {
             val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(this) else true
@@ -2233,29 +2479,29 @@ class MainActivity : AppCompatActivity() {
 
             if (activeCount == 4) {
                 tvPermsHeaderStatus.text = "Todas as 4 permissões ativas (100%)"
-                tvPermsHeaderStatus.setTextColor(0xFF31D477.toInt())
+                tvPermsHeaderStatus.setTextColor(DriPalette.GREEN)
             } else {
                 tvPermsHeaderStatus.text = "$activeCount de 4 ativas • Toque para ver"
                 tvPermsHeaderStatus.setTextColor(0xFFFF454D.toInt())
             }
 
             tvOverlay.text = if (hasOverlay) "1. Sobrepor a outros apps (Ativo)" else "1. Sobrepor a outros apps (Pendente)"
-            tvOverlay.setTextColor(if (hasOverlay) 0xFF31D477.toInt() else 0xFFFF454D.toInt())
+            tvOverlay.setTextColor(if (hasOverlay) DriPalette.GREEN else 0xFFFF454D.toInt())
             btnOverlay.isEnabled = !hasOverlay
             btnOverlay.text = if (hasOverlay) "OK" else "Ativar"
 
             tvA11y.text = if (hasA11y) "2. Serviço de Acessibilidade (Ativo)" else "2. Serviço de Acessibilidade (Pendente)"
-            tvA11y.setTextColor(if (hasA11y) 0xFF31D477.toInt() else 0xFFFF454D.toInt())
+            tvA11y.setTextColor(if (hasA11y) DriPalette.GREEN else 0xFFFF454D.toInt())
             btnA11y.isEnabled = !hasA11y
             btnA11y.text = if (hasA11y) "OK" else "Ativar"
 
             tvBattery.text = if (hasBattery) "3. Bateria sem restrição (Ativo)" else "3. Bateria sem restrição (Pendente)"
-            tvBattery.setTextColor(if (hasBattery) 0xFF31D477.toInt() else 0xFFFF454D.toInt())
+            tvBattery.setTextColor(if (hasBattery) DriPalette.GREEN else 0xFFFF454D.toInt())
             btnBattery.isEnabled = !hasBattery
             btnBattery.text = if (hasBattery) "OK" else "Ajustar"
 
             tvNotif.text = if (hasNotif) "4. Leitor de Notificações (Ativo)" else "4. Leitor de Notificações (Pendente)"
-            tvNotif.setTextColor(if (hasNotif) 0xFF31D477.toInt() else 0xFFFF454D.toInt())
+            tvNotif.setTextColor(if (hasNotif) DriPalette.GREEN else 0xFFFF454D.toInt())
             btnNotif.isEnabled = !hasNotif
             btnNotif.text = if (hasNotif) "OK" else "Ativar"
         }
@@ -2272,37 +2518,13 @@ class MainActivity : AppCompatActivity() {
         refreshPermsState()
         refreshBackupState()
 
-        // Accordion 1: Toggle Permissões
-        headerPerms.setOnClickListener {
-            val willExpand = (contentPerms.visibility == View.GONE)
-            TransitionManager.beginDelayedTransition(layoutAccordionContainer, AutoTransition().setDuration(220))
-            contentPerms.visibility = if (willExpand) View.VISIBLE else View.GONE
-            ivPermsChevron.animate().rotation(if (willExpand) 180f else 0f).setDuration(220).start()
-        }
+        headerPerms.setOnClickListener { toggleAccordion(0) }
 
-        // Accordion 2: Toggle Backup
-        headerBackup.setOnClickListener {
-            val willExpand = (contentBackup.visibility == View.GONE)
-            TransitionManager.beginDelayedTransition(layoutAccordionContainer, AutoTransition().setDuration(220))
-            contentBackup.visibility = if (willExpand) View.VISIBLE else View.GONE
-            ivBackupChevron.animate().rotation(if (willExpand) 180f else 0f).setDuration(220).start()
-        }
+        headerBackup.setOnClickListener { toggleAccordion(1) }
 
-        // Accordion 3: Toggle Atualizações
-        headerUpdate.setOnClickListener {
-            val willExpand = (contentUpdate.visibility == View.GONE)
-            TransitionManager.beginDelayedTransition(layoutAccordionContainer, AutoTransition().setDuration(220))
-            contentUpdate.visibility = if (willExpand) View.VISIBLE else View.GONE
-            ivUpdateChevron.animate().rotation(if (willExpand) 180f else 0f).setDuration(220).start()
-        }
+        headerUpdate.setOnClickListener { toggleAccordion(2) }
 
-        // Accordion 4: Toggle Compatibilidade OEM
-        headerOem.setOnClickListener {
-            val willExpand = (contentOem.visibility == View.GONE)
-            TransitionManager.beginDelayedTransition(layoutAccordionContainer, AutoTransition().setDuration(220))
-            contentOem.visibility = if (willExpand) View.VISIBLE else View.GONE
-            ivOemChevron.animate().rotation(if (willExpand) 180f else 0f).setDuration(220).start()
-        }
+        headerOem.setOnClickListener { toggleAccordion(3) }
 
         btnOverlay.setOnClickListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -2344,12 +2566,12 @@ class MainActivity : AppCompatActivity() {
             DeviceBrand.MOTOROLA -> {
                 layoutXiaomiActions.visibility = View.GONE
                 tvOemHeaderStatus.text = "Motorola detectado"
-                tvOemHeaderStatus.setTextColor(0xFF31D477.toInt())
+                tvOemHeaderStatus.setTextColor(DriPalette.GREEN)
             }
             DeviceBrand.GENERIC -> {
                 layoutXiaomiActions.visibility = View.GONE
                 tvOemHeaderStatus.text = "Sistema Otimizado"
-                tvOemHeaderStatus.setTextColor(0xFF31D477.toInt())
+                tvOemHeaderStatus.setTextColor(DriPalette.GREEN)
             }
         }
 
@@ -2441,9 +2663,9 @@ class MainActivity : AppCompatActivity() {
                 tvLogsLocalSummary.setTextColor(0xFFFFB800.toInt())
             } else {
                 tvLogsHeaderStatus.text = if (isConfigured) "Nuvem conectada • Log ${sizeKb} KB" else "Log local ${sizeKb} KB • Toque para enviar"
-                tvLogsHeaderStatus.setTextColor(if (isConfigured) 0xFF31D477.toInt() else 0xFFA3A8B5.toInt())
+                tvLogsHeaderStatus.setTextColor(if (isConfigured) DriPalette.GREEN else DriPalette.MUT)
                 tvLogsLocalSummary.text = "Log local: ${sizeKb} KB"
-                tvLogsLocalSummary.setTextColor(0xFF31D477.toInt())
+                tvLogsLocalSummary.setTextColor(DriPalette.GREEN)
             }
 
             if (isConfigured) {
@@ -2463,12 +2685,7 @@ class MainActivity : AppCompatActivity() {
 
         refreshLogsState()
 
-        headerLogs.setOnClickListener {
-            val willExpand = (contentLogs.visibility == View.GONE)
-            TransitionManager.beginDelayedTransition(layoutAccordionContainer, AutoTransition().setDuration(220))
-            contentLogs.visibility = if (willExpand) View.VISIBLE else View.GONE
-            ivLogsChevron.animate().rotation(if (willExpand) 180f else 0f).setDuration(220).start()
-        }
+        headerLogs.setOnClickListener { toggleAccordion(4) }
 
         btnUploadLogsCloud.setOnClickListener {
             if (!CloudLogUploader.isConfigured(this)) {
@@ -2663,6 +2880,36 @@ class MainActivity : AppCompatActivity() {
         builder.show()
     }
 
+    /** Cartões de posição do alerta (mini-celular), no lugar dos radios. */
+    private fun selectOverlayPosition(position: String) {
+        when (position) {
+            "BOTTOM" -> rgOverlayPosition.check(R.id.rbPosBottom)
+            "CENTER" -> rgOverlayPosition.check(R.id.rbPosCenter)
+            else -> rgOverlayPosition.check(R.id.rbPosTop)
+        }
+        updateOverlayPositionCards()
+    }
+
+    private fun updateOverlayPositionCards() {
+        val selected = when (rgOverlayPosition.checkedRadioButtonId) {
+            R.id.rbPosBottom -> "BOTTOM"
+            R.id.rbPosCenter -> "CENTER"
+            else -> "TOP"
+        }
+        val cards = listOf(
+            Triple("TOP", cardPosTop, cardPosTopLabel),
+            Triple("CENTER", cardPosCenter, cardPosCenterLabel),
+            Triple("BOTTOM", cardPosBottom, cardPosBottomLabel)
+        )
+        for ((key, card, label) in cards) {
+            val isSelected = key == selected
+            card.setBackgroundResource(
+                if (isSelected) R.drawable.bg_pos_card_selected else R.drawable.bg_pos_card
+            )
+            label.setTextColor(if (isSelected) DriPalette.ORANGE_DEEP else DriPalette.MUT)
+        }
+    }
+
     private fun showAddExpenseDialog() {
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_add_expense, null)
         val etCat = view.findViewById<EditText>(R.id.etExpenseCategory)
@@ -2670,12 +2917,79 @@ class MainActivity : AppCompatActivity() {
         val etDesc = view.findViewById<EditText>(R.id.etExpenseDesc)
         val btnSave = view.findViewById<Button>(R.id.btnSaveExpense)
         val btnCancel = view.findViewById<Button>(R.id.btnCancelExpense)
+        val layoutFuelFill = view.findViewById<View>(R.id.layoutFuelFill)
+        val layoutFuelLiters = view.findViewById<View>(R.id.layoutFuelLiters)
+        val swFuelFill = view.findViewById<Switch>(R.id.swFuelFill)
+        val etFuelLiters = view.findViewById<EditText>(R.id.etFuelLiters)
+        val tvFuelLitersHint = view.findViewById<TextView>(R.id.tvFuelLitersHint)
 
-        enableCommaAndDotDecimalInput(etVal)
+        val ptBr = Locale("pt", "BR")
+        enableCommaAndDotDecimalInput(etVal, etFuelLiters)
 
         val dialog = AlertDialog.Builder(this)
             .setView(view)
             .create()
+
+        var litersEditedByUser = false
+        var updatingLitersField = false
+
+        fun pricePerLiter(): Double = prefs.fuelPrice.toDouble().takeIf { it > 0.0 } ?: 5.73
+
+        fun suggestedLiters(): Double {
+            val amount = ParsingEngine.parseMoneyValue(etVal.text.toString()) ?: 0.0
+            return FuelTankEngine.litersFromAmount(amount, pricePerLiter())
+        }
+
+        fun refreshFuelLiters() {
+            val liters = suggestedLiters()
+            if (!litersEditedByUser) {
+                updatingLitersField = true
+                etFuelLiters.setText(String.format(ptBr, "%.2f", liters))
+                etFuelLiters.setSelection(etFuelLiters.text.length)
+                updatingLitersField = false
+            }
+            val price = pricePerLiter()
+            val consumption = prefs.fuelConsumption
+            tvFuelLitersHint.text = String.format(
+                ptBr,
+                "R$ %.2f/L • %.1f km/L calculam o consumo",
+                price,
+                consumption
+            )
+        }
+
+        fun updateFuelVisibility() {
+            val looksLikeFuel = etCat.text.toString().trim().lowercase().let {
+                it.contains("gasolina") || it.contains("combust") || it.contains("etanol") ||
+                    it.contains("álcool") || it.contains("alcool") || it.contains("diesel") ||
+                    it.contains("posto") || it.contains("abastec")
+            }
+            layoutFuelFill.visibility = if (looksLikeFuel || swFuelFill.isChecked) View.VISIBLE else View.GONE
+            layoutFuelLiters.visibility = if (swFuelFill.isChecked) View.VISIBLE else View.GONE
+            if (swFuelFill.isChecked) refreshFuelLiters()
+        }
+
+        etCat.doAfterTextChangedCompat {
+            if (!swFuelFill.isChecked && etCat.text.toString().trim().length >= 4) {
+                val cat = etCat.text.toString().trim().lowercase()
+                if (cat.contains("gasolina") || cat.contains("combust") || cat.contains("etanol") ||
+                    cat.contains("álcool") || cat.contains("alcool") || cat.contains("diesel") ||
+                    cat.contains("abastec")
+                ) {
+                    swFuelFill.isChecked = true
+                }
+            }
+            updateFuelVisibility()
+        }
+
+        etVal.doAfterTextChangedCompat { if (!litersEditedByUser) refreshFuelLiters() }
+        etFuelLiters.doAfterTextChangedCompat { if (!updatingLitersField) litersEditedByUser = true }
+        swFuelFill.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) litersEditedByUser = false
+            updateFuelVisibility()
+        }
+
+        updateFuelVisibility()
 
         btnCancel.setOnClickListener {
             dialog.dismiss()
@@ -2687,7 +3001,26 @@ class MainActivity : AppCompatActivity() {
             val desc = etDesc.text.toString()
             if (amount > 0) {
                 db.insertExpense(category, amount, desc)
-                showNotificationBanner("Despesa registrada com sucesso!", BannerType.SUCCESS)
+
+                if (swFuelFill.isChecked) {
+                    val liters = ParsingEngine.parseMoneyValue(etFuelLiters.text.toString())
+                        ?: suggestedLiters()
+                    if (liters > 0.0) {
+                        FuelTankEngine.registerFill(prefs, liters)
+                        FuelBubbleService.refresh(this)
+                        sbFuelLevel.progress = (FuelTankEngine.level(prefs) * 100).toInt()
+                        tvFuelLevelValue.text = "${sbFuelLevel.progress}%"
+                        showNotificationBanner(
+                            String.format(ptBr, "Abastecimento: %.2f L somados ao tanque da bolinha.", liters),
+                            BannerType.SUCCESS
+                        )
+                    } else {
+                        showNotificationBanner("Despesa registrada com sucesso!", BannerType.SUCCESS)
+                    }
+                } else {
+                    showNotificationBanner("Despesa registrada com sucesso!", BannerType.SUCCESS)
+                }
+
                 updateDashboard(animate = true)
                 dialog.dismiss()
             } else {
@@ -2703,9 +3036,11 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun showReportDialog(initialPeriod: String = "DAILY", title: String = "Histórico Unificado") {
+    private fun showReportDialog(initialPeriod: String = "DAILY", title: String = "Histórico de corridas") {
         val ptBr = Locale("pt", "BR")
         val timeFormat = SimpleDateFormat("HH:mm", ptBr)
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy", ptBr)
+        val monthFormat = SimpleDateFormat("MM/yyyy", ptBr)
 
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_report, null)
         val tvTitle = view.findViewById<TextView>(R.id.tvReportTitle)
@@ -2714,19 +3049,32 @@ class MainActivity : AppCompatActivity() {
         val btnChipWeek = view.findViewById<Button>(R.id.btnReportChipWeek)
         val btnChipMonth = view.findViewById<Button>(R.id.btnReportChipMonth)
         val btnChipYear = view.findViewById<Button>(R.id.btnReportChipYear)
+        val btnChipCustom = view.findViewById<Button>(R.id.btnReportChipCustom)
+
+        val layoutCustom = view.findViewById<View>(R.id.layoutReportCustom)
+        val btnModeDay = view.findViewById<Button>(R.id.btnReportModeDay)
+        val btnModeMonth = view.findViewById<Button>(R.id.btnReportModeMonth)
+        val tvFrom = view.findViewById<TextView>(R.id.tvReportFrom)
+        val tvTo = view.findViewById<TextView>(R.id.tvReportTo)
+        val tvRange = view.findViewById<TextView>(R.id.tvReportRange)
 
         val tvRideCount = view.findViewById<TextView>(R.id.tvReportRideCount)
         val tvGross = view.findViewById<TextView>(R.id.tvReportGross)
         val tvExpenses = view.findViewById<TextView>(R.id.tvReportExpenses)
         val tvKm = view.findViewById<TextView>(R.id.tvReportKm)
         val tvNet = view.findViewById<TextView>(R.id.tvReportNet)
+        val layoutProfit = view.findViewById<View>(R.id.layoutReportProfit)
         val layoutRidesList = view.findViewById<LinearLayout>(R.id.layoutReportRidesList)
         val tvNoRides = view.findViewById<TextView>(R.id.tvReportNoRides)
+        val tvRidesBadge = view.findViewById<TextView>(R.id.tvReportRidesBadge)
         val btnClose = view.findViewById<Button>(R.id.btnReportClose)
 
         tvTitle.text = title
 
         var currentDialogPeriod = initialPeriod
+        var customMode = "day"
+        val fromCal = Calendar.getInstance()
+        val toCal = Calendar.getInstance()
 
         val dialog = AlertDialog.Builder(this)
             .setView(view)
@@ -2737,38 +3085,126 @@ class MainActivity : AppCompatActivity() {
                 Pair(btnChipToday, "DAILY"),
                 Pair(btnChipWeek, "WEEKLY"),
                 Pair(btnChipMonth, "MONTHLY"),
-                Pair(btnChipYear, "YEARLY")
+                Pair(btnChipYear, "YEARLY"),
+                Pair(btnChipCustom, "CUSTOM")
             )
             for ((btn, key) in chips) {
                 if (key == selected) {
-                    btn?.setBackgroundResource(R.drawable.bg_period_selected)
+                    btn?.setBackgroundResource(R.drawable.bg_chip_selected)
                     btn?.setTextColor(0xFFFFFFFF.toInt())
                 } else {
-                    btn?.setBackgroundResource(R.drawable.bg_period_unselected)
-                    btn?.setTextColor(0xFFA3A8B5.toInt())
+                    btn?.setBackgroundResource(R.drawable.bg_light_chip)
+                    btn?.setTextColor(DriPalette.MUT)
+                }
+            }
+            layoutCustom.visibility = if (selected == "CUSTOM") View.VISIBLE else View.GONE
+        }
+
+        fun updateModeVisual() {
+            val isDay = customMode == "day"
+            btnModeDay.setBackgroundResource(if (isDay) R.drawable.bg_chip_selected else R.drawable.bg_light_chip)
+            btnModeDay.setTextColor(if (isDay) 0xFFFFFFFF.toInt() else DriPalette.MUT)
+            btnModeMonth.setBackgroundResource(if (isDay) R.drawable.bg_light_chip else R.drawable.bg_chip_selected)
+            btnModeMonth.setTextColor(if (isDay) DriPalette.MUT else 0xFFFFFFFF.toInt())
+            val fmt = if (isDay) dateFormat else monthFormat
+            tvFrom.text = fmt.format(fromCal.time)
+            tvTo.text = fmt.format(toCal.time)
+        }
+
+        // Intervalo efetivo (início/fim do dia ou do mês, já ordenado)
+        fun customRange(): Pair<Long, Long> {
+            val startCal = (fromCal.clone() as Calendar)
+            val endCal = (toCal.clone() as Calendar)
+            if (customMode == "month") {
+                startCal.set(Calendar.DAY_OF_MONTH, 1)
+                endCal.set(Calendar.DAY_OF_MONTH, endCal.getActualMaximum(Calendar.DAY_OF_MONTH))
+            }
+            val start = startCal.apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            val end = endCal.apply {
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }.timeInMillis
+            return if (start <= end) Pair(start, end) else Pair(end, start)
+        }
+
+        // Ajusta a altura do corpo ao conteúdo, sem passar da tela
+        fun fitScrollBody() {
+            val scrollBody = view.findViewById<ScrollView>(R.id.scrollReportBody)
+            val body = view.findViewById<View>(R.id.layoutReportBody)
+            view.post {
+                val maxHeight = resources.displayMetrics.heightPixels - dpToPx(320)
+                val minHeight = dpToPx(180)
+                val target = body.height.coerceAtLeast(minHeight).coerceAtMost(maxHeight.coerceAtLeast(minHeight))
+                if (scrollBody.layoutParams.height != target) {
+                    scrollBody.layoutParams = scrollBody.layoutParams.apply { height = target }
+                    scrollBody.requestLayout()
                 }
             }
         }
 
         fun refreshReportContent() {
             updateChipsVisual(currentDialogPeriod)
-            val summary = db.getSummary(currentDialogPeriod)
-            val rides = db.getRidesForPeriod(currentDialogPeriod)
+            updateModeVisual()
 
+            val summary: FinancialSummary
+            val rides: List<RideRecord>
+            val rangeText: String
+
+            if (currentDialogPeriod == "CUSTOM") {
+                val (start, end) = customRange()
+                summary = db.getSummaryForRange(start, end)
+                rides = db.getRidesForRange(start, end)
+                val cal = Calendar.getInstance()
+                cal.timeInMillis = start
+                val startText = if (customMode == "day") dateFormat.format(cal.time) else monthFormat.format(cal.time)
+                cal.timeInMillis = end
+                val endText = if (customMode == "day") dateFormat.format(cal.time) else monthFormat.format(cal.time)
+                rangeText = if (startText == endText) startText else "$startText a $endText"
+            } else {
+                summary = db.getSummary(currentDialogPeriod)
+                rides = db.getRidesForPeriod(currentDialogPeriod)
+                val (start, end) = db.getPeriodRange(currentDialogPeriod)
+                val cal = Calendar.getInstance()
+                cal.timeInMillis = start
+                val startText = dateFormat.format(cal.time)
+                cal.timeInMillis = end
+                val endText = dateFormat.format(cal.time)
+                rangeText = if (startText == endText) startText else "$startText a $endText"
+            }
+
+            tvRange.text = rangeText
             tvRideCount.text = summary.rideCount.toString()
             tvGross.text = String.format(ptBr, "R$ %.2f", summary.totalGross)
             tvExpenses.text = String.format(ptBr, "R$ %.2f", summary.totalExpenses)
             tvNet.text = String.format(ptBr, "R$ %.2f", summary.totalNet)
+            tvNet.setTextColor(if (summary.totalNet >= 0.0) DriPalette.GREEN else DriPalette.RED)
+            layoutProfit.setBackgroundResource(
+                if (summary.totalNet >= 0.0) R.drawable.bg_light_pill_green else R.drawable.bg_light_red_soft
+            )
 
             val totalKm = rides.sumOf { it.distanceKm }
             tvKm.text = String.format(ptBr, "%.1f km", totalKm)
+
+            tvRidesBadge.text = when {
+                rides.isEmpty() -> ""
+                rides.size > 30 -> "Últimas 30 de ${rides.size}"
+                rides.size == 1 -> "1 corrida"
+                else -> "${rides.size} corridas"
+            }
 
             layoutRidesList.removeAllViews()
             if (rides.isEmpty()) {
                 tvNoRides.visibility = View.VISIBLE
             } else {
                 tvNoRides.visibility = View.GONE
-                for (ride in rides) {
+                for (ride in rides.take(30)) {
                     val itemRow = createRideListItemView(ride, timeFormat, ptBr) {
                         showRideAdjustDialog(ride) {
                             refreshReportContent()
@@ -2778,6 +3214,24 @@ class MainActivity : AppCompatActivity() {
                     layoutRidesList.addView(itemRow)
                 }
             }
+            fitScrollBody()
+        }
+
+        fun pickDate(isFrom: Boolean) {
+            val target = if (isFrom) fromCal else toCal
+            val picker = DatePickerDialog(
+                this,
+                { _, year, month, day ->
+                    target.set(Calendar.YEAR, year)
+                    target.set(Calendar.MONTH, month)
+                    target.set(Calendar.DAY_OF_MONTH, if (customMode == "month") 1 else day)
+                    refreshReportContent()
+                },
+                target.get(Calendar.YEAR),
+                target.get(Calendar.MONTH),
+                target.get(Calendar.DAY_OF_MONTH)
+            )
+            picker.show()
         }
 
         btnChipToday?.setOnClickListener {
@@ -2796,6 +3250,20 @@ class MainActivity : AppCompatActivity() {
             currentDialogPeriod = "YEARLY"
             refreshReportContent()
         }
+        btnChipCustom?.setOnClickListener {
+            currentDialogPeriod = "CUSTOM"
+            refreshReportContent()
+        }
+        btnModeDay?.setOnClickListener {
+            customMode = "day"
+            refreshReportContent()
+        }
+        btnModeMonth?.setOnClickListener {
+            customMode = "month"
+            refreshReportContent()
+        }
+        tvFrom?.setOnClickListener { pickDate(true) }
+        tvTo?.setOnClickListener { pickDate(false) }
 
         refreshReportContent()
 
@@ -2818,9 +3286,10 @@ class MainActivity : AppCompatActivity() {
         dialog.window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            setDimAmount(0.75f)
+            setDimAmount(0.45f)
         }
         dialog.show()
+        fitScrollBody()
     }
 
     private fun createRideListItemView(
@@ -2837,7 +3306,7 @@ class MainActivity : AppCompatActivity() {
             ).apply {
                 setMargins(0, 0, 0, dpToPx(8))
             }
-            setBackgroundResource(R.drawable.bg_card_frosted_glass)
+            setBackgroundResource(R.drawable.bg_light_card)
             setPadding(dpToPx(12), dpToPx(10), dpToPx(12), dpToPx(10))
             isClickable = true
             isFocusable = true
@@ -2847,7 +3316,7 @@ class MainActivity : AppCompatActivity() {
         applyScaleTouchFeedback(row)
         row.setOnClickListener { onClick() }
 
-        // Coluna Esquerda: Plataforma, Hora, Distância
+        // Coluna Esquerda: plataforma, hora, data, km e R$/km
         val leftCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -2855,35 +3324,49 @@ class MainActivity : AppCompatActivity() {
 
         val tvPlatformTime = TextView(this).apply {
             val platformColor = when (ride.platform.uppercase()) {
-                "UBER" -> "#FFFFFF"
-                "99" -> "#FFB800"
-                "IFOOD" -> "#FF454D"
-                else -> "#60A5FA"
+                "UBER" -> DriPalette.INK
+                "99" -> DriPalette.AMBER
+                "IFOOD" -> DriPalette.RED
+                else -> DriPalette.BLUE
             }
             val ssb = android.text.SpannableStringBuilder()
-            val pStart = 0
             ssb.append(ride.platform.uppercase())
-            ssb.setSpan(android.text.style.ForegroundColorSpan(android.graphics.Color.parseColor(platformColor)), pStart, ssb.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-            ssb.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), pStart, ssb.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            ssb.setSpan(android.text.style.ForegroundColorSpan(platformColor), 0, ssb.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            ssb.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, ssb.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
 
             val timeStr = timeFormat.format(Date(ride.timestamp))
             ssb.append(" • $timeStr")
+            ssb.setSpan(
+                android.text.style.ForegroundColorSpan(DriPalette.INK),
+                0,
+                ssb.length,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
 
             text = ssb
             textSize = 13f
-            setTextColor(0xFFA3A8B5.toInt())
+            isSingleLine = true
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
         }
 
+        val dateFormat = SimpleDateFormat("dd/MM", ptBr)
+        val ratePerKm = if (ride.distanceKm > 0.0) ride.grossPrice / ride.distanceKm else 0.0
         val tvDistance = TextView(this).apply {
-            text = String.format(ptBr, "%.1f km", ride.distanceKm)
+            val detail = if (ride.distanceKm > 0.0) {
+                String.format(ptBr, "%s • %.1f km • R$ %.2f/km", dateFormat.format(Date(ride.timestamp)), ride.distanceKm, ratePerKm)
+            } else {
+                String.format(ptBr, "%s • %.1f km", dateFormat.format(Date(ride.timestamp)), ride.distanceKm)
+            }
+            text = detail
             textSize = 11f
-            setTextColor(0xFF707684.toInt())
+            isSingleLine = true
+            setTextColor(DriPalette.MUT)
         }
 
         leftCol.addView(tvPlatformTime)
         leftCol.addView(tvDistance)
 
-        // Coluna Direita: Valor e Status Badge
+        // Coluna Direita: valor e selo de status
         val rightCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = android.view.Gravity.END
@@ -2893,55 +3376,63 @@ class MainActivity : AppCompatActivity() {
             when (ride.status) {
                 RideRecord.STATUS_CANCELADO_TAXA -> {
                     text = String.format(ptBr, "Taxa R$ %.2f", ride.cancellationFee)
-                    setTextColor(0xFF60A5FA.toInt())
+                    setTextColor(DriPalette.BLUE)
                 }
-                RideRecord.STATUS_CANCELADO -> {
+                RideRecord.STATUS_CANCELADO, RideRecord.STATUS_DUPLICADO -> {
                     text = "R$ 0,00"
-                    setTextColor(0xFFFF454D.toInt())
-                }
-                RideRecord.STATUS_DUPLICADO -> {
-                    text = "R$ 0,00"
-                    setTextColor(0xFFFF454D.toInt())
+                    setTextColor(DriPalette.RED)
                 }
                 else -> {
                     text = String.format(ptBr, "R$ %.2f", ride.grossPrice)
-                    setTextColor(0xFFFFFFFF.toInt())
+                    setTextColor(DriPalette.INK)
                 }
             }
             textSize = 14f
+            isSingleLine = true
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
         }
 
         val tvBadge = TextView(this).apply {
             when (ride.status) {
                 RideRecord.STATUS_ESTIMADO -> {
-                    text = if (ride.acceptanceEvidence == RideRecord.EVIDENCE_LEGACY) "NÃO VERIFICADO" else "ESTIMADO"
-                    setTextColor(0xFFFFB800.toInt())
+                    text = if (ride.acceptanceEvidence == RideRecord.EVIDENCE_LEGACY) "Não verificado" else "Estimado"
+                    setTextColor(DriPalette.AMBER)
+                    setBackgroundResource(R.drawable.bg_light_pill_amber)
                 }
                 RideRecord.STATUS_CONCLUIDO -> {
-                    text = "CONCLUÍDO"
-                    setTextColor(0xFF31D477.toInt())
+                    text = "Concluído"
+                    setTextColor(DriPalette.GREEN)
+                    setBackgroundResource(R.drawable.bg_light_pill_green)
                 }
                 RideRecord.STATUS_CANCELADO_TAXA -> {
-                    text = "TAXA"
-                    setTextColor(0xFF60A5FA.toInt())
+                    text = "Taxa"
+                    setTextColor(DriPalette.BLUE)
+                    setBackgroundResource(R.drawable.bg_light_chip)
                 }
                 RideRecord.STATUS_CANCELADO -> {
-                    text = "CANCELADO"
-                    setTextColor(0xFFFF454D.toInt())
+                    text = "Cancelado"
+                    setTextColor(DriPalette.RED)
+                    setBackgroundResource(R.drawable.bg_light_pill_red)
                 }
                 RideRecord.STATUS_DUPLICADO -> {
-                    text = "DUPLICADO"
-                    setTextColor(0xFFFF454D.toInt())
+                    text = "Duplicado"
+                    setTextColor(DriPalette.RED)
+                    setBackgroundResource(R.drawable.bg_light_pill_red)
                 }
                 else -> {
-                    text = ride.status
-                    setTextColor(0xFFA3A8B5.toInt())
+                    text = ride.status.lowercase().replaceFirstChar { it.uppercase() }
+                    setTextColor(DriPalette.MUT)
+                    setBackgroundResource(R.drawable.bg_light_chip)
                 }
             }
-            textSize = 9f
+            textSize = 9.5f
+            isSingleLine = true
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-            setPadding(dpToPx(4), dpToPx(1), dpToPx(4), dpToPx(1))
+            setPadding(dpToPx(7), dpToPx(2), dpToPx(7), dpToPx(2))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dpToPx(3) }
         }
 
         rightCol.addView(tvPrice)
@@ -3244,6 +3735,7 @@ class MainActivity : AppCompatActivity() {
         } catch (ignored: Exception) {}
         splashSurface = null
     }
+
 
     private fun dpToPx(dp: Int): Int {
         return (dp * resources.displayMetrics.density).toInt()

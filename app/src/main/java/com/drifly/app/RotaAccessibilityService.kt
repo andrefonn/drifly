@@ -5,6 +5,7 @@ import android.accessibilityservice.GestureDescription
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Path
+import android.graphics.Rect
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -66,6 +67,9 @@ class RotaAccessibilityService : AccessibilityService() {
 
     @Volatile
     private var isAcceptGestureInFlight: Boolean = false
+
+    @Volatile
+    private var isDeclineGestureInFlight: Boolean = false
 
     // Pacote do app de corrida visto por último (usado para reler a tela ao verificar um aceite).
     @Volatile
@@ -1108,47 +1112,110 @@ class RotaAccessibilityService : AccessibilityService() {
         timestamp: Long,
         rideId: Long
     ) {
-        // BLOQUEIO ESTREITO DE LISTA NEGRA: se a corrida possui embarque ou destino na lista negra,
-        // o aceite automático é estritamente impedido.
-        if (offer.isBlacklistBlocked) {
-            diag("AUTO-ACCEPT BLOQUEADO: Oferta com bairro na Lista Negra (${offer.blacklistAlert})")
-            if (prefs.autoDeclineEnabled) {
-                val declined = performClickDecline(clickableNodes)
-                if (declined) {
-                    clearPendingOfferAndDismissOverlay(timestamp)
-                }
-            }
+        val action = AcceptanceRules.decideAutomation(
+            offer = offer,
+            minRatePerKm = prefs.minRatePerKm.toDouble(),
+            maxDistanceKm = prefs.maxDistanceKm.toDouble(),
+            minPassengerRating = prefs.minPassengerRating,
+            modoCasaActive = prefs.isModoCasaActive,
+            autoAcceptEnabled = prefs.autoAcceptEnabled,
+            autoDeclineEnabled = prefs.autoDeclineEnabled
+        )
+
+        if (action == AcceptanceRules.AutoAction.DECLINE) {
+            diag(
+                "AUTO-DECLINE motivo: bloqueada=${offer.isBlacklistBlocked} " +
+                    "rate=${offer.ratePerKm}/${prefs.minRatePerKm} dist=${offer.distanceKm}/${prefs.maxDistanceKm} " +
+                    "nota=${offer.passengerRating ?: "--"}/${prefs.minPassengerRating} " +
+                    "modoCasa=${prefs.isModoCasaActive} deltaCasa=${offer.homeDistanceDeltaKm}"
+            )
+            performDeclineWithFallback(clickableNodes, timestamp, rideId)
             return
         }
 
-        val matchesConditions = (offer.ratePerKm >= prefs.minRatePerKm) &&
-                (offer.distanceKm <= prefs.maxDistanceKm)
-
-        // REGRA DE SEGURANÇA: Se a nota do passageiro for baixa, NUNCA aceita automático
-        if (offer.isLowRating) {
+        if (action == AcceptanceRules.AutoAction.IGNORE) {
+            diag("AUTOMATION IGNORADA: aceite=${prefs.autoAcceptEnabled} recusa=${prefs.autoDeclineEnabled}")
             return
         }
 
-        if (prefs.autoAcceptEnabled && matchesConditions) {
-            val acceptedByNode = performClickAccept(clickableNodes) || clickAcceptInAnyWindow()
-            if (acceptedByNode) {
-                diag("AUTO-ACCEPT OK: clique por nó executado")
-                commitPendingOfferAsAccepted(timestamp, RideRecord.EVIDENCE_CLICK)
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                diag("AUTO-ACCEPT: sem nó acessível -> tentando botão Aceitar via OCR/gesto")
-                performTapOrSwipeAcceptWithVerification(offer, fromOverlayTouch = false)
-            } else if (prefs.isMotorcycleMode) {
-                dispatchSwipeAcceptGesture { dispatched ->
-                    if (dispatched) commitPendingOfferAsAccepted(timestamp, RideRecord.EVIDENCE_GESTURE)
-                }
-            }
-        } else if (prefs.autoDeclineEnabled && !matchesConditions) {
-            // Recusa automática se não bateu os critérios
-            val declined = performClickDecline(clickableNodes)
-            if (declined) {
-                clearPendingOfferAndDismissOverlay(timestamp)
+        // action == ACCEPT
+        val acceptedByNode = performClickAccept(clickableNodes) || clickAcceptInAnyWindow()
+        if (acceptedByNode) {
+            diag("AUTO-ACCEPT OK: clique por nó executado")
+            commitPendingOfferAsAccepted(timestamp, RideRecord.EVIDENCE_CLICK)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            diag("AUTO-ACCEPT: sem nó acessível -> tentando botão Aceitar via OCR/gesto")
+            performTapOrSwipeAcceptWithVerification(offer, fromOverlayTouch = false)
+        } else if (prefs.isMotorcycleMode) {
+            dispatchSwipeAcceptGesture { dispatched ->
+                if (dispatched) commitPendingOfferAsAccepted(timestamp, RideRecord.EVIDENCE_GESTURE)
             }
         }
+    }
+
+    private fun performDeclineWithFallback(
+        clickableNodes: List<AccessibilityNodeInfo>,
+        timestamp: Long,
+        rideId: Long
+    ) {
+        if (isDeclineGestureInFlight) return
+        if (pendingOfferRideId != rideId) return
+
+        if (performClickDecline(clickableNodes) || clickDeclineInAnyWindow()) {
+            diag("AUTO-DECLINE OK: clique por nó executado")
+            if (pendingOfferRideId == rideId) clearPendingOfferAndDismissOverlay(timestamp)
+            return
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            diag("AUTO-DECLINE FALHOU: sem nó acessível e sem OCR abaixo do Android 11")
+            return
+        }
+
+        isDeclineGestureInFlight = true
+        BubbleOverlayService.extendAutoDismissForManualAccept(8_000L)
+        BubbleOverlayService.setPassThrough(this, true)
+        ocrHandler.postDelayed({
+            captureScreenLines { lines ->
+                val lineTexts = lines?.joinToString(" | ") { it.text }?.take(350) ?: "null"
+                diag("AUTO-DECLINE OCR lines=${lines?.size ?: -1} :: $lineTexts")
+                val target = findDeclineTarget(lines)
+                if (target == null) {
+                    ocrHandler.post {
+                        isDeclineGestureInFlight = false
+                        BubbleOverlayService.setPassThrough(this, false)
+                        diag("AUTO-DECLINE FALHOU: X/Recusar não encontrado no OCR")
+                    }
+                    return@captureScreenLines
+                }
+
+                if (pendingOfferRideId != rideId) {
+                    ocrHandler.post {
+                        isDeclineGestureInFlight = false
+                        BubbleOverlayService.setPassThrough(this, false)
+                        diag("AUTO-DECLINE cancelado: a oferta pendente mudou durante o OCR")
+                    }
+                    return@captureScreenLines
+                }
+
+                val b = target.bounds
+                val tapX = if (target.tapLeftEdge) b.left + (b.height() / 2f) else b.centerX().toFloat()
+                val tapY = b.centerY().toFloat()
+                diag("AUTO-DECLINE: alvo '${target.text}' em ($tapX,$tapY) tapLeftEdge=${target.tapLeftEdge}")
+                dispatchTapGesture(tapX, tapY) { dispatched ->
+                    ocrHandler.post {
+                        isDeclineGestureInFlight = false
+                        BubbleOverlayService.setPassThrough(this, false)
+                        if (dispatched) {
+                            diag("AUTO-DECLINE OK: toque executado")
+                            if (pendingOfferRideId == rideId) clearPendingOfferAndDismissOverlay(timestamp)
+                        } else {
+                            diag("AUTO-DECLINE FALHOU: toque não executado")
+                        }
+                    }
+                }
+            }
+        }, 320L)
     }
 
     /**
@@ -1457,13 +1524,94 @@ class RotaAccessibilityService : AccessibilityService() {
         return false
     }
 
+    /** Procura o botão/X de recusar em todas as janelas (exceto o DriFly) e clica no nó clicável. */
+    private fun clickDeclineInAnyWindow(): Boolean {
+        val roots = ArrayList<AccessibilityNodeInfo>()
+        try { rootInActiveWindow?.let { roots.add(it) } } catch (_: Exception) {}
+        try {
+            windows?.forEach { w -> w.root?.let { r -> if (roots.none { it == r }) roots.add(r) } }
+        } catch (_: Exception) {}
+        for (root in roots) {
+            val pkg = root.packageName?.toString() ?: ""
+            if (pkg.contains("com.drifly.app", ignoreCase = true)) continue
+            if (clickDeclineNode(root, 0)) return true
+        }
+        return false
+    }
+
+    private fun clickDeclineNode(node: AccessibilityNodeInfo?, depth: Int): Boolean {
+        if (node == null || depth > 30) return false
+        val text = node.text?.toString()?.takeIf { it.isNotBlank() }
+            ?: node.contentDescription?.toString().orEmpty()
+        val id = node.viewIdResourceName ?: ""
+        if (ParsingEngine.isDeclineButtonText(text) || ParsingEngine.isDeclineButtonText(id)) {
+            var target: AccessibilityNodeInfo? = node
+            var hops = 0
+            while (target != null && !target.isClickable && hops < 4) {
+                target = target.parent
+                hops++
+            }
+            if (target != null && target.isClickable && target.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                return true
+            }
+        }
+        for (i in 0 until node.childCount) {
+            val child = try { node.getChild(i) } catch (_: Exception) { null }
+            if (clickDeclineNode(child, depth + 1)) return true
+        }
+        return false
+    }
+
+    private data class DeclineTarget(
+        val text: String,
+        val bounds: Rect,
+        val tapLeftEdge: Boolean = false
+    )
+
+    /**
+     * Localiza no OCR o controle de recusa do card. No 99 ele costuma ser um "X" no topo direito
+     * e às vezes o OCR junta o X com o selo "Não afeta a TA". Nesse caso tocamos na borda esquerda
+     * da linha, onde está o X.
+     */
+    private fun findDeclineTarget(lines: List<OcrLine>?): DeclineTarget? {
+        if (lines == null) return null
+        val withBounds = lines.filter { it.bounds != null && it.text.isNotBlank() }
+        if (withBounds.isEmpty()) return null
+        // Só age quando o card de oferta está realmente na tela; evita tocar num X de outra janela.
+        if (withBounds.none { ParsingEngine.isAcceptActionText(it.text) }) return null
+
+        val textButtons = withBounds.filter {
+            ParsingEngine.isDeclineButtonText(it.text)
+        }
+        if (textButtons.isNotEmpty()) {
+            val chosen = textButtons.maxByOrNull { it.bounds!!.bottom } ?: textButtons.first()
+            return DeclineTarget(chosen.text, chosen.bounds!!)
+        }
+
+        val exactX = withBounds.filter { ParsingEngine.isExactDeclineGlyph(it.text) }
+        if (exactX.isNotEmpty()) {
+            val metrics = resources.displayMetrics
+            // O X do card da 99 fica no canto superior direito. Entre vários X, escolhe o mais
+            // próximo desse canto (e o menor, para não pegar um texto inteiro).
+            val chosen = exactX.minByOrNull {
+                val b = it.bounds!!
+                val dx = (metrics.widthPixels - b.centerX()).toDouble()
+                val dy = b.centerY().toDouble()
+                dx * dx + dy * dy + (b.width() * b.height()) / 10.0
+            } ?: exactX.first()
+            return DeclineTarget(chosen.text, chosen.bounds!!)
+        }
+
+        val xBadge = withBounds.firstOrNull { ParsingEngine.isDeclineGlyphMergedWithBadge(it.text) }
+        if (xBadge != null) {
+            return DeclineTarget(xBadge.text, xBadge.bounds!!, tapLeftEdge = true)
+        }
+        return null
+    }
+
     private fun performClickDecline(nodes: List<AccessibilityNodeInfo>): Boolean {
         for (node in nodes) {
-            val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "")
-            val id = (node.viewIdResourceName ?: "")
-            if (ParsingEngine.isDeclineActionText(text) || ParsingEngine.isDeclineActionText(id)) {
-                return node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            }
+            if (clickDeclineNode(node, 0)) return true
         }
         return false
     }

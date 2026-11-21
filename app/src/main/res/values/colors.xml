@@ -1,4 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bottom_nav_indicator_color">#26FF6900</color>
+    <!-- Paleta do redesign v3 (mesma do protótipo HTML) -->
+    <color name="drifly_bg">#F3F5F9</color>
+    <color name="drifly_card">#FFFFFF</color>
+    <color name="drifly_line">#E7ECF2</color>
+    <color name="drifly_field">#F4F6FA</color>
+
+    <color name="drifly_ink">#162033</color>
+    <color name="drifly_mut">#5A6579</color>
+    <color name="drifly_icon">#334155</color>
+
+    <color name="drifly_orange">#FF6F00</color>
+    <color name="drifly_orange_2">#FF9506</color>
+    <color name="drifly_orange_deep">#B24D00</color>
+    <color name="drifly_orange_tint">#FFF3E6</color>
+
+    <color name="drifly_green">#0B8A54</color>
+    <color name="drifly_green_tint">#E6F6EE</color>
+
+    <color name="drifly_red">#D62839</color>
+    <color name="drifly_red_tint">#FDECEE</color>
+
+    <color name="drifly_amber">#A85A00</color>
+    <color name="drifly_amber_tint">#FFF4DD</color>
+    <color name="drifly_blue">#2563EB</color>
+
+    <color name="bottom_nav_indicator_color">#1AFF6F00</color>
+    <color name="drifly_nav_shadow">#0F172A</color>
 </resources>

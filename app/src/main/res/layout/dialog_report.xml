@@ -4,21 +4,29 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="20dp"
-    android:background="@drawable/bg_dialog_glass">
+    android:padding="18dp"
+    android:background="@drawable/bg_light_dialog">
 
-    <!-- Cabeçalho do Relatório com Ícone de Calendário -->
+    <!-- Cabeçalho -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <ImageView
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            android:src="@drawable/ic_calendar_orange"
-            android:contentDescription="Relatório" />
+        <FrameLayout
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:background="@drawable/bg_light_circle_orange">
+
+            <ImageView
+                android:layout_width="17dp"
+                android:layout_height="17dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_calendar_orange"
+                app:tint="@color/drifly_orange"
+                android:contentDescription="Histórico" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/tvReportTitle"
@@ -26,357 +34,506 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="10dp"
-            android:text="Histórico Unificado"
-            android:textColor="#FFFFFF"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="Histórico de corridas"
+            android:textColor="@color/drifly_ink"
             android:fontFamily="@font/plus_jakarta_sans"
             android:textStyle="bold"
-            android:textSize="18sp" />
+            android:textSize="17sp" />
 
         <ImageView
             android:id="@+id/btnDialogReportCloseIcon"
             android:layout_width="30dp"
             android:layout_height="30dp"
-            android:background="@drawable/bg_btn_circle_glass"
-            android:padding="6dp"
+            android:background="@drawable/bg_light_circle"
+            android:padding="8dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
-            app:tint="#A3A8B5"
+            app:tint="@color/drifly_icon"
             android:contentDescription="Fechar" />
     </LinearLayout>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="Resumo consolidado de faturamento, despesas e lucro real."
-        android:textColor="#A3A8B5"
-        android:fontFamily="@font/plus_jakarta_sans"
-        android:textSize="12sp" />
-
-    <!-- Barra de Chips de Período (Navegação Rápida no Modal) -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/btnReportChipToday"
-            android:layout_width="0dp"
-            android:layout_height="36dp"
-            android:layout_weight="1"
-            android:padding="0dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            app:backgroundTint="@null"
-            android:background="@drawable/bg_period_selected"
-            android:textColor="#FFFFFF"
-            android:fontFamily="@font/plus_jakarta_sans"
-            android:textStyle="bold"
-            android:textSize="11sp"
-            android:text="Hoje" />
-
-        <Button
-            android:id="@+id/btnReportChipWeek"
-            android:layout_width="0dp"
-            android:layout_height="36dp"
-            android:layout_weight="1.2"
-            android:layout_marginStart="5dp"
-            android:padding="0dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            app:backgroundTint="@null"
-            android:background="@drawable/bg_period_unselected"
-            android:textColor="#A3A8B5"
-            android:fontFamily="@font/plus_jakarta_sans"
-            android:textStyle="bold"
-            android:textSize="11sp"
-            android:text="Semana" />
-
-        <Button
-            android:id="@+id/btnReportChipMonth"
-            android:layout_width="0dp"
-            android:layout_height="36dp"
-            android:layout_weight="1"
-            android:layout_marginStart="5dp"
-            android:padding="0dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            app:backgroundTint="@null"
-            android:background="@drawable/bg_period_unselected"
-            android:textColor="#A3A8B5"
-            android:fontFamily="@font/plus_jakarta_sans"
-            android:textStyle="bold"
-            android:textSize="11sp"
-            android:text="Mês" />
-
-        <Button
-            android:id="@+id/btnReportChipYear"
-            android:layout_width="0dp"
-            android:layout_height="36dp"
-            android:layout_weight="1"
-            android:layout_marginStart="5dp"
-            android:padding="0dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            app:backgroundTint="@null"
-            android:background="@drawable/bg_period_unselected"
-            android:textColor="#A3A8B5"
-            android:fontFamily="@font/plus_jakarta_sans"
-            android:textStyle="bold"
-            android:textSize="11sp"
-            android:text="Ano" />
-    </LinearLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginVertical="12dp"
-        android:background="#1AFFFFFF" />
-
-    <!-- Card de Métricas Consolidado -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_inner_metric_card"
-        android:orientation="vertical"
-        android:padding="14dp">
-
-        <!-- Linha 1: Corridas Analisadas e KM Total -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Corridas Analisadas:"
-                android:textColor="#A3A8B5"
-                android:fontFamily="@font/plus_jakarta_sans"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/tvReportRideCount"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0"
-                android:textColor="#FFFFFF"
-                android:fontFamily="@font/plus_jakarta_sans"
-                android:textStyle="bold"
-                android:textSize="14sp" />
-        </LinearLayout>
-
-        <!-- Linha 2: Faturamento Bruto -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Faturamento Bruto:"
-                android:textColor="#A3A8B5"
-                android:fontFamily="@font/plus_jakarta_sans"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/tvReportGross"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="R$ 0,00"
-                android:textColor="#FFFFFF"
-                android:fontFamily="@font/plus_jakarta_sans"
-                android:textStyle="bold"
-                android:textSize="14sp" />
-        </LinearLayout>
-
-        <!-- Linha 3: Total de Despesas -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Total de Despesas:"
-                android:textColor="#A3A8B5"
-                android:fontFamily="@font/plus_jakarta_sans"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/tvReportExpenses"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="R$ 0,00"
-                android:textColor="#FF454D"
-                android:fontFamily="@font/plus_jakarta_sans"
-                android:textStyle="bold"
-                android:textSize="14sp" />
-        </LinearLayout>
-
-        <!-- Linha 4: Distância Total & Média R$/km -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/tvReportKmLabel"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Distância Total:"
-                android:textColor="#A3A8B5"
-                android:fontFamily="@font/plus_jakarta_sans"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/tvReportKm"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0.0 km"
-                android:textColor="#FFFFFF"
-                android:fontFamily="@font/plus_jakarta_sans"
-                android:textStyle="bold"
-                android:textSize="14sp" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Card de Destaque: Lucro Líquido Real -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:background="@drawable/bg_btn_circle_glass"
-        android:padding="14dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="LUCRO LÍQUIDO REAL"
-                android:textColor="#FF8A24"
-                android:fontFamily="@font/plus_jakarta_sans"
-                android:letterSpacing="0.05"
-                android:textStyle="bold"
-                android:textSize="10sp" />
-
-            <TextView
-                android:id="@+id/tvReportNet"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="R$ 0,00"
-                android:textColor="#31D477"
-                android:fontFamily="@font/plus_jakarta_sans"
-                android:textStyle="bold"
-                android:textSize="20sp" />
-        </LinearLayout>
-
-        <ImageView
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:src="@drawable/ic_metric_profit_up"
-            android:contentDescription="Lucro" />
-    </LinearLayout>
-
-    <!-- Seção de Lista de Corridas Detalhada -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Corridas Detalhadas"
-            android:textColor="#FFFFFF"
-            android:fontFamily="@font/plus_jakarta_sans"
-            android:textStyle="bold"
-            android:textSize="14sp" />
-
-        <TextView
-            android:id="@+id/tvReportRidesBadge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Toque para gerenciar"
-            android:textColor="#A3A8B5"
-            android:fontFamily="@font/plus_jakarta_sans"
-            android:textSize="11sp" />
-    </LinearLayout>
-
     <ScrollView
+        android:id="@+id/scrollReportBody"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:maxHeight="220dp"
-        android:overScrollMode="never">
+        android:layout_marginTop="12dp"
+        android:overScrollMode="never"
+        android:scrollbars="none">
 
         <LinearLayout
-            android:id="@+id/layoutReportRidesContainer"
+            android:id="@+id/layoutReportBody"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/tvReportNoRides"
+            <!-- Chips de período -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingVertical="16dp"
-                android:gravity="center"
-                android:text="Nenhuma corrida registrada neste período."
-                android:textColor="#707684"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnReportChipToday"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:padding="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    app:backgroundTint="@null"
+                    android:background="@drawable/bg_chip_selected"
+                    android:textColor="#FFFFFF"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="11sp"
+                    android:text="Hoje" />
+
+                <Button
+                    android:id="@+id/btnReportChipWeek"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1.15"
+                    android:layout_marginStart="5dp"
+                    android:padding="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    app:backgroundTint="@null"
+                    android:background="@drawable/bg_light_chip"
+                    android:textColor="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="11sp"
+                    android:text="Semana" />
+
+                <Button
+                    android:id="@+id/btnReportChipMonth"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="5dp"
+                    android:padding="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    app:backgroundTint="@null"
+                    android:background="@drawable/bg_light_chip"
+                    android:textColor="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="11sp"
+                    android:text="Mês" />
+
+                <Button
+                    android:id="@+id/btnReportChipYear"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="5dp"
+                    android:padding="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    app:backgroundTint="@null"
+                    android:background="@drawable/bg_light_chip"
+                    android:textColor="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="11sp"
+                    android:text="Ano" />
+
+                <Button
+                    android:id="@+id/btnReportChipCustom"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1.3"
+                    android:layout_marginStart="5dp"
+                    android:padding="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    app:backgroundTint="@null"
+                    android:background="@drawable/bg_light_chip"
+                    android:textColor="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="11sp"
+                    android:text="Período" />
+            </LinearLayout>
+
+            <!-- Personalizado: por dia / por mês + De/Até -->
+            <LinearLayout
+                android:id="@+id/layoutReportCustom"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_light_card"
+                android:orientation="vertical"
+                android:padding="12dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnReportModeDay"
+                        android:layout_width="0dp"
+                        android:layout_height="32dp"
+                        android:layout_weight="1"
+                        android:padding="0dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        app:backgroundTint="@null"
+                        android:background="@drawable/bg_chip_selected"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="11sp"
+                        android:text="Por dia" />
+
+                    <Button
+                        android:id="@+id/btnReportModeMonth"
+                        android:layout_width="0dp"
+                        android:layout_height="32dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:padding="0dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        app:backgroundTint="@null"
+                        android:background="@drawable/bg_light_chip"
+                        android:textColor="@color/drifly_mut"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="11sp"
+                        android:text="Por mês" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="De"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:id="@+id/tvReportFrom"
+                            android:layout_width="match_parent"
+                            android:layout_height="40dp"
+                            android:layout_marginTop="4dp"
+                            android:background="@drawable/bg_light_field"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="12dp"
+                            android:text="dd/mm/aaaa"
+                            android:textColor="@color/drifly_ink"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Até"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:id="@+id/tvReportTo"
+                            android:layout_width="match_parent"
+                            android:layout_height="40dp"
+                            android:layout_marginTop="4dp"
+                            android:background="@drawable/bg_light_field"
+                            android:gravity="center_vertical"
+                            android:paddingHorizontal="12dp"
+                            android:text="dd/mm/aaaa"
+                            android:textColor="@color/drifly_ink"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvReportRange"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text=""
+                android:textColor="@color/drifly_mut"
                 android:fontFamily="@font/plus_jakarta_sans"
-                android:textSize="12sp"
-                android:visibility="gone" />
+                android:textSize="11.5sp" />
+
+            <!-- Grade 2x2 de números -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_light_inner"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:text="Corridas analisadas"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="10.5sp" />
+
+                        <TextView
+                            android:id="@+id/tvReportRideCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="0"
+                            android:textColor="@color/drifly_ink"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:text="Faturamento bruto"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="10.5sp" />
+
+                        <TextView
+                            android:id="@+id/tvReportGross"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="R$ 0,00"
+                            android:textColor="@color/drifly_ink"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:text="Total despesas"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="10.5sp" />
+
+                        <TextView
+                            android:id="@+id/tvReportExpenses"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="R$ 0,00"
+                            android:textColor="@color/drifly_red"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:text="Distância total"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="10.5sp" />
+
+                        <TextView
+                            android:id="@+id/tvReportKm"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="0,0 km"
+                            android:textColor="@color/drifly_ink"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Lucro líquido real -->
+            <LinearLayout
+                android:id="@+id/layoutReportProfit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_light_pill_green"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:text="Lucro líquido real"
+                    android:textColor="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textSize="11sp" />
+
+                <TextView
+                    android:id="@+id/tvReportNet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="R$ 0,00"
+                    android:textColor="@color/drifly_green"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="19sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Faturamento bruto menos despesas"
+                    android:textColor="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <!-- Corridas detalhadas -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:text="Corridas detalhadas"
+                    android:textColor="@color/drifly_ink"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textStyle="bold"
+                    android:textSize="13.5sp" />
+
+                <TextView
+                    android:id="@+id/tvReportRidesBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:text=""
+                    android:textColor="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textSize="11sp" />
+            </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/layoutReportRidesList"
+                android:id="@+id/layoutReportRidesContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical" />
+                android:layout_marginTop="6dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvReportNoRides"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingVertical="16dp"
+                    android:gravity="center"
+                    android:text="Nenhuma corrida neste período."
+                    android:textColor="@color/drifly_mut"
+                    android:fontFamily="@font/plus_jakarta_sans"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/layoutReportRidesList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
-    <!-- Botão Fechar Estilizado -->
     <Button
         android:id="@+id/btnReportClose"
         android:layout_width="match_parent"
         android:layout_height="44dp"
         android:layout_marginTop="14dp"
         app:backgroundTint="@null"
-        android:background="@drawable/bg_period_unselected"
-        android:textColor="#FFFFFF"
+        android:background="@drawable/bg_light_btn_secondary"
+        android:textColor="@color/drifly_ink"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"
         android:textSize="13sp"

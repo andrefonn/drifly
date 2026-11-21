@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="20dp"
-    android:background="@drawable/bg_dialog_glass">
+    android:background="@drawable/bg_light_dialog">
 
     <!-- Topo do Diálogo -->
     <LinearLayout
@@ -17,14 +17,14 @@
         <FrameLayout
             android:layout_width="38dp"
             android:layout_height="38dp"
-            android:background="@drawable/bg_btn_circle_glass"
+            android:background="@drawable/bg_light_circle"
             android:padding="8dp">
 
             <ImageView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:src="@drawable/ic_settings_gear"
-                app:tint="#FF6900"
+                app:tint="@color/drifly_orange"
                 android:contentDescription="Configurações" />
         </FrameLayout>
 
@@ -39,7 +39,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Configurações do DriFly"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/drifly_ink"
                 android:fontFamily="@font/plus_jakarta_sans"
                 android:textStyle="bold"
                 android:textSize="18sp" />
@@ -48,7 +48,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Permissões, backup e atualizações"
-                android:textColor="#A3A8B5"
+                android:textColor="@color/drifly_mut"
                 android:fontFamily="@font/plus_jakarta_sans"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -58,7 +58,49 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginVertical="14dp"
-        android:background="#1AFFFFFF" />
+        android:background="@color/drifly_line" />
+
+    <!-- Bolinha flutuante do tanque -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/bg_light_card"
+        android:padding="14dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Bolinha flutuante"
+                android:textColor="@color/drifly_ink"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Arraste para o X e ela fecha."
+                android:textColor="@color/drifly_mut"
+                android:fontFamily="@font/plus_jakarta_sans"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Switch
+            android:id="@+id/swDiagFloatingBubble"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true" />
+    </LinearLayout>
 
     <ScrollView
         android:layout_width="match_parent"
@@ -78,7 +120,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_card_frosted_glass"
+                android:background="@drawable/bg_light_card"
                 android:orientation="vertical">
 
                 <!-- Header Clicável -->
@@ -96,7 +138,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_banner_info"
-                        app:tint="#FF6900"
+                        app:tint="@color/drifly_orange"
                         android:contentDescription="Permissões" />
 
                     <LinearLayout
@@ -110,7 +152,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Permissões do Sistema"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="14sp" />
@@ -120,7 +162,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Toque para expandir os 4 itens"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp" />
                     </LinearLayout>
@@ -130,7 +172,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_chevron_down"
-                        app:tint="#A3A8B5"
+                        app:tint="@color/drifly_mut"
                         android:contentDescription="Expandir" />
                 </LinearLayout>
 
@@ -148,7 +190,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginBottom="12dp"
-                        android:background="#14FFFFFF" />
+                        android:background="@color/drifly_line" />
 
                     <!-- 1. Sobrepor -->
                     <LinearLayout
@@ -163,7 +205,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="1. Sobrepor a outros apps"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="13sp" />
 
@@ -172,7 +214,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:background="@drawable/bg_light_btn_primary"
                             android:textColor="#FFFFFF"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
@@ -194,7 +236,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="2. Serviço de Acessibilidade"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="13sp" />
 
@@ -203,7 +245,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:background="@drawable/bg_light_btn_primary"
                             android:textColor="#FFFFFF"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
@@ -225,7 +267,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="3. Bateria sem restrição"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="13sp" />
 
@@ -234,7 +276,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:background="@drawable/bg_light_btn_primary"
                             android:textColor="#FFFFFF"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
@@ -256,7 +298,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="4. Leitor de Notificações"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="13sp" />
 
@@ -265,7 +307,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:background="@drawable/bg_light_btn_primary"
                             android:textColor="#FFFFFF"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
@@ -282,7 +324,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card_frosted_glass"
+                android:background="@drawable/bg_light_card"
                 android:orientation="vertical">
 
                 <!-- Header Clicável -->
@@ -300,7 +342,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_backup"
-                        app:tint="#31D477"
+                        app:tint="@color/drifly_green"
                         android:contentDescription="Backup" />
 
                     <LinearLayout
@@ -314,7 +356,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Backup &amp; Restauração"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="14sp" />
@@ -324,7 +366,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Automático às 00:00 • Toque para ver"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp" />
                     </LinearLayout>
@@ -334,7 +376,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_chevron_down"
-                        app:tint="#A3A8B5"
+                        app:tint="@color/drifly_mut"
                         android:contentDescription="Expandir" />
                 </LinearLayout>
 
@@ -352,13 +394,13 @@
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginBottom="12dp"
-                        android:background="#14FFFFFF" />
+                        android:background="@color/drifly_line" />
 
                     <!-- Informação do Backup Automático -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="#14FFFFFF"
+                        android:background="@color/drifly_line"
                         android:padding="10dp"
                         android:orientation="vertical">
 
@@ -366,7 +408,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="⏰ Backup Automático Diário: 00:00h"
-                            android:textColor="#31D477"
+                            android:textColor="@color/drifly_green"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp" />
@@ -377,7 +419,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:text="Nenhum backup realizado hoje ainda"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp" />
 
@@ -386,7 +428,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="3dp"
                             android:text="📁 Pasta: Downloads/DriFly_Backups"
-                            android:textColor="#707684"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="10sp" />
                     </LinearLayout>
@@ -404,7 +446,7 @@
                             android:layout_height="42dp"
                             android:layout_weight="1"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:background="@drawable/bg_light_btn_primary"
                             android:textColor="#FFFFFF"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
@@ -418,8 +460,8 @@
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_period_unselected"
-                            android:textColor="#F5F5F7"
+                            android:background="@drawable/bg_light_chip"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp"
@@ -435,7 +477,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card_frosted_glass"
+                android:background="@drawable/bg_light_card"
                 android:orientation="vertical">
 
                 <!-- Header Clicável -->
@@ -453,7 +495,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_refresh_white"
-                        app:tint="#60A5FA"
+                        app:tint="@color/drifly_blue"
                         android:contentDescription="Atualizações" />
 
                     <LinearLayout
@@ -467,7 +509,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Atualizações do App"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="14sp" />
@@ -477,7 +519,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Versão 1.0.0 instalada"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp" />
                     </LinearLayout>
@@ -487,7 +529,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_chevron_down"
-                        app:tint="#A3A8B5"
+                        app:tint="@color/drifly_mut"
                         android:contentDescription="Expandir" />
                 </LinearLayout>
 
@@ -505,13 +547,13 @@
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginBottom="12dp"
-                        android:background="#14FFFFFF" />
+                        android:background="@color/drifly_line" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="O DriFly baixa e instala novas versões automaticamente direto do GitHub sem você precisar baixar APK manualmente."
-                        android:textColor="#A3A8B5"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp" />
 
@@ -521,7 +563,7 @@
                         android:layout_height="42dp"
                         android:layout_marginTop="12dp"
                         app:backgroundTint="@null"
-                        android:background="@drawable/bg_btn_primary_gradient"
+                        android:background="@drawable/bg_light_btn_primary"
                         android:textColor="#FFFFFF"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
@@ -537,7 +579,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card_frosted_glass"
+                android:background="@drawable/bg_light_card"
                 android:orientation="vertical">
 
                 <!-- Header Clicável -->
@@ -555,7 +597,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_nav_rides"
-                        app:tint="#FFB800"
+                        app:tint="@color/drifly_amber"
                         android:contentDescription="Compatibilidade" />
 
                     <LinearLayout
@@ -569,7 +611,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Compatibilidade do Aparelho"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="14sp" />
@@ -579,7 +621,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Detectando modelo..."
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp" />
                     </LinearLayout>
@@ -589,7 +631,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_chevron_down"
-                        app:tint="#A3A8B5"
+                        app:tint="@color/drifly_mut"
                         android:contentDescription="Expandir" />
                 </LinearLayout>
 
@@ -607,13 +649,13 @@
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginBottom="12dp"
-                        android:background="#14FFFFFF" />
+                        android:background="@color/drifly_line" />
 
                     <!-- Informações do Aparelho Detectado -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="#14FFFFFF"
+                        android:background="@color/drifly_line"
                         android:padding="10dp"
                         android:orientation="vertical">
 
@@ -622,7 +664,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="📱 Modelo: Motorola Moto G30"
-                            android:textColor="#31D477"
+                            android:textColor="@color/drifly_green"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp" />
@@ -633,7 +675,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
                             android:text="⚙️ Android 12 (API 31)"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp" />
 
@@ -643,7 +685,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
                             android:text="Sistema 100% Otimizado."
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp" />
                     </LinearLayout>
@@ -662,7 +704,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="40dp"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:background="@drawable/bg_light_btn_primary"
                             android:textColor="#FFFFFF"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
@@ -675,8 +717,8 @@
                             android:layout_height="40dp"
                             android:layout_marginTop="6dp"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_btn_secondary_glass"
-                            android:textColor="#FFB800"
+                            android:background="@drawable/bg_light_btn_secondary"
+                            android:textColor="@color/drifly_amber"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="11sp"
@@ -690,8 +732,8 @@
                         android:layout_height="40dp"
                         android:layout_marginTop="8dp"
                         app:backgroundTint="@null"
-                        android:background="@drawable/bg_btn_secondary_glass"
-                        android:textColor="#31D477"
+                        android:background="@drawable/bg_light_btn_secondary"
+                        android:textColor="@color/drifly_green"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
                         android:textSize="11sp"
@@ -704,8 +746,8 @@
                         android:layout_height="40dp"
                         android:layout_marginTop="6dp"
                         app:backgroundTint="@null"
-                        android:background="@drawable/bg_period_unselected"
-                        android:textColor="#60A5FA"
+                        android:background="@drawable/bg_light_chip"
+                        android:textColor="@color/drifly_blue"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="11sp"
                         android:text="Liberar Configurações Restritas (Android 13+)" />
@@ -720,7 +762,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:background="@drawable/bg_card_frosted_glass"
+                android:background="@drawable/bg_light_card"
                 android:orientation="vertical">
 
                 <!-- Header Clicável -->
@@ -738,7 +780,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_backup"
-                        app:tint="#31D477"
+                        app:tint="@color/drifly_green"
                         android:contentDescription="Logs na Nuvem" />
 
                     <LinearLayout
@@ -752,7 +794,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Diagnóstico &amp; Logs na Nuvem"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="14sp" />
@@ -762,7 +804,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Toque para enviar logs sem cabo USB"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp" />
                     </LinearLayout>
@@ -772,7 +814,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_chevron_down"
-                        app:tint="#A3A8B5"
+                        app:tint="@color/drifly_mut"
                         android:contentDescription="Expandir" />
                 </LinearLayout>
 
@@ -790,12 +832,12 @@
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginBottom="12dp"
-                        android:background="#14FFFFFF" />
+                        android:background="@color/drifly_line" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="#14FFFFFF"
+                        android:background="@color/drifly_line"
                         android:padding="10dp"
                         android:orientation="vertical">
 
@@ -804,7 +846,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Log local: 0 KB"
-                            android:textColor="#31D477"
+                            android:textColor="@color/drifly_green"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp" />
@@ -815,7 +857,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:text="Envio direto: não configurado (use Salvar no Drive ou configure o Webhook)"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp" />
                     </LinearLayout>
@@ -832,7 +874,7 @@
                             android:layout_height="42dp"
                             android:layout_weight="1"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_btn_primary_gradient"
+                            android:background="@drawable/bg_light_btn_primary"
                             android:textColor="#FFFFFF"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
@@ -846,8 +888,8 @@
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_btn_secondary_glass"
-                            android:textColor="#60A5FA"
+                            android:background="@drawable/bg_light_btn_secondary"
+                            android:textColor="@color/drifly_blue"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp"
@@ -866,8 +908,8 @@
                             android:layout_height="38dp"
                             android:layout_weight="1.3"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_period_unselected"
-                            android:textColor="#F5F5F7"
+                            android:background="@drawable/bg_light_chip"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp"
                             android:text="Configurar Webhook (Drive)" />
@@ -879,8 +921,8 @@
                             android:layout_weight="0.7"
                             android:layout_marginStart="8dp"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_period_unselected"
-                            android:textColor="#FF6B6B"
+                            android:background="@drawable/bg_light_chip"
+                            android:textColor="@color/drifly_red"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp"
                             android:text="Limpar Log" />
@@ -898,7 +940,8 @@
         android:layout_height="46dp"
         android:layout_marginTop="16dp"
         app:backgroundTint="@null"
-        android:background="@drawable/bg_period_unselected"
+        android:background="@drawable/bg_light_btn_primary"
+        android:elevation="3dp"
         android:textColor="#FFFFFF"
         android:fontFamily="@font/plus_jakarta_sans"
         android:textStyle="bold"

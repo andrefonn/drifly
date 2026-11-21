@@ -53,6 +53,41 @@ class PreferencesManager(context: Context) {
         get() = prefs.getBoolean("blacklist_enabled", false)
         set(value) = prefs.edit().putBoolean("blacklist_enabled", value).apply()
 
+    /** Litros restantes no tanque virtual da bolinha. */
+    var tankLiters: Double
+        get() = prefs.getFloat("tank_liters", 0f).toDouble()
+        set(value) = prefs.edit().putFloat("tank_liters", value.coerceAtLeast(0.0).toFloat()).apply()
+
+    /** Litros do último abastecimento (referência dos 100%). */
+    var tankReferenceLiters: Double
+        get() = prefs.getFloat("tank_reference_liters", 0f).toDouble()
+        set(value) = prefs.edit().putFloat("tank_reference_liters", value.coerceAtLeast(0.0).toFloat()).apply()
+
+    /** Odômetro do turno no último abastecimento/sincronização. */
+    var tankOdometerKm: Double
+        get() = prefs.getFloat("tank_odometer_km", 0f).toDouble()
+        set(value) = prefs.edit().putFloat("tank_odometer_km", value.coerceAtLeast(0.0).toFloat()).apply()
+
+    /** Nível do tanque (0f a 1f) usado pela bolinha flutuante. */
+    var fuelLevel: Float
+        get() = prefs.getFloat("fuel_level", 0.62f)
+        set(value) = prefs.edit().putFloat("fuel_level", value.coerceIn(0f, 1f)).apply()
+
+    // Bolinha flutuante do tanque (menu rápido + nível de combustível)
+    var floatingBubbleEnabled: Boolean
+        get() = prefs.getBoolean("floating_bubble_enabled", true)
+        set(value) = prefs.edit().putBoolean("floating_bubble_enabled", value).apply()
+
+    // Posição salva da bolinha (fração da tela; -1 = ainda não definida).
+    // O velocímetro é restaurado a partir da mesma posição.
+    var bubbleXFraction: Float
+        get() = prefs.getFloat("floating_bubble_x_fraction", -1f)
+        set(value) = prefs.edit().putFloat("floating_bubble_x_fraction", value).apply()
+
+    var bubbleYFraction: Float
+        get() = prefs.getFloat("floating_bubble_y_fraction", -1f)
+        set(value) = prefs.edit().putFloat("floating_bubble_y_fraction", value).apply()
+
     // Posição de Exibição da Bolha: "TOP" (Topo), "CENTER" (Meio) ou "BOTTOM" (Base)
     var overlayPosition: String
         get() = prefs.getString("overlay_position", "TOP") ?: "TOP"

@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_screen_cinematic">
+    android:background="@drawable/bg_light_screen">
 
     <!-- Topo Fixo com Branding Moderno e Engrenagem -->
     <LinearLayout
@@ -21,13 +21,13 @@
         <FrameLayout
             android:layout_width="44dp"
             android:layout_height="44dp"
-            android:background="@drawable/bg_logo_container"
+            android:background="@drawable/bg_light_logo"
             android:padding="6dp">
 
             <ImageView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:src="@drawable/ic_drifly_logo"
+                android:src="@drawable/ic_drifly_mark"
                 android:contentDescription="DriFly Logo" />
         </FrameLayout>
 
@@ -47,7 +47,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Dri"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/drifly_ink"
                     android:fontFamily="@font/plus_jakarta_sans"
                     android:textStyle="bold"
                     android:textSize="25sp" />
@@ -56,7 +56,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Fly"
-                    android:textColor="#FF6900"
+                    android:textColor="@color/drifly_orange"
                     android:fontFamily="@font/plus_jakarta_sans"
                     android:textStyle="bold"
                     android:textSize="25sp" />
@@ -67,7 +67,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Painel de Resultados"
-                android:textColor="#A3A8B5"
+                android:textColor="@color/drifly_mut"
                 android:fontFamily="@font/plus_jakarta_sans"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -78,10 +78,10 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_marginEnd="10dp"
-            android:background="@drawable/bg_btn_circle_glass"
+            android:background="@drawable/bg_light_circle"
             android:padding="9dp"
             android:scaleType="fitCenter"
-            app:tint="#F5F5F7"
+            app:tint="@color/drifly_icon"
             android:src="@drawable/ic_home_mode"
             android:contentDescription="Modo Casa" />
 
@@ -90,10 +90,10 @@
             android:id="@+id/btnOpenSettings"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="@drawable/bg_btn_circle_glass"
+            android:background="@drawable/bg_light_circle"
             android:padding="9dp"
             android:scaleType="fitCenter"
-            app:tint="#F5F5F7"
+            app:tint="@color/drifly_icon"
             android:src="@drawable/ic_settings_gear"
             android:contentDescription="Permissões do Sistema" />
     </LinearLayout>
@@ -108,7 +108,7 @@
         android:layout_marginTop="10dp"
         android:elevation="30dp"
         android:visibility="gone"
-        android:background="@drawable/bg_banner_glass"
+        android:background="@drawable/bg_banner_dark"
         android:paddingHorizontal="16dp"
         android:paddingVertical="14dp"
         android:gravity="center_vertical"
@@ -127,7 +127,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="12dp"
-            android:textColor="#F5F5F7"
+            android:textColor="#FFFFFF"
             android:fontFamily="@font/plus_jakarta_sans"
             android:textStyle="bold"
             android:textSize="13sp"
@@ -154,19 +154,18 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingHorizontal="18dp"
-                android:paddingTop="6dp"
-                android:paddingBottom="24dp">
+                android:paddingHorizontal="16dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="20dp">
 
-                <!-- Card de Meta com Efeito Vidro Escuro e Gradiente -->
+                <!-- 1. Progresso da meta -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/bg_card_frosted_glass"
-                    android:padding="18dp"
+                    android:background="@drawable/bg_light_card"
+                    android:padding="16dp"
                     android:orientation="vertical">
 
-                    <!-- Topo do Card: Ícone Alvo + Título -->
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -174,54 +173,108 @@
                         android:gravity="center_vertical">
 
                         <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
                             android:src="@drawable/ic_target_orange"
-                            android:contentDescription="Progresso da Meta" />
+                            android:contentDescription="Progresso da meta" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:text="PROGRESSO DA SUA META"
-                            android:textColor="#A3A8B5"
+                            android:text="Progresso da sua meta"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
-                            android:letterSpacing="0.06"
-                            android:textSize="11sp" />
+                            android:textSize="14sp" />
                     </LinearLayout>
 
-                    <!-- Valores da Meta: Meta em Destaque Laranja + Percentual -->
-                    <TextView
-                        android:id="@+id/tvGoalProgress"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Meta: R$ 150,00 (Atingido: R$ 0,00 – 0%)"
-                        android:textColor="#F5F5F7"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:textSize="16sp" />
-
-                    <!-- Barra de Progresso Elegante com Gradiente Laranja -->
-                    <ProgressBar
-                        android:id="@+id/pbGoal"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="match_parent"
-                        android:layout_height="16dp"
-                        android:layout_marginTop="12dp"
-                        android:progress="0"
-                        android:progressDrawable="@drawable/progress_bar_gradient" />
-
-                    <!-- Grid de 3 Métricas: Faturamento, Despesas e Lucro Líquido -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
+                        android:layout_marginTop="12dp"
                         android:orientation="horizontal"
                         android:gravity="center_vertical">
 
-                        <!-- Coluna 1: Faturamento -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:singleLine="true"
+                            android:text="Meta:"
+                            android:textColor="@color/drifly_ink"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="15sp" />
+
+                        <TextView
+                            android:id="@+id/tvGoalTarget"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="5dp"
+                            android:singleLine="true"
+                            android:text="R$ 0,00"
+                            android:textColor="@color/drifly_orange"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="15sp" />
+
+                        <TextView
+                            android:id="@+id/tvGoalAchieved"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="end"
+                            android:singleLine="true"
+                            android:text="Atingido: R$ 0,00"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ProgressBar
+                            android:id="@+id/pbGoal"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="0dp"
+                            android:layout_height="8dp"
+                            android:layout_weight="1"
+                            android:minHeight="8dp"
+                            android:maxHeight="8dp"
+                            android:progress="0"
+                            android:progressDrawable="@drawable/progress_bar_light" />
+
+                        <TextView
+                            android:id="@+id/tvGoalPercent"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:singleLine="true"
+                            android:text="0%"
+                            android:textColor="@color/drifly_orange"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="14dp"
+                        android:background="@color/drifly_line" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:orientation="horizontal"
+                        android:baselineAligned="false">
+
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
@@ -229,49 +282,34 @@
                             android:gravity="center_horizontal"
                             android:orientation="vertical">
 
-                            <LinearLayout
+                            <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:gravity="center_vertical">
-
-                                <ImageView
-                                    android:layout_width="16dp"
-                                    android:layout_height="16dp"
-                                    android:src="@drawable/ic_metric_wallet"
-                                    android:contentDescription="Faturamento" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="5dp"
-                                    android:text="FATURAMENTO"
-                                    android:textColor="#A3A8B5"
-                                    android:fontFamily="@font/plus_jakarta_sans"
-                                    android:textStyle="bold"
-                                    android:letterSpacing="0.04"
-                                    android:textSize="10sp" />
-                            </LinearLayout>
+                                android:singleLine="true"
+                                android:text="Faturamento"
+                                android:textColor="@color/drifly_mut"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="11sp" />
 
                             <TextView
                                 android:id="@+id/tvGrossToday"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="5dp"
+                                android:layout_marginTop="4dp"
+                                android:singleLine="true"
                                 android:text="R$ 0,00"
-                                android:textColor="#F5F5F7"
+                                android:textColor="@color/drifly_ink"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textStyle="bold"
-                                android:textSize="16sp" />
+                                android:textSize="15sp" />
                         </LinearLayout>
 
-                        <!-- Divisor Vertical 1 -->
                         <View
                             android:layout_width="1dp"
-                            android:layout_height="32dp"
-                            android:background="#1AFFFFFF" />
+                            android:layout_height="34dp"
+                            android:background="@color/drifly_line" />
 
-                        <!-- Coluna 2: Despesas -->
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
@@ -279,145 +317,116 @@
                             android:gravity="center_horizontal"
                             android:orientation="vertical">
 
-                            <LinearLayout
+                            <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:gravity="center_vertical">
-
-                                <ImageView
-                                    android:layout_width="16dp"
-                                    android:layout_height="16dp"
-                                    android:src="@drawable/ic_metric_expense_down"
-                                    android:contentDescription="Despesas" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="5dp"
-                                    android:text="DESPESAS"
-                                    android:textColor="#A3A8B5"
-                                    android:fontFamily="@font/plus_jakarta_sans"
-                                    android:textStyle="bold"
-                                    android:letterSpacing="0.04"
-                                    android:textSize="10sp" />
-                            </LinearLayout>
+                                android:singleLine="true"
+                                android:text="Despesas"
+                                android:textColor="@color/drifly_mut"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="11sp" />
 
                             <TextView
                                 android:id="@+id/tvExpensesToday"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="5dp"
+                                android:layout_marginTop="4dp"
+                                android:singleLine="true"
                                 android:text="R$ 0,00"
-                                android:textColor="#FF454D"
+                                android:textColor="@color/drifly_red"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textStyle="bold"
-                                android:textSize="16sp" />
+                                android:textSize="15sp" />
                         </LinearLayout>
 
-                        <!-- Divisor Vertical 2 -->
                         <View
                             android:layout_width="1dp"
-                            android:layout_height="32dp"
-                            android:background="#1AFFFFFF" />
+                            android:layout_height="34dp"
+                            android:background="@color/drifly_line" />
 
-                        <!-- Coluna 3: Lucro Líquido -->
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1.1"
+                            android:layout_weight="1"
                             android:gravity="center_horizontal"
                             android:orientation="vertical">
 
-                            <LinearLayout
+                            <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:gravity="center_vertical">
-
-                                <ImageView
-                                    android:layout_width="16dp"
-                                    android:layout_height="16dp"
-                                    android:src="@drawable/ic_metric_profit_up"
-                                    android:contentDescription="Lucro Líquido" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="5dp"
-                                    android:text="LUCRO LÍQUIDO"
-                                    android:textColor="#A3A8B5"
-                                    android:fontFamily="@font/plus_jakarta_sans"
-                                    android:textStyle="bold"
-                                    android:letterSpacing="0.04"
-                                    android:textSize="10sp" />
-                            </LinearLayout>
+                                android:singleLine="true"
+                                android:text="Lucro líquido"
+                                android:textColor="@color/drifly_mut"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="11sp" />
 
                             <TextView
                                 android:id="@+id/tvNetToday"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="5dp"
+                                android:layout_marginTop="4dp"
+                                android:singleLine="true"
                                 android:text="R$ 0,00"
-                                android:textColor="#31D477"
+                                android:textColor="@color/drifly_green"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textStyle="bold"
-                                android:textSize="16sp" />
+                                android:textSize="15sp" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
 
-                <!-- Botão Principal "Lançar Despesa" com Ícones e Sombra Laranja Luminosa -->
+                <!-- 2. Lançar despesa -->
                 <RelativeLayout
                     android:id="@+id/btnAddExpense"
                     android:layout_width="match_parent"
-                    android:layout_height="58dp"
-                    android:layout_marginTop="16dp"
-                    android:background="@drawable/bg_btn_primary_gradient"
-                    android:elevation="12dp"
-                    android:outlineAmbientShadowColor="#80FF6900"
-                    android:outlineSpotShadowColor="#B3FF6900"
-                    android:paddingHorizontal="20dp"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_light_btn_primary"
+                    android:elevation="4dp"
+                    android:paddingHorizontal="16dp"
                     android:clickable="true"
                     android:focusable="true">
 
                     <ImageView
                         android:id="@+id/ivPlusIcon"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
                         android:layout_alignParentStart="true"
                         android:layout_centerVertical="true"
                         android:src="@drawable/ic_plus_white"
-                        android:contentDescription="Lançar Despesa" />
+                        android:contentDescription="Lançar despesa" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_toEndOf="@id/ivPlusIcon"
                         android:layout_centerVertical="true"
-                        android:layout_marginStart="14dp"
-                        android:text="Lançar Despesa"
+                        android:layout_marginStart="10dp"
+                        android:singleLine="true"
+                        android:text="Lançar despesa"
                         android:textColor="#FFFFFF"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
-                        android:textSize="16sp" />
+                        android:textSize="14.5sp" />
 
                     <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
                         android:layout_alignParentEnd="true"
                         android:layout_centerVertical="true"
                         android:src="@drawable/ic_chevron_right"
                         android:contentDescription="Avançar" />
                 </RelativeLayout>
 
-                <!-- Botão de Acesso ao Histórico de Corridas (Compacto) -->
+                <!-- 3. Histórico de corridas -->
                 <RelativeLayout
                     android:id="@+id/btnOpenFullHistory"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="14dp"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_light_btn_secondary"
                     android:paddingHorizontal="16dp"
                     android:clickable="true"
                     android:focusable="true">
@@ -431,41 +440,42 @@
                         android:gravity="center_vertical">
 
                         <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
                             android:src="@drawable/ic_calendar_orange"
                             android:contentDescription="Histórico" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:text="Histórico de Corridas"
-                            android:textColor="#FFFFFF"
+                            android:layout_marginStart="10dp"
+                            android:singleLine="true"
+                            android:text="Histórico de corridas"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
-                            android:textSize="15sp" />
+                            android:textSize="14sp" />
                     </LinearLayout>
 
                     <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
                         android:layout_alignParentEnd="true"
                         android:layout_centerVertical="true"
                         android:src="@drawable/ic_chevron_right"
-                        android:contentDescription="Abrir Histórico" />
+                        app:tint="@color/drifly_icon"
+                        android:contentDescription="Abrir histórico" />
                 </RelativeLayout>
 
-                <!-- Card "Ajustar Meta de Ganhos" com Glassmorphism Escuro -->
+                <!-- 4. Ajustar meta de ganhos -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:background="@drawable/bg_card_frosted_glass"
-                    android:padding="18dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_light_card"
+                    android:padding="16dp"
                     android:orientation="vertical">
 
-                    <!-- Cabeçalho do Card: Ícone Gráfico Laranja + Título -->
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -476,97 +486,111 @@
                             android:layout_width="18dp"
                             android:layout_height="18dp"
                             android:src="@drawable/ic_trending_chart"
-                            android:contentDescription="Ajustar Meta" />
+                            android:contentDescription="Ajustar meta" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:text="Ajustar Meta de Ganhos"
-                            android:textColor="#F5F5F7"
+                            android:text="Ajustar meta de ganhos"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
-                            android:textSize="15sp" />
+                            android:textSize="14sp" />
                     </LinearLayout>
 
-                    <!-- Seleção: Diária, Semanal, Mensal com RadioButtons Personalizados -->
                     <RadioGroup
                         android:id="@+id/rgGoalType"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="14dp"
+                        android:layout_marginTop="12dp"
                         android:orientation="horizontal">
 
                         <RadioButton
                             android:id="@+id/rbDaily"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:button="@drawable/radio_custom_selector"
-                            android:paddingStart="8dp"
+                            android:layout_width="0dp"
+                            android:layout_height="38dp"
+                            android:layout_weight="1"
+                            android:button="@null"
+                            android:background="@drawable/bg_segment_choice"
+                            android:gravity="center"
+                            android:singleLine="true"
                             android:text="Diária"
+                            android:textColor="@color/segment_text"
                             android:fontFamily="@font/plus_jakarta_sans"
-                            android:textColor="#F5F5F7"
-                            android:textSize="14sp" />
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
 
                         <RadioButton
                             android:id="@+id/rbWeekly"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
-                            android:button="@drawable/radio_custom_selector"
-                            android:paddingStart="8dp"
+                            android:layout_width="0dp"
+                            android:layout_height="38dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:button="@null"
+                            android:background="@drawable/bg_segment_choice"
+                            android:gravity="center"
+                            android:singleLine="true"
                             android:text="Semanal"
+                            android:textColor="@color/segment_text"
                             android:fontFamily="@font/plus_jakarta_sans"
-                            android:textColor="#F5F5F7"
-                            android:textSize="14sp" />
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
 
                         <RadioButton
                             android:id="@+id/rbMonthly"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
-                            android:button="@drawable/radio_custom_selector"
-                            android:paddingStart="8dp"
+                            android:layout_width="0dp"
+                            android:layout_height="38dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:button="@null"
+                            android:background="@drawable/bg_segment_choice"
+                            android:gravity="center"
+                            android:singleLine="true"
                             android:text="Mensal"
+                            android:textColor="@color/segment_text"
                             android:fontFamily="@font/plus_jakarta_sans"
-                            android:textColor="#F5F5F7"
-                            android:textSize="14sp" />
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
                     </RadioGroup>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="14dp"
-                        android:text="Valor Alvo (R$):"
-                        android:textColor="#A3A8B5"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="6dp"
+                        android:text="Valor alvo"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="13sp" />
+                        android:textStyle="bold"
+                        android:textSize="12.5sp" />
 
-                    <!-- Campo de Entrada com Ícone Alvo Cinza Integrado -->
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="6dp"
-                        android:background="@drawable/bg_input_field"
+                        android:layout_height="46dp"
+                        android:background="@drawable/bg_light_field"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
                         android:paddingHorizontal="14dp">
 
-                        <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:src="@drawable/ic_target_gray"
-                            android:contentDescription="Alvo" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="R$"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="13.5sp" />
 
                         <EditText
                             android:id="@+id/etGoalTarget"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:layout_marginStart="10dp"
+                            android:layout_marginStart="8dp"
                             android:background="@null"
                             android:hint="150,00"
-                            android:textColor="#F5F5F7"
-                            android:textColorHint="#606B7B"
+                            android:textColor="@color/drifly_ink"
+                            android:textColorHint="#93A0B4"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="16sp"
@@ -574,115 +598,113 @@
                             android:digits="0123456789,." />
                     </LinearLayout>
 
-                    <!-- Botão Atualizar Meta com Ícone de Sincronização -->
                     <LinearLayout
                         android:id="@+id/btnSaveGoalOnly"
                         android:layout_width="match_parent"
-                        android:layout_height="50dp"
-                        android:layout_marginTop="16dp"
-                        android:background="@drawable/bg_btn_primary_gradient"
-                        android:elevation="8dp"
-                        android:outlineAmbientShadowColor="#80FF6900"
-                        android:outlineSpotShadowColor="#B3FF6900"
+                        android:layout_height="46dp"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_light_btn_primary"
+                        android:elevation="4dp"
                         android:gravity="center"
                         android:clickable="true"
                         android:focusable="true"
                         android:orientation="horizontal">
 
                         <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
                             android:src="@drawable/ic_refresh_white"
-                            android:contentDescription="Atualizar Meta" />
+                            android:contentDescription="Atualizar meta" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:text="Atualizar Meta"
+                            android:singleLine="true"
+                            android:text="Atualizar meta"
                             android:textColor="#FFFFFF"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
-                            android:textSize="15sp" />
+                            android:textSize="14sp" />
                     </LinearLayout>
                 </LinearLayout>
 
-                <!-- ============================================================== -->
-                <!-- CARD PROEMINENTE DE LIGAR / DESLIGAR MONITORAMENTO CONTÍNUO   -->
-                <!-- ============================================================== -->
+                <!-- 5. Monitoramento -->
                 <LinearLayout
                     android:id="@+id/cardMonitoringToggle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:layout_marginBottom="12dp"
-                    android:background="@drawable/bg_card_monitoring_inactive"
-                    android:padding="16dp"
-                    android:elevation="6dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="4dp"
+                    android:background="@drawable/bg_light_monitor_off"
+                    android:padding="14dp"
+                    android:elevation="2dp"
                     android:clickable="true"
                     android:focusable="true"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <!-- Círculo com Ícone de Liga/Desliga -->
                     <FrameLayout
                         android:id="@+id/flMonitoringIconContainer"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:background="@drawable/bg_btn_circle_glass"
-                        android:padding="12dp">
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        android:background="@drawable/bg_light_circle_orange"
+                        android:padding="11dp">
 
                         <ImageView
                             android:id="@+id/ivMonitoringPowerIcon"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:src="@drawable/ic_power_off"
-                            app:tint="#FF6900"
-                            android:contentDescription="Status do Monitoramento" />
+                            app:tint="@color/drifly_orange"
+                            android:contentDescription="Status do monitoramento" />
                     </FrameLayout>
 
-                    <!-- Textos de Status -->
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginStart="14dp"
+                        android:layout_marginStart="12dp"
                         android:orientation="vertical">
 
                         <TextView
                             android:id="@+id/tvMonitoringTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="LIGAR MONITORAMENTO"
-                            android:textColor="#F5F5F7"
+                            android:singleLine="true"
+                            android:text="Ligar monitoramento"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
-                            android:textSize="15sp" />
+                            android:textSize="13.5sp" />
 
                         <TextView
                             android:id="@+id/tvMonitoringSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="Toque para iniciar o cálculo contínuo em segundo plano"
-                            android:textColor="#A3A8B5"
+                            android:singleLine="true"
+                            android:ellipsize="end"
+                            android:text="Último turno: 0,0 km"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
-                            android:textSize="11sp" />
+                            android:textSize="12sp" />
                     </LinearLayout>
 
-                    <!-- Badge Pill de Status -->
                     <TextView
                         android:id="@+id/tvMonitoringBadge"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:background="@drawable/bg_pill_orange"
-                        android:paddingHorizontal="12dp"
-                        android:paddingVertical="6dp"
-                        android:text="DESLIGADO"
-                        android:textColor="#FF6900"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_light_pill_orange"
+                        android:paddingHorizontal="11dp"
+                        android:paddingVertical="5dp"
+                        android:singleLine="true"
+                        android:text="Desligado"
+                        android:textColor="@color/drifly_orange_deep"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
-                        android:textSize="11sp" />
+                        android:textSize="11.5sp" />
                 </LinearLayout>
 
             </LinearLayout>
@@ -718,12 +740,12 @@
                         android:id="@+id/btnPrevMonth"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:background="@drawable/bg_btn_circle_glass"
+                        android:background="@drawable/bg_light_circle"
                         android:padding="10dp"
                         android:rotation="180"
                         android:scaleType="fitCenter"
                         android:src="@drawable/ic_chevron_right"
-                        app:tint="#F5F5F7"
+                        app:tint="@color/drifly_icon"
                         android:contentDescription="Mês Anterior" />
 
                     <LinearLayout
@@ -732,7 +754,7 @@
                         android:layout_height="40dp"
                         android:layout_weight="1"
                         android:layout_marginHorizontal="10dp"
-                        android:background="@drawable/bg_card_frosted_glass"
+                        android:background="@drawable/bg_light_card"
                         android:paddingHorizontal="12dp"
                         android:gravity="center"
                         android:clickable="true"
@@ -751,7 +773,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
                             android:text="NOVEMBRO 2026"
-                            android:textColor="#FFFFFF"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:letterSpacing="0.04"
@@ -762,11 +784,11 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_pill_orange"
+                            android:background="@drawable/bg_light_pill_orange"
                             android:paddingHorizontal="8dp"
                             android:paddingVertical="2dp"
                             android:text="ATUAL"
-                            android:textColor="#FF8A24"
+                            android:textColor="@color/drifly_orange"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="10sp" />
@@ -776,11 +798,11 @@
                         android:id="@+id/btnNextMonth"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:background="@drawable/bg_btn_circle_glass"
+                        android:background="@drawable/bg_light_circle"
                         android:padding="10dp"
                         android:scaleType="fitCenter"
                         android:src="@drawable/ic_chevron_right"
-                        app:tint="#F5F5F7"
+                        app:tint="@color/drifly_icon"
                         android:contentDescription="Próximo Mês" />
                 </LinearLayout>
 
@@ -788,7 +810,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:orientation="vertical">
 
@@ -810,56 +832,144 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="7dp"
-                            android:text="SEU SALÁRIO REAL DO MÊS"
-                            android:textColor="#A3A8B5"
+                            android:text="Salário real do mês"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:letterSpacing="0.05"
                             android:textSize="11sp" />
 
                         <TextView
+                            android:id="@+id/btnInfoHero"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginStart="6dp"
+                            android:background="@drawable/bg_info_dot"
+                            android:gravity="center"
+                            android:text="i"
+                            android:textColor="#F1F5F9"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11sp" />
+
+                        <TextView
                             android:id="@+id/tvSalaryTrendBadge"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:background="@drawable/bg_pill_green"
+                            android:background="@drawable/bg_light_pill_green"
                             android:paddingHorizontal="9dp"
                             android:paddingVertical="3dp"
                             android:text="NO RITMO"
-                            android:textColor="#31D477"
+                            android:textColor="@color/drifly_green"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="10sp" />
                     </LinearLayout>
 
-                    <!-- Valor Principal do Salário Mensal Real -->
+                    <!-- Livre hoje: número grande -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="Livre hoje"
+                        android:textColor="@color/drifly_mut"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="12.5sp" />
+
                     <TextView
                         android:id="@+id/tvRealSalaryHero"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
+                        android:layout_marginTop="2dp"
+                        android:singleLine="true"
                         android:text="R$ 0,00"
-                        android:textColor="#31D477"
+                        android:textColor="@color/drifly_ink"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
-                        android:textSize="26sp" />
+                        android:letterSpacing="-0.03"
+                        android:textSize="32sp" />
 
-                    <!-- Subtítulo: Caixa Livre em Mãos Hoje -->
-                    <TextView
-                        android:id="@+id/tvPocketCashSubtitle"
+                    <!-- Caixa em mãos e reservado para contas -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Caixa em mãos hoje: R$ 0,00"
-                        android:textColor="#A3A8B5"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:singleLine="true"
+                            android:text="Caixa em mãos"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12.5sp" />
+
+                        <TextView
+                            android:id="@+id/tvPocketCashValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:singleLine="true"
+                            android:text="R$ 0,00"
+                            android:textColor="@color/drifly_ink"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:singleLine="true"
+                            android:text="Reservado para contas"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12.5sp" />
+
+                        <TextView
+                            android:id="@+id/tvReservedValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:singleLine="true"
+                            android:text="R$ 0,00"
+                            android:textColor="@color/drifly_ink"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvInfoHero"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_light_info"
+                        android:padding="10dp"
+                        android:text="Livre hoje = caixa em mãos menos o reservado para contas, nunca abaixo de zero.\nCaixa em mãos = lucro limpo menos as contas já pagas.\nReservado = contas do mês ainda não pagas."
+                        android:textColor="@color/drifly_ink"
                         android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="12sp" />
+                        android:textSize="11.5sp"
+                        android:visibility="gone" />
 
                     <!-- Sub-Grid Duplo: Média Salarial Mensal vs Projeção Fim do Mês -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="14dp"
-                        android:background="@drawable/bg_inner_metric_card"
+                        android:background="@drawable/bg_light_inner"
                         android:padding="12dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
@@ -874,12 +984,11 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="📊 MÉDIA SALARIAL"
-                                android:textColor="#A3A8B5"
+                                android:text="Média salarial"
+                                android:textColor="@color/drifly_mut"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textStyle="bold"
-                                android:letterSpacing="0.04"
-                                android:textSize="10sp" />
+                                android:textSize="12.5sp" />
 
                             <TextView
                                 android:id="@+id/tvAvgMonthlySalary"
@@ -887,7 +996,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="4dp"
                                 android:text="R$ 0,00 / mês"
-                                android:textColor="#FFFFFF"
+                                android:textColor="@color/drifly_ink"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textStyle="bold"
                                 android:textSize="15sp" />
@@ -898,7 +1007,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="Estimada (1º mês em curso)"
-                                android:textColor="#8E9AA8"
+                                android:textColor="@color/drifly_mut"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textSize="10sp" />
                         </LinearLayout>
@@ -907,7 +1016,7 @@
                             android:layout_width="1dp"
                             android:layout_height="42dp"
                             android:layout_marginHorizontal="10dp"
-                            android:background="#1AFFFFFF" />
+                            android:background="@color/drifly_line" />
 
                         <!-- Coluna 2: Projeção Fim do Mês -->
                         <LinearLayout
@@ -919,12 +1028,11 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="🚀 PROJEÇÃO DO MÊS"
-                                android:textColor="#FF8A24"
+                                android:text="Projeção do mês"
+                                android:textColor="@color/drifly_orange"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textStyle="bold"
-                                android:letterSpacing="0.04"
-                                android:textSize="10sp" />
+                                android:textSize="12.5sp" />
 
                             <TextView
                                 android:id="@+id/tvProjectedMonthlySalary"
@@ -932,7 +1040,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="4dp"
                                 android:text="R$ 0,00 livres"
-                                android:textColor="#31D477"
+                                android:textColor="@color/drifly_green"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textStyle="bold"
                                 android:textSize="15sp" />
@@ -943,7 +1051,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
                                 android:text="Mantendo seu ritmo atual"
-                                android:textColor="#8E9AA8"
+                                android:textColor="@color/drifly_mut"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textSize="10sp" />
                         </LinearLayout>
@@ -961,8 +1069,8 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="🔓 PONTO DE EQUILÍBRIO (DIA DA ALFORRIA)"
-                            android:textColor="#A3A8B5"
+                            android:text="Ponto de equilíbrio"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:letterSpacing="0.04"
@@ -973,7 +1081,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="0% coberto"
-                            android:textColor="#FF8A24"
+                            android:textColor="@color/drifly_orange"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="11sp" />
@@ -983,21 +1091,40 @@
                         android:id="@+id/pbBreakEven"
                         style="?android:attr/progressBarStyleHorizontal"
                         android:layout_width="match_parent"
-                        android:layout_height="14dp"
+                        android:layout_height="8dp"
+                        android:minHeight="8dp"
+                        android:maxHeight="8dp"
                         android:layout_marginTop="8dp"
                         android:max="100"
                         android:progress="0"
-                        android:progressDrawable="@drawable/progress_bar_gradient" />
+                        android:progressDrawable="@drawable/progress_bar_light" />
 
-                    <TextView
-                        android:id="@+id/tvFreedomDayStatus"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Cadastre suas contas do mês para descobrir seu Dia da Alforria."
-                        android:textColor="#F5F5F7"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="12sp" />
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_light_amber"
+                        android:padding="11dp"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:layout_marginTop="1dp"
+                            android:src="@drawable/ic_banner_alert"
+                            app:tint="@color/drifly_amber"
+                            android:contentDescription="@null" />
+
+                        <TextView
+                            android:id="@+id/tvFreedomDayStatus"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="9dp"
+                            android:text="Cadastre suas contas do mês para descobrir seu Dia da Alforria."
+                            android:textColor="@color/drifly_amber"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textSize="12.5sp" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- SEÇÃO C: CASCATA DO DINHEIRO (PISTA -> CONTAS -> SEU BOLSO) -->
@@ -1005,7 +1132,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:orientation="vertical">
 
@@ -1022,16 +1149,44 @@
                             android:contentDescription="Cascata do Dinheiro" />
 
                         <TextView
-                            android:layout_width="wrap_content"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
+                            android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:text="CASCATA DO DINHEIRO (PISTA ➔ SEU BOLSO)"
-                            android:textColor="#A3A8B5"
+                            android:text="Do volante ao seu bolso"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:letterSpacing="0.05"
                             android:textSize="11sp" />
+
+                        <TextView
+                            android:id="@+id/btnInfoCascade"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginStart="6dp"
+                            android:background="@drawable/bg_info_dot"
+                            android:gravity="center"
+                            android:text="i"
+                            android:textColor="#F1F5F9"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11sp" />
+
                     </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvInfoCascade"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/bg_light_info"
+                        android:padding="10dp"
+                        android:text="Faturamento bruto menos os custos da pista chega ao lucro limpo. Depois descontamos todas as contas do mês, pagas e a pagar, para encontrar o salário real livre."
+                        android:textColor="@color/drifly_ink"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="11.5sp"
+                        android:visibility="gone" />
 
                     <!-- Linha 1: Faturamento Bruto -->
                     <LinearLayout
@@ -1045,8 +1200,8 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="(+) Faturamento Bruto das Corridas"
-                            android:textColor="#A3A8B5"
+                            android:text="Faturamento bruto"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="13sp" />
 
@@ -1055,7 +1210,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="R$ 0,00"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="14sp" />
@@ -1073,17 +1228,31 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="(-) Custos de Pista (KM + Despesas Rua)"
-                            android:textColor="#A3A8B5"
+                            android:text="Custos da pista"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/btnInfoPista"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginStart="6dp"
+                            android:background="@drawable/bg_info_dot"
+                            android:gravity="center"
+                            android:text="i"
+                            android:textColor="#F1F5F9"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11sp" />
+
 
                         <TextView
                             android:id="@+id/tvCascadeStreetCosts"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="- R$ 0,00"
-                            android:textColor="#FF454D"
+                            android:textColor="@color/drifly_red"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="14sp" />
@@ -1093,17 +1262,20 @@
                         android:id="@+id/tvCascadeStreetCostsDetail"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="6dp"
+                        android:background="@drawable/bg_light_info"
+                        android:padding="10dp"
                         android:text="Desgaste/Combustível KM: R$ 0,00 • Despesas Rápidas: R$ 0,00"
-                        android:textColor="#707684"
+                        android:textColor="@color/drifly_ink"
                         android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="11sp" />
+                        android:textSize="11.5sp"
+                        android:visibility="gone" />
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginVertical="10dp"
-                        android:background="#1AFFFFFF" />
+                        android:background="@color/drifly_line" />
 
                     <!-- Linha 3: Lucro Operacional da Pista -->
                     <LinearLayout
@@ -1116,8 +1288,8 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="(=) Lucro Limpo Trazido da Pista"
-                            android:textColor="#F5F5F7"
+                            android:text="Lucro limpo da pista"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="13sp" />
@@ -1127,7 +1299,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="R$ 0,00"
-                            android:textColor="#60A5FA"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="15sp" />
@@ -1145,17 +1317,31 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="(-) Contas, Parcelas e Dívidas do Mês"
-                            android:textColor="#A3A8B5"
+                            android:text="Contas do mês"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/btnInfoObligations"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginStart="6dp"
+                            android:background="@drawable/bg_info_dot"
+                            android:gravity="center"
+                            android:text="i"
+                            android:textColor="#F1F5F9"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11sp" />
+
 
                         <TextView
                             android:id="@+id/tvCascadeObligations"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="- R$ 0,00"
-                            android:textColor="#FFB800"
+                            android:textColor="@color/drifly_amber"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="14sp" />
@@ -1165,18 +1351,22 @@
                         android:id="@+id/tvCascadeObligationsDetail"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="6dp"
+                        android:background="@drawable/bg_light_info"
+                        android:padding="10dp"
                         android:text="Já pagas: R$ 0,00 • Faltam pagar: R$ 0,00"
-                        android:textColor="#707684"
+                        android:textColor="@color/drifly_ink"
                         android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="11sp" />
+                        android:textSize="11.5sp"
+                        android:visibility="gone" />
 
                     <!-- Linha 5: Resultado Final (Salário Real no Bolso) -->
                     <LinearLayout
+                        android:id="@+id/layoutRealSalaryTotal"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:background="@drawable/bg_inner_metric_card"
+                        android:background="@drawable/bg_light_red_soft"
                         android:padding="12dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
@@ -1185,8 +1375,8 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="(=) SALÁRIO REAL LIVRE NO BOLSO"
-                            android:textColor="#FFFFFF"
+                            android:text="Salário real livre"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp" />
@@ -1196,35 +1386,120 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="R$ 0,00"
-                            android:textColor="#31D477"
+                            android:textColor="@color/drifly_green"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="16sp" />
                     </LinearLayout>
 
-                    <!-- Diagnóstico ICR -->
+                    <!-- ICR -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="14dp"
+                        android:background="@color/drifly_line" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:singleLine="true"
+                            android:text="ICR"
+                            android:textColor="@color/drifly_ink"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="13.5sp" />
+
+                        <TextView
+                            android:id="@+id/tvIcrChip"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_light_pill_red"
+                            android:paddingHorizontal="10dp"
+                            android:paddingVertical="4dp"
+                            android:singleLine="true"
+                            android:text="0% · Saudável"
+                            android:textColor="@color/drifly_red"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="11.5sp" />
+                    </LinearLayout>
+
+                    <ProgressBar
+                        android:id="@+id/pbIcr"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="8dp"
+                        android:layout_marginTop="8dp"
+                        android:minHeight="8dp"
+                        android:maxHeight="8dp"
+                        android:max="100"
+                        android:progress="0"
+                        android:progressDrawable="@drawable/progress_bar_light_red" />
+
                     <TextView
                         android:id="@+id/tvIcrDiagnostic"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Comprometimento da Renda (ICR): 0% • Saudável"
-                        android:textColor="#A3A8B5"
+                        android:layout_marginTop="8dp"
+                        android:text="Comprometimento da renda: parte do que você ganha que vai para as contas."
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:textSize="11sp" />
+                        android:textSize="11.5sp" />
                 </LinearLayout>
 
-                <!-- SEÇÃO D: BOTÃO CTA PRIMÁRIO + CARD RADAR DE 7 DIAS -->
+<!-- SEÇÃO D: BOTÃO CTA PRIMÁRIO + CARD RADAR DE 7 DIAS -->
+
+<!-- Card Radar de Pressão de 7 Dias -->
+                <LinearLayout
+                    android:id="@+id/layoutDueSoonRadar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_light_strip"
+                    android:padding="14dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvDueSoonRadarTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="⚡ Radar de Vencimentos (Próximos 7 Dias)"
+                        android:textColor="@color/drifly_amber"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textStyle="bold"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/tvDueSoonRadarSubtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="Nenhuma conta urgente para os próximos 7 dias."
+                        android:textColor="@color/drifly_ink"
+                        android:fontFamily="@font/plus_jakarta_sans"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                
+
                 <RelativeLayout
                     android:id="@+id/btnAddObligation"
                     android:layout_width="match_parent"
                     android:layout_height="58dp"
                     android:layout_marginTop="16dp"
-                    android:background="@drawable/bg_btn_primary_gradient"
+                    android:background="@drawable/bg_light_btn_primary"
                     android:elevation="12dp"
-                    android:outlineAmbientShadowColor="#80FF6900"
-                    android:outlineSpotShadowColor="#B3FF6900"
+                    android:outlineAmbientShadowColor="@color/drifly_orange"
+                    android:outlineSpotShadowColor="@color/drifly_orange"
                     android:paddingHorizontal="20dp"
                     android:clickable="true"
                     android:focusable="true">
@@ -1259,38 +1534,6 @@
                         android:contentDescription="Abrir" />
                 </RelativeLayout>
 
-                <!-- Card Radar de Pressão de 7 Dias -->
-                <LinearLayout
-                    android:id="@+id/layoutDueSoonRadar"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="@drawable/bg_inner_metric_card"
-                    android:padding="14dp"
-                    android:orientation="vertical"
-                    android:visibility="gone">
-
-                    <TextView
-                        android:id="@+id/tvDueSoonRadarTitle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="⚡ Radar de Vencimentos (Próximos 7 Dias)"
-                        android:textColor="#FFB800"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:textSize="13sp" />
-
-                    <TextView
-                        android:id="@+id/tvDueSoonRadarSubtitle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:text="Nenhuma conta urgente para os próximos 7 dias."
-                        android:textColor="#F5F5F7"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
                 <!-- SEÇÃO E: CHIPS DE FILTRO RÁPIDO + LISTA DE CONTAS/DÍVIDAS + EMPTY STATE -->
                 <HorizontalScrollView
                     android:layout_width="match_parent"
@@ -1308,7 +1551,7 @@
                             android:id="@+id/chipFilterAll"
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
-                            android:background="@drawable/bg_period_selected"
+                            android:background="@drawable/bg_chip_selected"
                             android:paddingHorizontal="14dp"
                             android:gravity="center"
                             android:clickable="true"
@@ -1324,13 +1567,13 @@
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_period_unselected"
+                            android:background="@drawable/bg_light_chip"
                             android:paddingHorizontal="14dp"
                             android:gravity="center"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="Parcelamentos"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp" />
@@ -1340,13 +1583,13 @@
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_period_unselected"
+                            android:background="@drawable/bg_light_chip"
                             android:paddingHorizontal="14dp"
                             android:gravity="center"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="Contas Fixas"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp" />
@@ -1356,13 +1599,13 @@
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_period_unselected"
+                            android:background="@drawable/bg_light_chip"
                             android:paddingHorizontal="14dp"
                             android:gravity="center"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="Cartão &amp; Dívidas"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp" />
@@ -1372,13 +1615,13 @@
                             android:layout_width="wrap_content"
                             android:layout_height="36dp"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_period_unselected"
+                            android:background="@drawable/bg_light_chip"
                             android:paddingHorizontal="14dp"
                             android:gravity="center"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="Gastos do Mês"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp" />
@@ -1399,7 +1642,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:gravity="center_horizontal"
                     android:orientation="vertical">
@@ -1408,7 +1651,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Comece sua Gestão Financeira em 1 Toque"
-                        android:textColor="#FFFFFF"
+                        android:textColor="@color/drifly_ink"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
                         android:textSize="15sp" />
@@ -1419,7 +1662,7 @@
                         android:layout_marginTop="6dp"
                         android:gravity="center"
                         android:text="Adicione a parcela ou aluguel do seu veículo, MEI e contas de casa para o DriFly revelar seu Salário Real Livre e o Dia da Alforria."
-                        android:textColor="#A3A8B5"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp" />
 
@@ -1434,12 +1677,12 @@
                             android:layout_width="0dp"
                             android:layout_height="40dp"
                             android:layout_weight="1"
-                            android:background="@drawable/bg_period_unselected"
+                            android:background="@drawable/bg_light_chip"
                             android:gravity="center"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="🚗 Veículo"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp" />
@@ -1450,12 +1693,12 @@
                             android:layout_height="40dp"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_period_unselected"
+                            android:background="@drawable/bg_light_chip"
                             android:gravity="center"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="📄 MEI / IPVA"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp" />
@@ -1466,12 +1709,12 @@
                             android:layout_height="40dp"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_period_unselected"
+                            android:background="@drawable/bg_light_chip"
                             android:gravity="center"
                             android:clickable="true"
                             android:focusable="true"
                             android:text="🏠 Moradia"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="12sp" />
@@ -1484,7 +1727,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:orientation="vertical">
 
@@ -1505,7 +1748,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
                             android:text="INTELIGÊNCIA &amp; SIMULADOR DE LIBERDADE"
-                            android:textColor="#FF8A24"
+                            android:textColor="@color/drifly_orange"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:letterSpacing="0.05"
@@ -1519,7 +1762,7 @@
                         android:layout_marginTop="12dp"
                         android:lineSpacingExtra="2dp"
                         android:text="• Seus parcelamentos e contas fixas alimentam automaticamente o simulador de alívio salarial."
-                        android:textColor="#F5F5F7"
+                        android:textColor="@color/drifly_ink"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp" />
 
@@ -1530,7 +1773,7 @@
                         android:layout_marginTop="8dp"
                         android:lineSpacingExtra="2dp"
                         android:text="• Acompanhe quantos dias de pista cada dívida consome do seu mês."
-                        android:textColor="#A3A8B5"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp"
                         android:visibility="gone" />
@@ -1542,7 +1785,7 @@
                         android:layout_marginTop="8dp"
                         android:lineSpacingExtra="2dp"
                         android:text="• Sua média salarial mensal é protegida contra meses atípicos."
-                        android:textColor="#A3A8B5"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp"
                         android:visibility="gone" />
@@ -1553,7 +1796,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
                         android:layout_marginTop="14dp"
-                        android:background="@drawable/bg_period_selected"
+                        android:background="@drawable/bg_light_btn_primary"
+                        android:elevation="3dp"
                         android:gravity="center"
                         android:paddingHorizontal="14dp"
                         android:clickable="true"
@@ -1604,7 +1848,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Posição do Alerta de Corrida na Tela"
-                    android:textColor="#FF6900"
+                    android:textColor="@color/drifly_orange"
                     android:fontFamily="@font/plus_jakarta_sans"
                     android:textStyle="bold"
                     android:textSize="15sp" />
@@ -1613,7 +1857,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:orientation="vertical">
 
@@ -1621,52 +1865,160 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="O alerta descerá suavemente com animação na posição escolhida:"
-                        android:textColor="#A3A8B5"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp" />
 
                     <RadioGroup
                         android:id="@+id/rgOverlayPosition"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:orientation="horizontal">
+                        android:layout_width="1dp"
+                        android:layout_height="1dp"
+                        android:visibility="gone">
 
                         <RadioButton
                             android:id="@+id/rbPosTop"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:button="@drawable/radio_custom_selector"
-                            android:paddingStart="8dp"
-                            android:text="No Topo"
-                            android:fontFamily="@font/plus_jakarta_sans"
-                            android:textStyle="bold"
-                            android:textColor="#F5F5F7" />
+                            android:text="No topo" />
 
                         <RadioButton
                             android:id="@+id/rbPosCenter"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:button="@drawable/radio_custom_selector"
-                            android:paddingStart="8dp"
-                            android:text="No Meio"
-                            android:fontFamily="@font/plus_jakarta_sans"
-                            android:textStyle="bold"
-                            android:textColor="#F5F5F7" />
+                            android:text="No meio" />
 
                         <RadioButton
                             android:id="@+id/rbPosBottom"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:button="@drawable/radio_custom_selector"
-                            android:paddingStart="8dp"
-                            android:text="Embaixo"
+                            android:text="Embaixo" />
+                    </RadioGroup>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:id="@+id/cardPosTop"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_pos_card"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="6dp"
+                        android:paddingVertical="10dp">
+
+                        <FrameLayout
+                            android:layout_width="30dp"
+                            android:layout_height="50dp"
+                            android:background="@drawable/bg_mini_phone">
+
+                            <View
+                                android:id="@+id/barPosTop"
+                                android:layout_width="22dp"
+                                android:layout_height="9dp"
+                                android:layout_gravity="top"
+                                android:layout_margin="4dp"
+                                android:background="@drawable/bg_mini_bar" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/cardPosTopLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="7dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:text="No topo"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
-                            android:textColor="#F5F5F7" />
-                    </RadioGroup>
+                            android:textSize="12.5sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/cardPosCenter"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_pos_card"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="6dp"
+                        android:paddingVertical="10dp">
+
+                        <FrameLayout
+                            android:layout_width="30dp"
+                            android:layout_height="50dp"
+                            android:background="@drawable/bg_mini_phone">
+
+                            <View
+                                android:id="@+id/barPosCenter"
+                                android:layout_width="22dp"
+                                android:layout_height="9dp"
+                                android:layout_gravity="center"
+                                android:layout_margin="4dp"
+                                android:background="@drawable/bg_mini_bar" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/cardPosCenterLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="7dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:text="No meio"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12.5sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/cardPosBottom"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_pos_card"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="6dp"
+                        android:paddingVertical="10dp">
+
+                        <FrameLayout
+                            android:layout_width="30dp"
+                            android:layout_height="50dp"
+                            android:background="@drawable/bg_mini_phone">
+
+                            <View
+                                android:id="@+id/barPosBottom"
+                                android:layout_width="22dp"
+                                android:layout_height="9dp"
+                                android:layout_gravity="bottom"
+                                android:layout_margin="4dp"
+                                android:background="@drawable/bg_mini_bar" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/cardPosBottomLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="7dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:text="Embaixo"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12.5sp" />
+                    </LinearLayout>
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- Automação & Aceite Inteligente -->
@@ -1674,8 +2026,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="22dp"
-                    android:text="Automação &amp; Aceite Inteligente"
-                    android:textColor="#FF6900"
+                    android:text="Aceite automático"
+                    android:textColor="@color/drifly_orange"
                     android:fontFamily="@font/plus_jakarta_sans"
                     android:textStyle="bold"
                     android:textSize="15sp" />
@@ -1684,7 +2036,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:orientation="vertical">
 
@@ -1692,113 +2044,269 @@
                         android:id="@+id/swAutoAccept"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Aceitar Automaticamente Corridas Ideais"
+                        android:text="Aceitar corridas ideais"
                         android:fontFamily="@font/plus_jakarta_sans"
-                        android:textColor="#F5F5F7" />
+                        android:textColor="@color/drifly_ink" />
 
                     <Switch
                         android:id="@+id/swAutoDecline"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:text="Recusar Automaticamente se fora do limite"
+                        android:text="Recusar fora do limite"
                         android:fontFamily="@font/plus_jakarta_sans"
-                        android:textColor="#F5F5F7" />
+                        android:textColor="@color/drifly_ink" />
 
                     <Switch
                         android:id="@+id/swMotoMode"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:text="Modo Moto / Slider (usa swipe se não houver botão Aceitar)"
+                        android:text="Modo moto / slider"
                         android:fontFamily="@font/plus_jakarta_sans"
-                        android:textColor="#F5F5F7" />
+                        android:textColor="@color/drifly_ink" />
 
                     <Switch
                         android:id="@+id/swTapToAccept"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:text="Aceitar corrida ao tocar no Overlay"
+                        android:text="Aceitar ao tocar no overlay"
                         android:fontFamily="@font/plus_jakarta_sans"
-                        android:textColor="#F5F5F7" />
+                        android:textColor="@color/drifly_ink" />
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginVertical="14dp"
-                        android:background="#1AFFFFFF" />
+                        android:background="@color/drifly_line" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Valor Mínimo Aceitável por KM (R$/km):"
-                        android:textColor="#A3A8B5"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="13sp" />
-
-                    <EditText
-                        android:id="@+id/etMinRate"
+                                        <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="6dp"
-                        android:background="@drawable/bg_input_field"
-                        android:paddingHorizontal="14dp"
-                        android:hint="Ex: 2,20"
-                        android:textColor="#F5F5F7"
-                        android:textColorHint="#606B7B"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:inputType="numberDecimal"
-                        android:digits="0123456789,." />
-
-                    <TextView
-                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="Distância Máxima Total da Corrida (em KM):"
-                        android:textColor="#A3A8B5"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="13sp" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingVertical="10dp">
 
-                    <EditText
-                        android:id="@+id/etMaxDist"
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:maxLines="1"
+                                android:text="Valor mínimo por KM"
+                                android:textColor="@color/drifly_ink"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="13.5sp" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:maxLines="1"
+                                android:text="Abaixo disso, não aceita"
+                                android:textColor="@color/drifly_mut"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="122dp"
+                        android:layout_height="42dp"
+                        android:background="@drawable/bg_light_field"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="10dp">
+
+                        <EditText
+                            android:id="@+id/etMinRate"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:hint="2,20"
+                            android:textColor="@color/drifly_ink"
+                            android:textColorHint="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="15sp"
+                            android:gravity="end"
+                            android:inputType="numberDecimal"
+                            android:digits="0123456789,." />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:text="R$/km"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                    </LinearLayout>
+                    </LinearLayout>
+
+                    <View
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="6dp"
-                        android:background="@drawable/bg_input_field"
-                        android:paddingHorizontal="14dp"
-                        android:hint="Ex: 12,0"
-                        android:textColor="#F5F5F7"
-                        android:textColorHint="#606B7B"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:inputType="numberDecimal"
-                        android:digits="0123456789,." />
+                        android:layout_height="1dp"
+                        android:background="@color/drifly_line" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="Nota Mínima do Passageiro (Bloqueia se menor):"
-                        android:textColor="#A3A8B5"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="13sp" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingVertical="10dp">
 
-                    <EditText
-                        android:id="@+id/etMinRating"
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:maxLines="1"
+                                android:text="Distância máxima total"
+                                android:textColor="@color/drifly_ink"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="13.5sp" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:maxLines="1"
+                                android:text="Ida e corrida somadas"
+                                android:textColor="@color/drifly_mut"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="122dp"
+                        android:layout_height="42dp"
+                        android:background="@drawable/bg_light_field"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="10dp">
+
+                        <EditText
+                            android:id="@+id/etMaxDist"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:hint="12,0"
+                            android:textColor="@color/drifly_ink"
+                            android:textColorHint="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="15sp"
+                            android:gravity="end"
+                            android:inputType="numberDecimal"
+                            android:digits="0123456789,." />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:text="km"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                    </LinearLayout>
+                    </LinearLayout>
+
+                    <View
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="6dp"
-                        android:background="@drawable/bg_input_field"
-                        android:paddingHorizontal="14dp"
-                        android:hint="Ex: 4,75"
-                        android:textColor="#F5F5F7"
-                        android:textColorHint="#606B7B"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:inputType="numberDecimal"
-                        android:digits="0123456789,." />
+                        android:layout_height="1dp"
+                        android:background="@color/drifly_line" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingVertical="10dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:maxLines="1"
+                                android:text="Nota mínima do passageiro"
+                                android:textColor="@color/drifly_ink"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="13.5sp" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:maxLines="1"
+                                android:text="Bloqueia se for menor"
+                                android:textColor="@color/drifly_mut"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="122dp"
+                        android:layout_height="42dp"
+                        android:background="@drawable/bg_light_field"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="10dp">
+
+                        <EditText
+                            android:id="@+id/etMinRating"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:hint="4,75"
+                            android:textColor="@color/drifly_ink"
+                            android:textColorHint="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="15sp"
+                            android:gravity="end"
+                            android:inputType="numberDecimal"
+                            android:digits="0123456789,." />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:text="★"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                    </LinearLayout>
+                    </LinearLayout>
+
                 </LinearLayout>
 
                 <!-- Custos do Veículo -->
@@ -1806,8 +2314,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="22dp"
-                    android:text="Custos do Veículo (Combustível &amp; Desgaste)"
-                    android:textColor="#FF6900"
+                    android:text="Custos do veículo"
+                    android:textColor="@color/drifly_orange"
                     android:fontFamily="@font/plus_jakarta_sans"
                     android:textStyle="bold"
                     android:textSize="15sp" />
@@ -1816,80 +2324,298 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:orientation="vertical">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Preço do Litro do Combustível (R$):"
-                        android:textColor="#A3A8B5"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="13sp" />
-
-                    <EditText
-                        android:id="@+id/etFuelPrice"
+                                        <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="6dp"
-                        android:background="@drawable/bg_input_field"
-                        android:paddingHorizontal="14dp"
-                        android:hint="Ex: 5,80"
-                        android:textColor="#F5F5F7"
-                        android:textColorHint="#606B7B"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:inputType="numberDecimal"
-                        android:digits="0123456789,." />
-
-                    <TextView
-                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="Consumo Médio do Veículo (KM por litro):"
-                        android:textColor="#A3A8B5"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="13sp" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingVertical="10dp">
 
-                    <EditText
-                        android:id="@+id/etFuelConsumption"
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:maxLines="1"
+                                android:text="Preço do litro"
+                                android:textColor="@color/drifly_ink"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="13.5sp" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:maxLines="1"
+                                android:text="Combustível"
+                                android:textColor="@color/drifly_mut"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="122dp"
+                        android:layout_height="42dp"
+                        android:background="@drawable/bg_light_field"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="10dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="4dp"
+                            android:text="R$"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <EditText
+                            android:id="@+id/etFuelPrice"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:hint="5,73"
+                            android:textColor="@color/drifly_ink"
+                            android:textColorHint="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="15sp"
+                            android:gravity="end"
+                            android:inputType="numberDecimal"
+                            android:digits="0123456789,." />
+
+                    </LinearLayout>
+                    </LinearLayout>
+
+                    <View
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="6dp"
-                        android:background="@drawable/bg_input_field"
-                        android:paddingHorizontal="14dp"
-                        android:hint="Ex: 10,0"
-                        android:textColor="#F5F5F7"
-                        android:textColorHint="#606B7B"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:inputType="numberDecimal"
-                        android:digits="0123456789,." />
+                        android:layout_height="1dp"
+                        android:background="@color/drifly_line" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="Custo de Manutenção / Pneu por KM rodado (R$):"
-                        android:textColor="#A3A8B5"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textSize="13sp" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingVertical="10dp">
 
-                    <EditText
-                        android:id="@+id/etMaintenance"
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:maxLines="1"
+                                android:text="Consumo médio"
+                                android:textColor="@color/drifly_ink"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="13.5sp" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:maxLines="1"
+                                android:text="KM por litro"
+                                android:textColor="@color/drifly_mut"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="122dp"
+                        android:layout_height="42dp"
+                        android:background="@drawable/bg_light_field"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="10dp">
+
+                        <EditText
+                            android:id="@+id/etFuelConsumption"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:hint="31,0"
+                            android:textColor="@color/drifly_ink"
+                            android:textColorHint="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="15sp"
+                            android:gravity="end"
+                            android:inputType="numberDecimal"
+                            android:digits="0123456789,." />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:text="km/l"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                    </LinearLayout>
+                    </LinearLayout>
+
+                    <View
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="6dp"
-                        android:background="@drawable/bg_input_field"
-                        android:paddingHorizontal="14dp"
-                        android:hint="Ex: 0,20"
-                        android:textColor="#F5F5F7"
-                        android:textColorHint="#606B7B"
-                        android:fontFamily="@font/plus_jakarta_sans"
-                        android:textStyle="bold"
-                        android:inputType="numberDecimal"
-                        android:digits="0123456789,." />
+                        android:layout_height="1dp"
+                        android:background="@color/drifly_line" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingVertical="10dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:maxLines="1"
+                                android:text="Manutenção e pneus"
+                                android:textColor="@color/drifly_ink"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="13.5sp" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:maxLines="1"
+                                android:text="Desgaste por KM rodado"
+                                android:textColor="@color/drifly_mut"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="122dp"
+                        android:layout_height="42dp"
+                        android:background="@drawable/bg_light_field"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="10dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="4dp"
+                            android:text="R$"
+                            android:textColor="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="12sp" />
+
+                        <EditText
+                            android:id="@+id/etMaintenance"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:hint="0,03"
+                            android:textColor="@color/drifly_ink"
+                            android:textColorHint="@color/drifly_mut"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="15sp"
+                            android:gravity="end"
+                            android:inputType="numberDecimal"
+                            android:digits="0123456789,." />
+
+                    </LinearLayout>
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="4dp"
+                        android:background="@color/drifly_line" />
+
+                    <!-- Nível do tanque (bolinha flutuante) -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingVertical="10dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:maxLines="1"
+                                android:text="Nível do tanque"
+                                android:textColor="@color/drifly_ink"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textStyle="bold"
+                                android:textSize="13.5sp" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:maxLines="1"
+                                android:text="Simulação da bolinha"
+                                android:textColor="@color/drifly_mut"
+                                android:fontFamily="@font/plus_jakarta_sans"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <SeekBar
+                            android:id="@+id/sbFuelLevel"
+                            android:layout_width="104dp"
+                            android:layout_height="wrap_content"
+                            android:max="100"
+                            android:progressTint="@color/drifly_orange"
+                            android:thumbTint="@color/drifly_orange" />
+
+                        <TextView
+                            android:id="@+id/tvFuelLevelValue"
+                            android:layout_width="42dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="end"
+                            android:maxLines="1"
+                            android:text="62%"
+                            android:textColor="@color/drifly_ink"
+                            android:fontFamily="@font/plus_jakarta_sans"
+                            android:textStyle="bold"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+
                 </LinearLayout>
 
                 <!-- Modo Casa (Fim de Turno) -->
@@ -1897,8 +2623,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="22dp"
-                    android:text="Modo Casa (Fim de Turno)"
-                    android:textColor="#FF6900"
+                    android:text="Modo casa"
+                    android:textColor="@color/drifly_orange"
                     android:fontFamily="@font/plus_jakarta_sans"
                     android:textStyle="bold"
                     android:textSize="15sp" />
@@ -1908,7 +2634,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:orientation="vertical">
 
@@ -1916,7 +2642,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Defina seu endereço residencial para calcular automaticamente se a corrida te aproxima de casa no final do turno:"
-                        android:textColor="#A3A8B5"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp" />
 
@@ -1925,7 +2651,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
                         android:text="Endereço da sua Residência:"
-                        android:textColor="#A3A8B5"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="13sp" />
 
@@ -1934,11 +2660,11 @@
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
                         android:layout_marginTop="6dp"
-                        android:background="@drawable/bg_input_field"
+                        android:background="@drawable/bg_light_field"
                         android:paddingHorizontal="14dp"
                         android:hint="Ex: Rua das Palmeiras, 320, São Paulo"
-                        android:textColor="#F5F5F7"
-                        android:textColorHint="#606B7B"
+                        android:textColor="@color/drifly_ink"
+                        android:textColorHint="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="13sp"
                         android:inputType="textPostalAddress" />
@@ -1949,8 +2675,8 @@
                         android:layout_height="44dp"
                         android:layout_marginTop="10dp"
                         app:backgroundTint="@null"
-                        android:background="@drawable/bg_period_unselected"
-                        android:textColor="#FFFFFF"
+                        android:background="@drawable/bg_light_btn_secondary"
+                        android:textColor="@color/drifly_ink"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
                         android:textSize="13sp"
@@ -1962,8 +2688,8 @@
                         android:layout_height="44dp"
                         android:layout_marginTop="8dp"
                         app:backgroundTint="@null"
-                        android:background="@drawable/bg_period_selected"
-                        android:textColor="#FFFFFF"
+                        android:background="@drawable/bg_light_pill_orange"
+                        android:textColor="@color/drifly_orange_deep"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
                         android:textSize="13sp"
@@ -1975,7 +2701,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
                         android:text="Casa não configurada"
-                        android:textColor="#FBBF24"
+                        android:textColor="@color/drifly_amber"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="11sp" />
                 </LinearLayout>
@@ -1985,8 +2711,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="22dp"
-                    android:text="Lista Negra de Bairros (Bloqueio de Áreas de Risco)"
-                    android:textColor="#FF6900"
+                    android:text="Bairros bloqueados"
+                    android:textColor="@color/drifly_orange"
                     android:fontFamily="@font/plus_jakarta_sans"
                     android:textStyle="bold"
                     android:textSize="15sp" />
@@ -1996,7 +2722,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:orientation="vertical">
 
@@ -2006,14 +2732,14 @@
                         android:layout_height="wrap_content"
                         android:text="Ativar Lista Negra de Bairros"
                         android:fontFamily="@font/plus_jakarta_sans"
-                        android:textColor="#F5F5F7" />
+                        android:textColor="@color/drifly_ink" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:text="Corridas com embarque ou destino nestes bairros terão o aceite automático bloqueado e exibirão alerta vermelho de recusa."
-                        android:textColor="#A3A8B5"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp" />
 
@@ -2021,13 +2747,13 @@
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginVertical="12dp"
-                        android:background="#1AFFFFFF" />
+                        android:background="@color/drifly_line" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Adicionar Bairro / Região:"
-                        android:textColor="#A3A8B5"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="13sp" />
 
@@ -2043,11 +2769,11 @@
                             android:layout_width="0dp"
                             android:layout_height="48dp"
                             android:layout_weight="1"
-                            android:background="@drawable/bg_input_field"
+                            android:background="@drawable/bg_light_field"
                             android:paddingHorizontal="14dp"
                             android:hint="Ex: Cidade Jardim Parauapebas"
-                            android:textColor="#F5F5F7"
-                            android:textColorHint="#606B7B"
+                            android:textColor="@color/drifly_ink"
+                            android:textColorHint="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="14sp"
                             android:inputType="textCapWords" />
@@ -2058,7 +2784,7 @@
                             android:layout_height="48dp"
                             android:layout_marginStart="8dp"
                             app:backgroundTint="@null"
-                            android:background="@drawable/bg_period_selected"
+                            android:background="@drawable/bg_light_btn_primary"
                             android:textColor="#FFFFFF"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
@@ -2079,7 +2805,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
                         android:text="Nenhum bairro cadastrado na lista negra."
-                        android:textColor="#606B7B"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp"
                         android:gravity="center" />
@@ -2091,10 +2817,10 @@
                     android:layout_height="56dp"
                     android:layout_marginTop="22dp"
                     app:backgroundTint="@null"
-                    android:background="@drawable/bg_btn_primary_gradient"
+                    android:background="@drawable/bg_light_btn_primary"
                     android:elevation="8dp"
-                    android:outlineAmbientShadowColor="#80FF6900"
-                    android:outlineSpotShadowColor="#B3FF6900"
+                    android:outlineAmbientShadowColor="@color/drifly_orange"
+                    android:outlineSpotShadowColor="@color/drifly_orange"
                     android:textColor="#FFFFFF"
                     android:fontFamily="@font/plus_jakarta_sans"
                     android:textStyle="bold"
@@ -2126,7 +2852,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:orientation="vertical">
 
@@ -2139,14 +2865,14 @@
                         <FrameLayout
                             android:layout_width="38dp"
                             android:layout_height="38dp"
-                            android:background="@drawable/bg_btn_circle_glass"
+                            android:background="@drawable/bg_light_circle"
                             android:padding="8dp">
 
                             <ImageView
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
                                 android:src="@drawable/ic_heart"
-                                app:tint="#FF454D"
+                                app:tint="@color/drifly_red"
                                 android:contentDescription="Apoie o DriFly" />
                         </FrameLayout>
 
@@ -2160,7 +2886,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Apoie o DriFly"
-                                android:textColor="#FFFFFF"
+                                android:textColor="@color/drifly_ink"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textStyle="bold"
                                 android:textSize="18sp" />
@@ -2169,7 +2895,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="100% Gratuito • Sem Anúncios • Mantido por Você"
-                                android:textColor="#FF6900"
+                                android:textColor="@color/drifly_orange"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textStyle="bold"
                                 android:textSize="11sp" />
@@ -2182,7 +2908,7 @@
                         android:layout_marginTop="12dp"
                         android:lineSpacingExtra="3dp"
                         android:text="O DriFly nasceu para devolver a transparência ao motorista de aplicativo. Sem assinaturas abusivas e sem telas poluídas enquanto você dirige.\n\nSe o app te ajuda todos os dias a evitar corridas ruins e faturar mais, considere fazer uma contribuição voluntária para manter o projeto vivo e atualizado!"
-                        android:textColor="#A3A8B5"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="13sp" />
                 </LinearLayout>
@@ -2192,7 +2918,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:orientation="vertical">
 
@@ -2200,7 +2926,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="DOE QUALQUER VALOR VIA PIX"
-                        android:textColor="#31D477"
+                        android:textColor="@color/drifly_green"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
                         android:letterSpacing="0.05"
@@ -2211,7 +2937,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:background="#14FFFFFF"
+                        android:background="@color/drifly_line"
                         android:padding="12dp"
                         android:orientation="vertical">
 
@@ -2224,7 +2950,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Titular:"
-                                android:textColor="#A3A8B5"
+                                android:textColor="@color/drifly_mut"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textSize="12sp" />
 
@@ -2233,7 +2959,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="6dp"
                                 android:text="André Luiz da Silva Fontes"
-                                android:textColor="#F5F5F7"
+                                android:textColor="@color/drifly_ink"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textStyle="bold"
                                 android:textSize="12sp" />
@@ -2249,7 +2975,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Banco:"
-                                android:textColor="#A3A8B5"
+                                android:textColor="@color/drifly_mut"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textSize="12sp" />
 
@@ -2258,7 +2984,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="6dp"
                                 android:text="Banco Santander"
-                                android:textColor="#F5F5F7"
+                                android:textColor="@color/drifly_ink"
                                 android:fontFamily="@font/plus_jakarta_sans"
                                 android:textStyle="bold"
                                 android:textSize="12sp" />
@@ -2268,13 +2994,13 @@
                             android:layout_width="match_parent"
                             android:layout_height="1dp"
                             android:layout_marginVertical="8dp"
-                            android:background="#14FFFFFF" />
+                            android:background="@color/drifly_line" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Chave Pix (Copia e Cola):"
-                            android:textColor="#A3A8B5"
+                            android:textColor="@color/drifly_mut"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textSize="11sp" />
 
@@ -2284,7 +3010,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:text="2953f386-d6e1-4ce7-8a4b-17f7237e9c32"
-                            android:textColor="#FF6900"
+                            android:textColor="@color/drifly_orange"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="13sp" />
@@ -2296,10 +3022,10 @@
                         android:layout_width="match_parent"
                         android:layout_height="52dp"
                         android:layout_marginTop="14dp"
-                        android:background="@drawable/bg_btn_primary_gradient"
+                        android:background="@drawable/bg_light_btn_primary"
                         android:elevation="6dp"
-                        android:outlineAmbientShadowColor="#80FF6900"
-                        android:outlineSpotShadowColor="#B3FF6900"
+                        android:outlineAmbientShadowColor="@color/drifly_orange"
+                        android:outlineSpotShadowColor="@color/drifly_orange"
                         android:paddingHorizontal="18dp"
                         android:clickable="true"
                         android:focusable="true">
@@ -2311,7 +3037,7 @@
                             android:layout_alignParentStart="true"
                             android:layout_centerVertical="true"
                             android:src="@drawable/ic_copy"
-                            app:tint="#FFFFFF"
+                            app:tint="@color/drifly_ink"
                             android:contentDescription="Copiar PIX" />
 
                         <TextView
@@ -2333,15 +3059,15 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:background="@drawable/bg_card_frosted_glass"
+                    android:background="@drawable/bg_light_card"
                     android:padding="18dp"
                     android:orientation="vertical">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="VALORES SUGERIDOS"
-                        android:textColor="#A3A8B5"
+                        android:text="Valores sugeridos"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textStyle="bold"
                         android:letterSpacing="0.05"
@@ -2358,10 +3084,10 @@
                             android:layout_width="0dp"
                             android:layout_height="42dp"
                             android:layout_weight="1"
-                            android:background="@drawable/bg_period_unselected"
+                            android:background="@drawable/bg_light_chip"
                             android:gravity="center"
                             android:text="☕ R$ 5"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="13sp" />
@@ -2372,10 +3098,10 @@
                             android:layout_height="42dp"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_period_unselected"
+                            android:background="@drawable/bg_light_chip"
                             android:gravity="center"
                             android:text="🥪 R$ 10"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="13sp" />
@@ -2386,10 +3112,10 @@
                             android:layout_height="42dp"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_period_unselected"
+                            android:background="@drawable/bg_light_chip"
                             android:gravity="center"
                             android:text="⛽ R$ 20"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="13sp" />
@@ -2400,10 +3126,10 @@
                             android:layout_height="42dp"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_period_unselected"
+                            android:background="@drawable/bg_light_chip"
                             android:gravity="center"
                             android:text="⭐ R$ 50"
-                            android:textColor="#F5F5F7"
+                            android:textColor="@color/drifly_ink"
                             android:fontFamily="@font/plus_jakarta_sans"
                             android:textStyle="bold"
                             android:textSize="13sp" />
@@ -2414,7 +3140,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
                         android:text="Qualquer valor ajuda a manter o app no ar e sem propagandas!"
-                        android:textColor="#707684"
+                        android:textColor="@color/drifly_mut"
                         android:gravity="center"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="11sp" />
@@ -2425,7 +3151,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:background="#0AFFFFFF"
+                    android:background="@color/drifly_line"
                     android:padding="14dp"
                     android:gravity="center"
                     android:orientation="vertical">
@@ -2435,7 +3161,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="DriFly v1.1.1 • Compilação Oficial"
-                        android:textColor="#A3A8B5"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="12sp" />
 
@@ -2444,7 +3170,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:text="Feito com dedicação para motoristas de todo o Brasil 🇧🇷"
-                        android:textColor="#606B7B"
+                        android:textColor="@color/drifly_mut"
                         android:fontFamily="@font/plus_jakarta_sans"
                         android:textSize="11sp" />
                 </LinearLayout>
@@ -2459,7 +3185,7 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_above="@id/bottomNavigation"
-        android:background="#14FFFFFF" />
+        android:background="@color/drifly_line" />
 
     <!-- Barra de Navegação Inferior com Acabamento Sofisticado -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
@@ -2467,7 +3193,7 @@
         android:layout_width="match_parent"
         android:layout_height="68dp"
         android:layout_alignParentBottom="true"
-        android:background="#E60F1218"
+        android:background="@color/drifly_card"
         app:labelVisibilityMode="labeled"
         app:itemIconSize="22dp"
         app:itemPaddingTop="8dp"

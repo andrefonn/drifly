@@ -22,3 +22,7 @@ local.properties
 
 
 signing.env
+
+# Artefatos locais de desenvolvimento/teste (não versionar)
+.tmp-tools/
+.agents/

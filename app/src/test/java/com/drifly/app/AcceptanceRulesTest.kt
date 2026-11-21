@@ -308,4 +308,137 @@ class AcceptanceRulesTest {
             )
         )
     }
+
+    private fun offerForAutomation(
+        ratePerKm: Double = 3.00,
+        distanceKm: Double = 5.0,
+        rating: Float? = 4.90f,
+        blacklistBlocked: Boolean = false,
+        homeDeltaKm: Double = -1.0
+    ) = RideOffer(
+        platform = "99",
+        price = ratePerKm * distanceKm,
+        distanceKm = distanceKm,
+        durationMinutes = 12,
+        ratePerKm = ratePerKm,
+        ratePerHour = 40.0,
+        passengerRating = rating,
+        destinationAddress = "Rua Teste, 100",
+        isBlacklistBlocked = blacklistBlocked,
+        isHeadingHome = homeDeltaKm <= 0.0,
+        homeDistanceDeltaKm = homeDeltaKm
+    )
+
+    private fun decide(
+        offer: RideOffer,
+        minRate: Double = 2.20,
+        maxDistance: Double = 12.0,
+        minRating: Float = 4.75f,
+        modoCasa: Boolean = false,
+        accept: Boolean = true,
+        decline: Boolean = true
+    ) = AcceptanceRules.decideAutomation(
+        offer = offer,
+        minRatePerKm = minRate,
+        maxDistanceKm = maxDistance,
+        minPassengerRating = minRating,
+        modoCasaActive = modoCasa,
+        autoAcceptEnabled = accept,
+        autoDeclineEnabled = decline
+    )
+
+    @Test
+    fun automationAcceptsOnlyWhenEveryRideSettingPasses() {
+        assertEquals(AcceptanceRules.AutoAction.ACCEPT, decide(offerForAutomation()))
+    }
+
+    @Test
+    fun automationDeclinesWhenRateIsBelowTheConfiguredMinimum() {
+        assertEquals(
+            AcceptanceRules.AutoAction.DECLINE,
+            decide(offerForAutomation(ratePerKm = 1.50))
+        )
+    }
+
+    @Test
+    fun automationDeclinesWhenDistanceIsAboveTheConfiguredMaximum() {
+        assertEquals(
+            AcceptanceRules.AutoAction.DECLINE,
+            decide(offerForAutomation(distanceKm = 13.0))
+        )
+    }
+
+    @Test
+    fun automationDeclinesLowRatedPassengerInsteadOfReturningEarly() {
+        assertEquals(
+            AcceptanceRules.AutoAction.DECLINE,
+            decide(offerForAutomation(rating = 4.20f))
+        )
+    }
+
+    @Test
+    fun automationDeclinesBlacklistedOfferEvenWhenMetricsAreGood() {
+        assertEquals(
+            AcceptanceRules.AutoAction.DECLINE,
+            decide(offerForAutomation(blacklistBlocked = true))
+        )
+    }
+
+    @Test
+    fun automationHonorsModoCasaWhenActive() {
+        val awayFromHome = offerForAutomation(homeDeltaKm = 2.5)
+        val towardsHome = offerForAutomation(homeDeltaKm = -2.0)
+
+        assertEquals(
+            AcceptanceRules.AutoAction.DECLINE,
+            decide(awayFromHome, modoCasa = true)
+        )
+        assertEquals(
+            AcceptanceRules.AutoAction.ACCEPT,
+            decide(towardsHome, modoCasa = true)
+        )
+        // Fora do Modo Casa a distância de casa não interfere
+        assertEquals(
+            AcceptanceRules.AutoAction.ACCEPT,
+            decide(awayFromHome, modoCasa = false)
+        )
+    }
+
+    @Test
+    fun automationDoesNothingWhenTheRelevantSwitchIsOff() {
+        assertEquals(
+            AcceptanceRules.AutoAction.IGNORE,
+            decide(offerForAutomation(ratePerKm = 1.50), decline = false)
+        )
+        assertEquals(
+            AcceptanceRules.AutoAction.IGNORE,
+            decide(offerForAutomation(), accept = false, decline = true)
+        )
+        assertEquals(
+            AcceptanceRules.AutoAction.IGNORE,
+            decide(offerForAutomation(), accept = false, decline = false)
+        )
+    }
+
+    @Test
+    fun automationDoesNotDeclineUnknownPassengerRating() {
+        assertEquals(
+            AcceptanceRules.AutoAction.ACCEPT,
+            decide(offerForAutomation(rating = null))
+        )
+    }
+
+    @Test
+    fun declineControlRecognitionCovers99XAndMergedBadge() {
+        assertTrue(ParsingEngine.isExactDeclineGlyph("X"))
+        assertTrue(ParsingEngine.isExactDeclineGlyph("×"))
+        assertTrue(ParsingEngine.isDeclineGlyphMergedWithBadge("X Não afeta a TA"))
+        assertTrue(ParsingEngine.isDeclineActionText("Recusar"))
+        assertTrue(ParsingEngine.isDeclineButtonText("Recusar"))
+        assertTrue(ParsingEngine.isDeclineButtonText("Recusar corrida"))
+        assertFalse(ParsingEngine.isDeclineButtonText("X"))
+        assertFalse(ParsingEngine.isDeclineButtonText("Fechar"))
+        assertFalse(ParsingEngine.isExactDeclineGlyph("X Não afeta a TA"))
+        assertFalse(ParsingEngine.isDeclineActionText("Recusar novas corridas"))
+    }
 }

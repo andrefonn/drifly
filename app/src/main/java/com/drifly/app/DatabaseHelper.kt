@@ -737,6 +737,10 @@ class DatabaseHelper(context: Context) :
 
     fun getRidesForPeriod(period: String): List<RideRecord> {
         val (start, end) = getPeriodRange(period)
+        return getRidesForRange(start, end)
+    }
+
+    fun getRidesForRange(start: Long, end: Long): List<RideRecord> {
         val list = mutableListOf<RideRecord>()
         val db = readableDatabase
         val cursor = db.rawQuery(
@@ -854,7 +858,7 @@ class DatabaseHelper(context: Context) :
         return getSummaryForRange(start, end)
     }
 
-    private fun getSummaryForRange(start: Long, end: Long): FinancialSummary {
+    fun getSummaryForRange(start: Long, end: Long): FinancialSummary {
         val db = readableDatabase
 
         var gross = 0.0
